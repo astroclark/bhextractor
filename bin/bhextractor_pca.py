@@ -31,11 +31,79 @@ import scipy.io as sio
 
 import lal
 import lalsimulation as lalsim
-import pmns_utils
+#import pmns_utils
 
 #import matplotlib
 #from matplotlib import pyplot as pl
 #from matplotlib.mlab import PCA
+
+def lal_fft(timeseries,seglen=5,fs=16384):
+
+    N = int(np.floor(seglen * fs))
+
+    if N!=len(timeseries.data.data): lal.ResizeREAL8TimeSeries(timeseries, 0, N)
+
+    window=lal.CreateRectangularREAL8Window(timeseries.data.length)
+    timeseries.data.data*=window.data.data
+
+    freqseries = lal.CreateCOMPLEX16FrequencySeries("h(f)", timeseries.epoch,
+            timeseries.f0, 1./seglen, lal.lalHertzUnit, int(N/2 + 1)) 
+
+    fftplan = lal.CreateForwardREAL8FFTPlan(N, 0)
+    lal.REAL8TimeFreqFFT(freqseries, timeseries, fftplan)
+
+    norm=np.sqrt(window.sumofsquares / window.data.length)
+    freqseries.data.data/=norm
+
+    freqs=np.linspace(0,fs/2.,int(N/2 + 1))
+
+    return freqseries,freqs
+
+def optimal_snr(tSeries,freqmin=1500,freqmax=4096):
+    """
+    Compute optimal snr, characteristic frequency and peak time (see
+    xoptimalsnr.m)
+    """
+
+    # Compute fft
+    fSpec,freq=lal_fft(tSeries)
+
+    p_FD = 2*abs(fSpec.data.data)**2
+
+    p_FD = p_FD[(freq>=freqmin)*(freq<freqmax)]
+    freq = freq[(freq>=freqmin)*(freq<freqmax)]
+
+    # Generate PSD
+    psd=np.zeros(len(freq))
+    for i in range(len(freq)):
+        psd[i]=lalsim.SimNoisePSDaLIGOZeroDetHighPower(freq[i])
+
+    # SNR^2 versus frequency.
+    rho2f = 2.0*p_FD/psd;
+
+    # Get peak frequency
+    fPeak = freq[np.argmax(p_FD)]
+
+    # Characteristic frequency.
+    fChar = np.trapz(freq*rho2f,x=freq)/np.trapz(rho2f,x=freq);
+
+    # SNR 
+    rho = np.sqrt(np.trapz(rho2f,x=freq))
+
+    # hrss
+    hrss = np.trapz(p_FD,x=freq)**0.5
+
+    # energy (assume elliptical polarisation)
+    D = 20.0 * 1e6 * lal.LAL_PC_SI
+    Egw = 8.0 * lal.LAL_PI**2 * lal.LAL_C_SI**3 * D*D * \
+            np.trapz(freq*freq*p_FD, x=freq)
+    Egw /= 5*lal.LAL_G_SI
+
+    Egw /= lal.LAL_MSUN_SI * lal.LAL_C_SI * lal.LAL_C_SI
+
+    # return Egw in solar masses
+
+    return rho,hrss,fChar,fPeak,Egw
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # INPUT 
