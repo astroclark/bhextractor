@@ -26,9 +26,9 @@ Mscale_D = Mtot * lal.LAL_MRSUN_SI / (Dist * 1e9 * lal.LAL_PC_SI)
 Mscale_T = Mtot * lal.LAL_MTSUN_SI #/ (Dist * 1e9 * lal.LAL_PC_SI)
 fs=16384.
 
-ZDHP=np.loadtxt('/Users/jclark/Projects/BHEX/SMEE_repo/SRDs/ZERO_DET_high_P.txt')
-noise_freqs=ZDHP[:,0]
-Sf=ZDHP[:,1]**2
+#ZDHP=np.loadtxt('/Users/jclark/Projects/BHEX/SMEE_repo/SRDs/ZERO_DET_high_P.txt')
+#noise_freqs=ZDHP[:,0]
+#Sf=ZDHP[:,1]**2
 
 time_axis=np.arange(0,1,1.0/fs)
 
@@ -146,13 +146,16 @@ pl.savefig('%s_waveforms_PSD.png'%outname)
 
 # --- Whitened PSDs
 
-# Interpolate the noise PSD to data freqs
-Sf_interp=np.interp(freq,noise_freqs,Sf)
+# Generate PSD/ASD
+psd=np.zeros(len(freq))
+for i in range(len(freq)):
+    psd[i]=lalsim.SimNoisePSDaLIGOZeroDetHighPower(freq[i])
+zdhp_asd=np.sqrt(psd)
 
 fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],figsize=(8,12),sharex='col')
 for r,row in enumerate(ax):
     freq, Pxx_den = signal.periodogram(data['MDC_final'][:,r], fs)
-    row.plot(freq,Pxx_den/Sf_interp)
+    row.plot(freq,Pxx_den/zdhp_asd)
     row.set_yticklabels('')
     row.set_xlim(5,100)
     row.axvline(10,color='k',label=r'$f_{\mathrm{low}}$')
@@ -212,10 +215,10 @@ for r,row in enumerate(ax):
     freq=freq[freq>=0]
 
     # Interpolate the noise PSD to data freqs
-    Sf_interp=np.interp(freq,noise_freqs,Sf)
+    zdhp_asd=np.interp(freq,noise_freqs,Sf)
 
     # whitened complex spectrum
-    FspecWhite=Fspec/np.sqrt(Sf_interp)
+    FspecWhite=Fspec/np.sqrt(zdhp_asd)
 
     row[0].plot(freq,np.real(FspecWhite)/max(np.real(FspecWhite)))
     row[0].set_ylim(-1.1,1.1)
