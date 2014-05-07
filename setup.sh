@@ -13,5 +13,6 @@ echo "export BHEX_PREFIX=${BHEX_PREFIX}" > bhex_env.sh
 echo "export FRGETVECT_PATH=${FRGETVECT_PATH}" >> bhex_env.sh
 echo "export PATH=${PATH}:${BHEX_PREFIX}/bin" >> bhex_env.sh
 echo "export MATLABPATH=${MATLABPATH}" >> bhex_env.sh
+echo "export PYTHONPATH=${PYTHONPATH}" >> bhex_env.sh
 
 
