@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-#!/usr/bin/env python
+#!/bin/env python
 # Copyright (C) 2014-2015 James Clark <james.clark@ligo.org>
 #
 # This program is free software; you can redistribute it and/or modify
@@ -135,7 +135,7 @@ NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 # Construct Waveforms
 
 # --- Identify waveforms in catalogue
-catalogue_path=environ['BHEX_PREFIX']+'/Waveforms/'+catalogue_name+'-series'
+catalogue_path=environ['BHEX_PREFIX']+'/data/NR_data/'+catalogue_name+'-series'
 waveforms = [ f for f in listdir(catalogue_path) if isdir(join(catalogue_path,f)) ]
 
 # --- Load waveforms
@@ -264,7 +264,7 @@ for w in range(len(waveforms)):
         hoft = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
                 1/float(fs), lal.lalStrainUnit, len(resampled_wf))
         hoft.data.data = resampled_wf
-        rho, hrss, _, _, _ = pmns_utils.optimal_snr(hoft,freqmin=10,freqmax=100)
+        rho, hrss, _, _, _ = optimal_snr(hoft,freqmin=10,freqmax=100)
         resampled_wf *= 1.0/rho
         #resampled_wf *= 1.0/hrss
 

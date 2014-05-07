@@ -132,10 +132,10 @@ fs = 16384;
 sample_deltaT = 1/fs;
 
 % load the catalogues you want to compare
-load(sprintf('%s/PCA_data/%s_catalogue_theta-0',BHEX_PREFIX,catalogue))
+load(sprintf('%s/data/signal_data/%s_catalogue_theta-0',BHEX_PREFIX,catalogue))
 
 % load the set of eigenvectors for each catalogue
-load(sprintf('%s/PCA_data/%s_PCs_theta-0',BHEX_PREFIX,model));
+load(sprintf('%s/data/PCA_data/%s_PCs_theta-0',BHEX_PREFIX,model));
 
 
 % sets up the priors and initial chain values, will need to adjust these to
