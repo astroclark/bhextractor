@@ -7,6 +7,7 @@
 BHEX_PREFIX=`python -c "import os, sys; print os.path.realpath('${0}')" | sed 's|/setup.sh||g'`
 FRGETVECT_PATH="/home/jclark/opt/xpipeline/share/xpipeline/matlab/"
 MATLABPATH=${MATLABPATH}:"${BHEX_PREFIX}/bin"
+PYTHONPATH=${PYTHONPATH}:"${BHEX_PREFIX}/bin/hht"
 
 echo "export BHEX_PREFIX=${BHEX_PREFIX}" > bhex_env.sh
 echo "export FRGETVECT_PATH=${FRGETVECT_PATH}" >> bhex_env.sh
