@@ -101,7 +101,7 @@ elseif (ischar(doPlot)), doPlot=str2num(doPlot); end
 if strcmpi(noiseType, 'ligo3')
    noise_curve = 'LIGO3_PSD.txt';
 elseif strcmpi(noiseType, 'aligo')
-   noise_curve = 'ZERO_DET_high_P.txt';
+   noise_curve = sprintf('%s/data/noise_curves/ZERO_DET_high_P.txt',BHEX_PREFIX);
 end
 
 display(sprintf('SMEE: %s %s %s %i', noise_curve, model, catalogue, wv));

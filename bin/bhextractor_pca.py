@@ -19,8 +19,9 @@
 
 from __future__ import division
 
-from os import environ,listdir
-from os.path import isdir, isfile, join
+import os
+#from os import os.environ,os.listdir,os.makedirs
+#from os.path import os.isdir, os.isfile, join
 import sys 
 
 __author__ = "James Clark <james.clark@ligo.org>"
@@ -135,8 +136,9 @@ NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 # Construct Waveforms
 
 # --- Identify waveforms in catalogue
-catalogue_path=environ['BHEX_PREFIX']+'/data/NR_data/'+catalogue_name+'-series'
-waveforms = [ f for f in listdir(catalogue_path) if isdir(join(catalogue_path,f)) ]
+catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+catalogue_name+'-series'
+waveforms = [ f for f in os.listdir(catalogue_path) if
+        os.path.isdir(os.path.join(catalogue_path,f)) ]
 
 # --- Load waveforms
 
@@ -151,7 +153,8 @@ for w,waveform in enumerate(waveforms):
 
     # Get files (modes) in this waveform dir
     waveform_dir = catalogue_path+'/'+waveform
-    modes = [ f for f in listdir(waveform_dir) if isfile(join(waveform_dir,f)) ]
+    modes = [ f for f in os.listdir(waveform_dir) if
+            os.path.isfile(os.path.join(waveform_dir,f)) ]
 
     # --- Sum modes
     # See line 95 of NRWaveInject.c
@@ -347,17 +350,22 @@ U /= np.linalg.norm(U,axis=0)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
 
-PCA_outname=catalogue_name + '_PCs_' + 'theta-%.0f'%theta
+PCA_path=os.environ['BHEX_PREFIX']+'/data/'+'PCA_data'
+if not os.path.exists(PCA_path): os.makedirs(PCA_path)
+PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
 PC_dict={'PCs_final':np.array(U), 'EigVals':np.array(S)}
 sio.savemat(PCA_outname, PC_dict)
 
-catalogue_outname=catalogue_name + '_catalogue_' + 'theta-%.0f'%theta
+catalogue_path=os.environ['BHEX_PREFIX']+'/data/'+'signal_data'
+if not os.path.exists(catalogue_path): os.makedirs(catalogue_path)
+catalogue_outname=catalogue_path + '/' + catalogue_name + '_catalogue_' + 'theta-%.0f'%theta
 waveform_dict={'MDC_final':waveform_catalogue}
 sio.savemat(catalogue_outname, waveform_dict)
 
 print "PCA complete"
 print "PC matrix written to %s.mat"%PCA_outname
 print "Catalogue matrix written to %s.mat"%catalogue_outname
+
 
 
 
