@@ -1,21 +1,4 @@
 #!/usr/bin/env python
-# -*- coding: utf-8 -*-
-# Copyright (C) 2014-2015 James Clark <james.clark@ligo.org>
-#
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 2 of the License, or
-# (at your option) any later version.
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License along
-# with this program; if not, write to the Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
-"""
-"""
 
 import sys
 import numpy as np
@@ -25,48 +8,16 @@ import HHT
 import matplotlib
 from matplotlib import pyplot as pl
 
-#font = {'family' : 'Helvetica',
-#        'weight' : 'bold',
-#        'size'   : 12}
-#
-#matplotlib.rc('font', **font)
+font = {'family' : 'Helvetica',
+        'weight' : 'bold',
+        'size'   : 12}
 
-fig_width_pt = 170  # Get this from LaTeX using \showthe\columnwidth
-#fig_height_pt = 300 
-inches_per_pt = 1.0/72.27               # Convert pt to inch
-golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
-#fig_height_pt = fig_width_pt*golden_mean
-fig_height_pt = fig_width_pt*1.4
-fig_width = fig_width_pt*inches_per_pt  # width in inches
-fig_height = fig_height_pt*inches_per_pt
-fig_size =  [fig_width,fig_height]
-
-matplotlib.rcParams.update(
-        {'axes.labelsize': 6,
-        'text.fontsize':   6,  
-        'legend.fontsize': 4,
-        'xtick.labelsize': 4,
-        'ytick.labelsize': 4,
-        'text.usetex': True,
-        'figure.figsize': fig_size,
-        'font.family': "serif",
-        'font.serif': ["Times"]
-        })  
-
-matplotlib.rcParams.update(
-        {'savefig1.dpi': 200,
-        'xtick.major.size':2,
-        'xtick.minor.size':2,
-        'ytick.major.size':2,
-        'ytick.minor.size':2
-        })
-matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
+matplotlib.rc('font', **font)
 
 import lal
 
 inputfile=sys.argv[1]
 outname=inputfile.replace('.mat','')
-outname=outname.split('/')[-1]
 data=sio.loadmat(inputfile)
 
 Mtot=250.
@@ -123,34 +74,30 @@ labels={'Q':Q_labels, 'HR':HR_labels, 'RO3':RO3_labels}
 catname=outname.split('/')[-1].split('_')[0]
 
 # --- Time series
-#fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],figsize=(10,15),sharex='col')
-fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],sharex='col')
+fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],figsize=(10,15),sharex='col')
 for r,row in enumerate(ax):
     #row.plot(data['MDC_final'][:,r]/max(data['MDC_final'][:,r]),)
     #row.set_ylim(-1.1,1.1)
     #row.set_yticklabels('')
-    row.set_yticks(np.arange(-3e-3,3e-3+0.001,0.002))
+    row.set_yticks(np.arange(-3e-3,3e-3+0.001,0.0021))
     row.set_ylim(-3e-3-0.001,3e-3+0.001)
     #row.set_yticklabels('')
     row.plot(time_axis/Mscale_T, data['MDC_final'][:,r]/Mscale_D,
-            color='k',linewidth=0.5, label=labels[catname][r])
-    #row.minorticks_on()
-    #row.grid(which='major',color='grey',linestyle='-')
+            color='k',linewidth=2, label=labels[catname][r])
+    row.minorticks_on()
+    row.grid(which='major',color='grey',linestyle='-')
     row.set_xlim(0.25/Mscale_T,0.85/Mscale_T)
-    if r==np.floor(len(ax)/2): 
-        #row.set_title(
-        #        '%s Waveform Catalogue'%catname,
-        #        weight='bold')
-        row.set_ylabel('rh$_{+}$ [M$_{\odot}$]')
-    leg=row.legend(loc='upper left',frameon=True)
-    for label in leg.get_lines():
-            label.set_linewidth(0.01)  # the legend line width
+    if r==0: 
+        row.set_title(
+                '%s Waveform Catalogue'%catname,
+                weight='bold')
+        row.set_ylabel('rh$_{+}$ [M$_{\odot}$]',weight='bold')
+    row.legend(loc='lower left')
 
-pl.xlabel('Time [M$_{\odot}$]')
-pl.subplots_adjust(hspace=0.0,wspace=0.35,left=0.2,bottom=0.08,top=0.98)
+pl.xlabel('Time [M$_{\odot}$]',weight='bold')
+pl.subplots_adjust(hspace=0.2,wspace=0.35,bottom=0.05,top=0.98)
 #fig.tight_layout()
-#fig.savefig('%s_waveforms_TD.png'%outname)
-fig.savefig('%s_waveforms_TD.pdf'%outname)
+fig.savefig('%s_waveforms_TD.png'%outname)
 #pl.show()
 
 sys.exit()

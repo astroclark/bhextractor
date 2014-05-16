@@ -34,12 +34,12 @@ from matplotlib import pyplot as pl
 #matplotlib.rc('font', **font)
 
 
-fig_width_pt = 200  # Get this from LaTeX using \showthe\columnwidth
+fig_width_pt = 332  # Get this from LaTeX using \showthe\columnwidth
 #fig_height_pt = 300 
 inches_per_pt = 1.0/72.27               # Convert pt to inch
 golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
-fig_height_pt = fig_width_pt*golden_mean
-#fig_height_pt = fig_width_pt*0.8
+#fig_height_pt = fig_width_pt*golden_mean
+fig_height_pt = fig_width_pt*0.5
 fig_width = fig_width_pt*inches_per_pt  # width in inches
 fig_height = fig_height_pt*inches_per_pt
 fig_size =  [fig_width,fig_height]
@@ -177,33 +177,27 @@ for pc_file, wf_file in zip(PC_files,WF_files):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Make Plots nice
-ax1.set_xlabel('Number of PCs')
-ax1.set_ylabel('Minimal Match')
-#ax1.set_title('Match for worst-reconstruction in catalogue')
+ax1.set_xlabel('# of PCs',weight='bold')
+ax1.set_ylabel('Minimal Match',weight='bold')
+ax1.set_title('Match for worst-reconstruction in catalogue',weight='bold')
 ax1.minorticks_on()
 ax1.grid(which='major',color='grey',linestyle='-')
-#ax1.grid(which='minor',color='grey',linestyle=':')
+ax1.grid(which='minor',color='grey',linestyle=':')
 ax1.set_xlim(0.5,10)
 ax1.set_ylim(0,1)
 ax1.legend(loc='lower right')
 
 f1.savefig('match.png')
-pl.close(f1)
 
-ax2.set_xlabel('Number of PCs')
-#ax2.set_ylabel('Cumulative Eigenvector Energy')
-#ax2.set_title('Distribution of Energy Among Eigenvectors')
-ax2.set_ylabel('$E(k)$')
+ax2.set_xlabel('# of PCs',weight='bold')
+ax2.set_ylabel('Cumulative Eigenvector Energy',weight='bold')
+ax2.set_title('Distribution of Energy Among Eigenvectors',weight='bold')
 ax2.minorticks_on()
 ax2.grid(which='major',color='grey',linestyle='-')
-#ax2.grid(which='minor',color='grey',linestyle=':')
+ax2.grid(which='minor',color='grey',linestyle=':')
 ax2.set_xlim(0.5,10)
 ax2.legend(loc='lower right')
-f2.tight_layout()
-pl.subplots_adjust(bottom=0.2,top=0.95)
 
-
-#f2.savefig('eigenenergy.png')
-f2.savefig('eigenenergy.pdf')
+f2.savefig('eigenenergy.png')
 
 #pl.show()

@@ -9,48 +9,16 @@ from matplotlib import pyplot as pl
 
 import matplotlib
 
-#font = {'family' : 'Helvetica',
-#        'weight' : 'bold',
-#        'size'   : 12}
-#
-#matplotlib.rc('font', **font)
+font = {'family' : 'Helvetica',
+        'weight' : 'bold',
+        'size'   : 12}
 
-fig_width_pt = 170  # Get this from LaTeX using \showthe\columnwidth
-#fig_height_pt = 300 
-inches_per_pt = 1.0/72.27               # Convert pt to inch
-golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
-#fig_height_pt = fig_width_pt*golden_mean
-fig_height_pt = fig_width_pt*1.4
-fig_width = fig_width_pt*inches_per_pt  # width in inches
-fig_height = fig_height_pt*inches_per_pt
-fig_size =  [fig_width,fig_height]
-
-matplotlib.rcParams.update(
-        {'axes.labelsize': 6,
-        'text.fontsize':   6,  
-        'legend.fontsize': 6,
-        'xtick.labelsize': 4,
-        'ytick.labelsize': 4,
-        'text.usetex': True,
-        'figure.figsize': fig_size,
-        'font.family': "serif",
-        'font.serif': ["Times"]
-        })  
-
-matplotlib.rcParams.update(
-        {'savefig1.dpi': 200,
-        'xtick.major.size':4,
-        'xtick.minor.size':4,
-        'ytick.major.size':4,
-        'ytick.minor.size':4
-        })
-matplotlib.rcParams['text.latex.preamble']=[r"\usepackage{amsmath}"]
-
+matplotlib.rc('font', **font)
 
 import lal
 
 inputfile=sys.argv[1]
-outname=inputfile.replace('.mat','').split('/')[-1]
+outname=inputfile.replace('.mat','')
 data=sio.loadmat(inputfile)
 
 fs=16384.
@@ -74,31 +42,25 @@ npcs={'Q':2, 'HR':4, 'RO3':5}
 
 # --- Time series
 #fig,ax=pl.subplots(np.shape(data['PCs_final'])[1],figsize=(8,12),sharex='col')
-fig,ax=pl.subplots(npcs[catname],sharex='col')
+fig,ax=pl.subplots(npcs[catname],figsize=(8,12),sharex='col')
 for r,row in enumerate(ax):
     #row.plot(data['PCs_final'][:,r]/max(data['PCs_final'][:,r]))
-    row.plot(time_axis/Mscale_T,data['PCs_final'][:,r], color='k', linewidth=0.5)
+    row.plot(time_axis/Mscale_T,data['PCs_final'][:,r], color='k', linewidth=2)
     #row.set_ylim(-1.1,1.1)
     #row.set_yticklabels('')
 
-    ticks=row.get_yticks()
-    ticks=np.arange(-0.025,0.03,0.005)
-    row.set_yticks(ticks)
-    row.set_ylim(-0.03,0.03)
-
-    #row.minorticks_on()
-    #row.grid(which='major',color='grey',linestyle='-')
+    row.minorticks_on()
+    row.grid(which='major',color='grey',linestyle='-')
     row.set_xlim(0.25/Mscale_T,0.85/Mscale_T)
-    #if r==0: 
-    #    row.set_title(
-    #            '%s-catalogue dominant principle components'%catname,
-    #            weight='bold')
+    if r==0: 
+        row.set_title(
+                '%s-catalogue dominant principle components'%catname,
+                weight='bold')
 
 #pl.suptitle('%s [arb y-units]'%outname)
 pl.xlabel('Time [M$_{\odot}$]',weight='bold')
-pl.subplots_adjust(hspace=0.0,wspace=0.35,bottom=0.08,top=0.98)
-#pl.savefig('%s_princcomps_TD.png'%outname)
-pl.savefig('%s_princcomps_TD.pdf'%outname)
+pl.subplots_adjust(hspace=0.2,wspace=0.35,bottom=0.05,top=0.98)
+pl.savefig('%s_princcomps_TD.png'%outname)
 
 sys.exit()
 

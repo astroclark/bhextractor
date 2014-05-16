@@ -47,25 +47,23 @@ catalogues=['Q', 'HR', 'RO3']
 
 num_pcs={'Q':2, 'HR':4, 'RO3':5}
 num_wfs={'Q':10, 'HR':10, 'RO3':10}
-#num_wfs={'Q':13, 'HR':10, 'RO3':10}
 
-smeepath=os.getenv('SMEEBBH_PREFIX')
+bhexpath=os.getenv('BHEX_PREFIX')
 
-catalogue_files={'Q':'%s/PCA/bhextractor/Q_catalogue_theta-0.mat'%(smeepath),
-        'HR':'%s/PCA/bhextractor/HR_catalogue_theta-0.mat'%(smeepath),
-        'RO3':'%s/PCA/bhextractor/RO3_catalogue_theta-0.mat'%(smeepath)}
+catalogue_files={'Q':'%s/data/signal_data/Q_catalogue_theta-0.mat'%(bhexpath),
+        'HR':'%s/data/signal_data/HR_catalogue_theta-0.mat'%(bhexpath),
+        'RO3':'%s/data/signal_data/RO3_catalogue_theta-0.mat'%(bhexpath)}
 
-pc_files={'Q':'%s/PCA/bhextractor/Q_PCs_theta-0.mat'%(smeepath),
-        'HR':'%s/PCA/bhextractor/HR_PCs_theta-0.mat'%(smeepath),
-        'RO3':'%s/PCA/bhextractor/RO3_PCs_theta-0.mat'%(smeepath)}
-
+pc_files={'Q':'%s/data/PCA_data/Q_PCs_theta-0.mat'%(bhexpath),
+        'HR':'%s/data/PCA_data/HR_PCs_theta-0.mat'%(bhexpath),
+        'RO3':'%s/data/PCA_data/RO3_PCs_theta-0.mat'%(bhexpath)}
 
 Mtot=250.
 Dist=1.0
 Mscale= Mtot * lal.LAL_MRSUN_SI / (Dist * 1e9 * lal.LAL_PC_SI)
 
-if not smeepath:
-    print >> sys.stderr, "ERROR, must set SMEEBBH_PREFIX"
+if not bhexpath:
+    print >> sys.stderr, "ERROR, must set BHEX_PREFIX"
     sys.exit()
 
 resultsdir=sys.argv[1]
@@ -85,9 +83,8 @@ for wf in catalogues:
     princ_comps.append(sio.loadmat(pc_files[wf])['PCs_final'])
 
 # --- Begin loading all data
+
 # Loop through injected waveform
-#tmp=['HR']
-#for i,inj in enumerate(tmp):
 for i,inj in enumerate(catalogues):
 
     # number of injections performed from this catalogue
