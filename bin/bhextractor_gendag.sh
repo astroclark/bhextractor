@@ -119,17 +119,26 @@ then
     shaexec=`which sha256sum`
 fi
 
-for j in `seq 1 50`
+for j in `seq 1 1000`
 do
+    echo "generating job ${j} of 1000"
 
     # seed for this job
-    seed=$((${RANDOM}+${RANDOM}))
+    seed=$((${j}+`lalapps_tconvert now`))
+    #seed=$((${RANDOM}+${RANDOM}))
+    #seed=$((${RANDOM}+`lalapps_tconvert now`))
+    #seed=`python -c "import numpy; print numpy.random.random()"`
+    ##seed=`python -c "import numpy; print numpy.random.random_integers(low=0,high=100000)"`
+    #seed=$(($(head -1 /dev/urandom | od -N 1 | awk '{print $2}')+`lalapps_tconvert now`))
+
 
     # arguments for this job
     jobargs="${signal} ${waveformN} ${seed} ${snr}"
 
 	# Set up DAG lines
 	jobname="bhex_${seed}"
+    #jobname=`echo ${seed} | ${shaexec} | awk '{print $1}'`
+    echo ${jobname}
     echo "JOB ${jobname} ${subfile}" >> ${dagfile}
     echo "VARS ${jobname} macroid=\"${jobname}\" macroarguments=\"${jobargs}\"" >> ${dagfile}
     echo "RETRY ${jobname} 3 " >> ${dagfile}
