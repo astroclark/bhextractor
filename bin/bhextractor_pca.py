@@ -1,5 +1,5 @@
+#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-#!/bin/env python
 # Copyright (C) 2014-2015 James Clark <james.clark@ligo.org>
 #
 # This program is free software; you can redistribute it and/or modify
