@@ -1,16 +1,16 @@
-function bhextractor_nestsamp(run_name, noiseType, model, catalogue, ...
-    wv, lowfreq, highfreq, seed, detno,numPCs,doPlot,...
-    typeofscaling, scaling, doDistance, doTimeshift)
+function SMEE_time_hacked(run_name, noiseType, model, catalogue, ...
+    wv, ra, dec, psi, lowfreq, highfreq, trigtime, detno, numPCs, seed, typeofscaling, ...
+    scaling, realnoise,doPlot,doSky,doDistance, doTimeshift)
 
-maxNumCompThreads(1)
+maxNumCompThreads(1);
 
 BHEX_PREFIX=getenv('BHEX_PREFIX');
 FRGETVECT_PATH=getenv('FRGETVECT_PATH');
-addpath(genpath(BHEX_PREFIX))
-addpath(genpath(FRGETVECT_PATH))
+addpath(genpath(BHEX_PREFIX));
+addpath(genpath(FRGETVECT_PATH));
 
 %nested sampling code with coherent analysis of multiple detectors,
-%coloured noise, and the possibility of a time shift between the location
+%coloured noise, and the possibility of a time shift between the loaction
 %of signal in the data and the reconstruction of it
 
 % a nested sampling code used to compare two supernova models. It does this
@@ -22,14 +22,10 @@ addpath(genpath(FRGETVECT_PATH))
 % This is repeated for 2 sets of principal components and so a Bayes Factor
 % comparing the two models can be calculated.
 
-% This is set up to compare waveforms from Dimmelmeier et al. 2008 and
-% Abdikamalov et al. 2010 but can be adapted to use whatever catalogue you
+% This is set up to compare waveforms from Q, HR, and RO3 catalogues from GATech
+% but can be adapted to use whatever catalogue you
 % want. To create a set of principal components for a catalogue use
-% pca_sne_waveform1.m after first using resample.m to resample the
-% waveforms in the catalogue to a rate of 4096 Hz.
-
-% This code uses 6 PC's but can be reduced/increased to increase
-% speed/accuracy
+% bhextractor_pca.py
 
 % Have included functions to the antenna response factor for
 % detectors of user's choosing.
@@ -40,14 +36,25 @@ addpath(genpath(FRGETVECT_PATH))
 %           model -- model used to reconstruct waveform
 %               = 'Q', 'HR', 'RO3'
 %           catalogue -- catalogue from which to draw waveform
-%               = 'Q', 'HR','RO3'
+%               = 'Q', 'HR', 'RO3'
 %           wv -- specific waveform to use
 %               = 1...13 for Q
 %               = 1...15 for HR
-%               = 1...20  for RO3
+%               = 1...20 for RO3
 %           lowfreq -- low frequency cut-off
 %           highfreq -- high frequency cut-off
-%           seed -- random seed used to control noise generation etc.
+%           ra -- right ascension of source, in radians
+%           dec -- declination of source
+%           psi -- polarisation angle in radians
+%           trigtime-- GPS time of the trigger to analyse
+%           detector-- A cell containing a string, it specifies the 
+%           detector sites on to which to project the signal, and must be 
+%           one of the values recognized by the function LoadDetectorData.
+%           numPCs -- no. of principal components to use when
+%           reconstructing the waveform; default: 6
+%               = 1...13 when model Q
+%               = 1...15 when model HR
+%               = 1...20 when model RO3
 %           typeofscaling -- type of scaling to be applied to waveform 
 %               = 'SNR'  for SNR scaling
 %               = 'd' 'dist' 'dis' 'distance'  for Distance scaling
@@ -56,11 +63,7 @@ addpath(genpath(FRGETVECT_PATH))
 %           scaling -- SNR scaling: waveform is scaled to have this SNR;
 %                      Distance scaling: waveform is scaled to be at this 
 %                      distance, in kpc; default in each case: no scaling
-%           detno -- no. of detectors in network; default: 1
-%           numPCs -- no. of principal components to use when
-%           reconstructing the waveform; default: 6
-%               = 1...10 when model ~= Ott
-%               = 1...6 when model == Ott
+%           seed -- random seed used to control noise generation etc.
 %           doDistance -- flag to use distance as additional parameter;
 %           default: not on
 %           doTimeshift -- flag to use bounce location in time-series as
@@ -69,8 +72,12 @@ addpath(genpath(FRGETVECT_PATH))
 %           on
 
 %Normalise inputs
-if (ischar(wv)), wv=str2num(wv); end %#ok<*ST2NM>
+if (ischar(wv)), wv=str2num(wv); end
 if (ischar(seed)), seed=str2num(seed); end
+if (ischar(ra)), ra=str2num(ra); end 
+if (ischar(dec)), dec=str2num(dec); end 
+if (ischar(psi)), psi=str2num(psi); end
+if (ischar(trigtime)), trigtime=str2num(trigtime); end
 if (~exist('typeofscaling','var')), typeofscaling='none'; end
 if (~exist('scaling','var')), scaling='';
 elseif (ischar(scaling)), scaling=str2num(scaling); end
@@ -88,6 +95,11 @@ if numPCs < 1 || mod(numPCs,1)
     numPCs = floor(abs(numPCs)+1);
     fprintf(1,'numPCs changed to %i\n',numPCs);
 end
+if (~exist('realnoise','var')), realnoise=0;
+elseif (ischar(realnoise)), realnoise=str2num(realnoise); end
+if (~exist('doSky','var')), doSky=0;
+elseif (ischar(doSky)), doTimeshift=str2num(doSky); end
+if doSky > 0, doSky = 1; else doSky = 0; end
 if (~exist('doTimeshift','var')), doTimeshift=0;
 elseif (ischar(doTimeshift)), doTimeshift=str2num(doTimeshift); end
 if doTimeshift > 0, doTimeshift = 1; else doTimeshift = 0; end
@@ -99,47 +111,68 @@ elseif (ischar(doPlot)), doPlot=str2num(doPlot); end
 
 %noise curve to use
 if strcmpi(noiseType, 'ligo3')
-   noise_curve = 'LIGO3_PSD.txt';
+   noise_curve='ET_B.txt';
 elseif strcmpi(noiseType, 'aligo')
-   noise_curve = sprintf('%s/data/noise_curves/ZERO_DET_high_P.txt',BHEX_PREFIX);
+   noise_curve = 'ZERO_DET_high_P.txt';
 end
 
-display(sprintf('SMEE: %s %s %s %i', noise_curve, model, catalogue, wv));
+display(sprintf('BHextractor: %s %s %s %i', noise_curve, model, catalogue, wv));
 
 reset(RandStream.getDefaultStream,seed);
-warning('off','MATLAB:RandStream:GetDefaultStream')
 tic
 
-clearvars -except run_name catalogue wv model seed lowfreq highfreq typeofscaling scaling ...
-    detno numPCs doTimeshift doDistance doPlot noise_curve BHEX_PREFIX
+clearvars -except run_name catalogue wv model seed typeofscaling scaling ...
+    numPCs doTimeshift doDistance doPlot noise_curve ra dec psi trigtime ...
+    lowfreq highfreq detno doSky realnoise BHEX_PREFIX
 
+%names of detectors
+detector = {'H1','L1','V1','I1','J1'};%LIGO H1 and L1
+
+% assigns the noise to be used with each detector
+for cntdet=1:detno
+    if strcmp(detector(cntdet), 'L1');
+        noisecurve{cntdet}= sprintf('%s/data/noise_curves/ZERO_DET_high_P.txt',BHEX_PREFIX);
+    elseif strcmp(detector(cntdet), 'H1');
+        noisecurve{cntdet}= sprintf('%s/data/noise_curves/ZERO_DET_high_P.txt',BHEX_PREFIX);
+        %noisecurve{cntdet}= 'ET_B.txt';  
+    elseif strcmp(detector(cntdet), 'I1');
+        noisecurve{cntdet}= sprintf('%s/data/noise_curves/ZERO_DET_high_P.txt',BHEX_PREFIX);
+        load IndiaD.txt
+        detector{cntdet}=IndiaD;
+        %noisecurve{cntdet}= 'ET_B.txt';     
+    elseif strcmp(detector(cntdet), 'V1');
+        noisecurve{cntdet}= 'AdvVirgo.txt'; 
+    elseif strcmp(detector(cntdet), 'E1');
+        noisecurve{cntdet}= 'ET_B.txt'; 
+    elseif strcmp(detector(cntdet), 'J1');
+        noisecurve{cntdet}= 'KAGRAcurve.dat' ;  
+        load KAGRAD.txt
+        detector{cntdet}=KAGRAD;
+    end
+end
+
+%detno=numdetector;
 evnoise = zeros(detno,1);
-
 maxits = 15000;% max no. of iterations expected from nested sampling loop
 Z = zeros(maxits,1);
 H = zeros(maxits,1);
 logw = zeros(maxits,1);
 Lw = zeros(maxits,1);
 betas = zeros(maxits,numPCs);
+Ra = zeros(maxits,1);
+Dec = zeros(maxits,1);
+Psi = zeros(maxits,1);
+Tmp = zeros(maxits,1);
 Ts = zeros(maxits,1);
-Distance = zeros(maxits,1);
+Distance = zeros(maxits, 1);
 
 %sampling frequency of waveforms
-% fs = 4096;
 fs = 16384;
 
 %time step to be used
 sample_deltaT = 1/fs;
 
-% load the catalogues you want to compare
-load(sprintf('%s/data/signal_data/%s_catalogue_theta-0',BHEX_PREFIX,catalogue))
-
-% load the set of eigenvectors for each catalogue
-load(sprintf('%s/data/PCA_data/%s_PCs_theta-0',BHEX_PREFIX,model));
-
-
-% sets up the priors and initial chain values, will need to adjust these to
-% include other catalogues. Can use findbetas.m to find max and mins.
+% sets up the priors and initial chain values
 maxbeta(1)=50; % maximum value for first coeffiecient
 minbeta(1)=-50; % minimum value for first coeffiecient
 betarange(1)=maxbeta(1)-minbeta(1); % range of values
@@ -189,35 +222,99 @@ maxbeta(10)=50;
 minbeta(10)=-50;
 betarange(10)=maxbeta(10)-minbeta(10);
 betaprior(10)=-log(betarange(10));
-
 if numPCs > 10;
     for Num=1:(numPCs-10);
-        maxbeta(Num+10)=100;
-        minbeta(Num+10)=-110;
+        maxbeta(Num+10)=56;
+        minbeta(Num+10)=-60;
         betarange(Num+10)=maxbeta(Num+10)-minbeta(Num+10);
         betaprior(Num+10)=-log(betarange(Num+10));
     end
 end
 
-%decrease numPCs if neccessary
-if numPCs > length(betaprior)
-    fprintf(1,'Error: numPCs may be at most 10\n');
-    numPCs = length(betaprior);
-    betas = zeros(maxits,numPCs);
-    fprintf(1,'numPCs changed to %i\n',numPCs);
-elseif numPCs > size(PCs_final,2)
-    fprintf(1,'Error: numPCs must be less than model catalogue size\n');
-    numPCs = size(PCs_final,2)-1;
-    betas = zeros(maxits,numPCs);
-    fprintf(1,'numPCs changed to %i\n',numPCs);
+% load the catalogue
+load(sprintf('%s/data/signal_data/%s_catalogue_theta-0',BHEX_PREFIX,catalogue));
+
+% load the principle components
+load(sprintf('%s/data/PCA_data/%s_PCs_theta-0',BHEX_PREFIX,model));
+
+rg=0.1;
+if(doSky)
+    if ra>2*pi || ra<0
+        fprintf(1,'Error: right ascension must be between 0 and 2pi\n');
+    else
+        if ra+rg> 2*pi
+            maxra=2*pi;
+        else
+            maxra=ra+rg;
+        end
+    end
+    if ra-rg<0
+        minra=0;
+    else
+        minra=ra-rg;
+    end
+    rarange=maxra-minra;
+    raprior=-log(rarange);
 end
 
+if dec>pi/2 || dec< -pi/2
+     fprintf(1,'Error: declination must be between -pi/2 and pi/2\n');
+else
+    if dec+rg > pi/2 
+       maxdec=2*pi;
+    else
+        maxdec=dec+rg;
+    end
+    if dec-rg <-pi/2
+         mindec=-pi/2;
+    else
+        mindec=dec-rg;
+    end
+    decrange=maxdec-mindec;
+    decprior=-log(decrange);
+end
+
+if psi > pi/4 || psi<-pi/4
+    fprintf(1,'Error: polarisation angle must be between -pi/4 and pi/4\n');
+else
+    if psi+rg>pi/4
+        maxpsi=pi/4;
+    else
+        maxpsi=psi+rg;
+    end
+    if psi-rg<-pi/4
+        minpsi=-pi/4;
+    else
+        minpsi=psi-rg;
+    end
+    psirange=maxpsi-minpsi;
+    psiprior=-log(psirange);
+end
+
+dt=0.1;
+maxtmp=trigtime+0.5*dt;
+mintmp=trigtime-0.5*dt;
+tmprange=maxtmp-mintmp;
+tmpprior=-log(tmprange);
+
+%decrease numPCs if neccessary
+%if numPCs > length(betaprior)
+%    fprintf(1,'Error: numPCs may be at most 10\n');
+%    numPCs = length(betaprior);
+%    betas = zeros(maxits,numPCs);
+%    fprintf(1,'numPCs changed to %i\n',numPCs);
+%elseif numPCs > size(PCs_final,2)
+%    fprintf(1,'Error: numPCs must be less than model catalogue size\n');
+%    numPCs = size(vectorPC,2)-1;
+%    betas = zeros(maxits,numPCs);
+%    fprintf(1,'numPCs changed to %i\n',numPCs);
+%end
+
 if(doTimeshift)
-    maxT=0.01;%seconds
-    minT=-0.01;%seconds
+    maxT=0.0005;%seconds
+    minT=-0.0005;%seconds
     Trange=maxT-minT;%size of time-shift-bin
     Tprior=-log(Trange);
-
     min_bin = -0.01;%seconds
     max_bin = 0.01;%seconds
     bin_sep = 0.0005;%seconds
@@ -230,10 +327,11 @@ else
     Tprior=-log(1);
 end
 
+% prior for distance, assumes injected waveform is scaled to 10kpc and is
+% scaled between 1kpc and 1000 kpc
 if(doDistance)
-    maxd=1;
-    %mind=0.05;
-    mind=1e-10;
+    maxd=10/1;
+    mind=10/1000;
     drange=maxd-mind;
     dprior=-log(drange);
 else
@@ -243,7 +341,8 @@ else
     dprior=-log(1);
 end
 
-
+%sumprior=sum(betaprior(1:numPCs)) ...
+%           +tmpprior + Tprior + dprior
 % set the number of active points in the Nested Sampling
 numactive = 50;
 
@@ -251,24 +350,15 @@ numactive = 50;
 % point
 nits = 10;
 
-% This loads the waveform indicated in the input
-wave=MDC_final(:,wv);
+for cnt3=1:detno;
+    td(:,cnt3)=timedelay(ra,dec,trigtime,detector{cnt3});
+end
 
-% XXX: HACK XXX
-%wave=wave.*hann(length(wave));
-
-% Sky position
-% theta= pi/2;
-% phi = pi/2;
-% psi= 45;
-
-
-
-%Preparations FFTs
-len = length(wave);
+len = length(MDC_final(:,1));
 duration = len*sample_deltaT;
 deltaF = 1/duration;
 N=len;
+t0=duration/len;
 
 if ( mod(N,2)== 0 )
     numFreqs = N/2 - 1;
@@ -278,6 +368,15 @@ end
 
 f = deltaF*[1:1:numFreqs]';
 
+wave=MDC_final(:,wv);
+Z=find(abs(wave)>0);
+lennorm=Z(end)-Z(1)+1;
+
+% Find index of frequency cut off
+lowfreq_index = find(round(f)==lowfreq,1);
+highfreq_index = find(round(f)==highfreq,1);
+
+%Preparations FFTs
 %Generate sigma according to a certain PSD file
 noise_struct.deltaT = sample_deltaT;
 noise_struct.data = zeros(length(wave),1);
@@ -288,162 +387,275 @@ noise_struct.data = zeros(length(wave),1);
 % sig1 = noise_struct.data(1:numFreqs+1).*conj(noise_struct.data(1:numFreqs+1));
 % sig = sig+sig1;
 % end
-% sigma = sqrt(real(sig) / (cntsigma));
-[noise_struct,sigma] = detectorNoise(noise_struct,noise_curve);
-for z=1:detno;
-    sigdet(:,z)=sigma;
-    
-    %sigdet(1:numFreqs,z)=sigi(1+1:numFreqs+1,z);
+% sigma = sqrt(abs(sig) / (cntsigma));
+%save sigma.txt sigma -ASCII
+
+for cntdet=1:detno
+    [noise_struct,sigdet(:,cntdet)] = detectorNoise(noise_struct,noisecurve{cntdet});
 end
-for i=1:detno
-    %Generate noise to be added to wave
-    noise_struct1.deltaT = sample_deltaT;
-    noise_struct1.data = zeros(length(wave),1);
-    [noise_struct1] = detectorNoise(noise_struct,noise_curve);
-    noise = (noise_struct1.data);
-    
-%     size(noise)
-%     length(wave)
-    
-    if ~isempty(find(strcmpi(typeofscaling,{'SNR'})))
-    SNR=computeSNR_colourednoise(wave, sigma, lowfreq, highfreq);
-    scale_factor = scaling/SNR;
-    fprintf(1, 'Scale Factor: %f\n', scale_factor);
-    wave0 = scale_factor*wave;
+
+%for z=1:detno;
+    %sigdet(:,z)=sigma;
+    %sigdet(1:numFreqs,z)=sigi(:,z);%(1+1:numFreqs+1,z);
+%end
+
+wave0=wave;
+for cntdet=1:detno;
+    [Fp(:,cntdet), Fc] = det_response_wrapper(ra, dec,detector{cntdet},trigtime, psi);
+    wave(:,cntdet)=(Fp(:,cntdet))*wave0;
+    %wave(:,cntdet)=wave0;
+    SNR(cntdet) = xoptimalsnr(wave(:,cntdet),t0,fs,sigdet(:,cntdet),0.3333,deltaF,...
+        f(lowfreq_index),f(highfreq_index));
+    SNR(cntdet)=SNR(cntdet)^2;
+end
+NSNR=sqrt(sum(SNR));
+
+% finds detector which largest SNR, this is what is used for scaling.
+%Fpabs=abs(Fp);   
+%mSNR=find(SNR==max(SNR));
+%mFp=1;
+
+% works out scale factor
+if ~isempty(find(strcmpi(typeofscaling,{'SNR'})))
+    scale_factor = (scaling/NSNR);
     effective_distance = 10/scale_factor;
     fprintf(1, 'Effective Distance: %f kpc\n', effective_distance);
-    elseif ~isempty(find(strcmpi(typeofscaling,{'distance' 'dis' 'dist' 'd'})))
+elseif ~isempty(find(strcmpi(typeofscaling,{'distance' 'dis' 'dist' 'd'})))
     scale_factor = 10/scaling;
-    wave0 = scale_factor*wave;
     effective_distance = scaling;
     fprintf(1, 'Effective Distance: %f kpc\n', effective_distance);
-    else
-    wave0 = wave;
+else
     effective_distance = 10;
     scale_factor = 1;
-    end
-    %wave(:,i) = wave0;
-    
-    % Matrix of frequencies
-    NFFT = length(wave0);
-
-    if iseven(NFFT);
-    f = fs/2*linspace(0,1,NFFT/2+1);
-    else
-    f = fs/2*linspace(0,1,NFFT/2);
-    end
-    
-    % Find index of frequency cut off
-    lowfreq_index = find(round(f)==lowfreq,1);
-    highfreq_index = find(round(f)==highfreq,1);
-
-    %function to compute SNR of the waveform
-    SNR=computeSNR_colourednoise(wave0, sigma, lowfreq,highfreq);
-    fprintf(1, 'Detector %i: SNR = %f\n', i, SNR);
-    
-    % inject waveform into two streams of gaussian noise and compute FFT
-    % wave_ft_full(:,i) = noise;
-     wave_ft_full(:,i) = fft(wave0)*sample_deltaT+(noise);
-     % wave_ft_full(:,i) = fft(wave(:,i))+(noise);
-    %since data is real, only want half of DFT
-    wave_ft(:,i) = wave_ft_full(1+1:numFreqs+1,i);
-    %sigma = sigma(1+1:numFreqs+1,i);
-    
-    % calculates the log of the evidence for noise only
-   %evnoise(i) = -2*(sample_deltaT/len)*sum((abs((wave_ft(:,i))).^2)./(abs((sigma)).^2));
-    evnoise(i) = -2*deltaF*sum((abs(wave_ft(lowfreq_index:highfreq_index,i)).^2)./((sigma(lowfreq_index:highfreq_index))));
-    fprintf(1, 'Detector %i: log(Noise evidence) = %f\n', i, evnoise(i));
-   
-    %BEGIN save plots for testing purposes (to check against the Shoemaker aLIGO noise curve)
-    %added by PK 12/13/11
-%     [fpk, asdpk] = textread('ZERO_DET_high_P.txt', '%f %f');
-%     figure(42); clf;
-%     noisetest = noise(1+1:numFreqs+1, i);
-%     loglog(f, sqrt(sigma));
-%     hold on;
-%     loglog(f, abs(noisetest), 'g');
-%     loglog(fpk, asdpk, 'r');
-%     hold off;
-%     legend('sigma', 'noise', 'DCC');
-%     saveplot('.', 'check_of_variable_noise', 'pdf');
-%     xlim([100, 150]);
-%     saveplot('.', 'check_of_variable_noise_zoom', 'pdf');
-    %END save plots for testing purposes 
-
- 
 end
 
+for cnt2=1:detno
+    wave(:,cnt2)=scale_factor*wave(:,cnt2);
+    SNR(cnt2) = xoptimalsnr(wave(:,cnt2),t0,fs,sigdet(:,cnt2),0.3333,deltaF,...
+        f(lowfreq_index),f(highfreq_index));
+    SNR(cnt2)=SNR(cnt2)^2;
+    fprintf(1, 'Detector %i: SNR = %f\n', cnt2, sqrt(SNR(cnt2)));
+end 
+NSNR=sqrt(sum(SNR));
 
-V=PCs_final * 1.1963542944976191e-20 * scale_factor;
+for cntdet=1:detno
+    for j=1:length(PCs_final(1,:));
+        % scale and apply timeshift to each waveform in model
+        modl(:,j)=fft(PCs_final(:,j))*(1/(fs));
+        PC(:,j)=modl(1+1:numFreqs+1,j).*exp(-2*pi*1i*f*td(:,cntdet));
+    end
+    vectorsPC(cntdet).vectorPC=PCs_final * 1.1963542944976191e-20 * scale_factor;
+end
+
+currentfolder=cd;
+reset(RandStream.getDefaultStream,seed);
+
+for i=1:detno
+    % Antenna response factors for already given sky position and detectors
+    if(realnoise)
+        % goes to directory containing noise file and loads frames
+        if strcmp(detector(cntdet), 'L1');
+            noisedir=sprintf('/home/jlogue/L1-FAKE-STRAIN/');
+            % noisedir=sprintf('/home/jlogue/Dropbox/S6noise/');
+            cd(noisedir)
+            [detnoise(:,2), detnoise(:,1), fsamp]=frgetvect('L-L1-871188665-64.gwf','L1:FAKE-STRAIN',0,64);
+            %[detnoise(:,2), detnoise(:,1), fsamp]=frgetvect('L-L1_LDAS_C02_L2-931035648-128.gwf','L1:LDAS-STRAIN',0,54);
+        elseif strcmp(detector(cntdet), 'H1');
+            %noisedir=sprintf('/home/jlogue/H1-FAKE-STRAIN/');
+            %cd(noisedir)
+            %[detnoise(:,2), detnoise(:,1), fsamp]=frgetvect('H-H1-871189238-64.gwf','H1:FAKE-STRAIN',0,64);
+            load S6noise
+        end
+        freqratio=(fsamp(end)*2)/fs;
+        freqratio=ceil(freqratio);  
+        detnoise_resample=decimate(detnoise(:,2),freqratio); 
+
+        % back to SMEE directory
+        cd(currentfolder)
+        %save S6noise detnoise fsamp
+        % detnoise_resample=sqrt(detnoise_resample);
+        % detnoise_resample=detnoise_resample*1e-6;
+        noise1=detnoise_resample(1:length(wave));
+
+        % take spectrogram of noise files and apply cutoff frequency
+        noiseft=fft(noise1);
+        %sigmaspec=spectrogram(Sigmaresampled,tvec,over,nfft,fs);
+        noiseft=noiseft*(1/(fs));
+        noisevec(:,i)=noiseft(1+1:numFreqs+1,i);
+        %noisevec(:,cntdet)=reshape((noisespec),length(S1(:,1))*length(S1(1,:)),1);
+
+        len=length(wave);
+        l=0;
+        sigdet1=0;
+        for j=1:(length(detnoise_resample)/len);
+            offsource=detnoise_resample(1+l:len*(j));
+            sig=fft(offsource);
+            sig=(abs(sig).^2).*(1/(fs*len));
+            sig=sig(1+1:numFreqs+1,i);
+            %Poffcut=(abs(Soff(cutoff:end-1,:))).^2*(1/(fs*sum(abs(hamming(length(S1(:,1)))).^2)));
+            %Poffcut=(Poff(cutoff:end-1,:));%*sqrt(1/(fs*sum(hamming(length(F)).^2)));
+            sigdet1=sigdet1+sig;
+            l=l+len;
+        end
+        sigdet(:,i)=(sigdet1./j);
+        save noisereal noisevec sigdet f
+        else
+            noise_struct1.deltaT = sample_deltaT;
+            noise_struct1.data = zeros(length(wave(:,i)),1);
+            [noise_struct1] = detectorNoise(noise_struct1,noisecurve{i});
+            noise = (noise_struct1.data);
+            noisevec(:,i)=noise(1+1:numFreqs+1,:);
+    end
+        
+    %td(:,)=timedelay(ra,dec,trigtime,detector{detno});
+
+    %function to compute SNR of the waveform
+
+    % inject waveform into two streams of gaussian noise and compute FFT
+    % wave_ft_full(:,i) = noise;
+    %%wave_fft(:,i) = fft(wave(:,i))*(1/(fs));
+    wave_fft(:,i) = fft(wave(:,i))*(1/(fs))+(noise);
+    wave_ft(:,i)=wave_fft(1+1:numFreqs+1,i);
+    %%wave_ftplus(:,i)=wave_ft(:,i).*exp(-2*pi*1i*f*td(:,i));
+    wave_ftplus(:,i)=wave_ft(:,i);
+    %res=2*(real(wave_ftplus(:,i)).*real(noisevec(:,i)) + imag(wave_ftplus(:,i)).*imag(noisevec(:,i)));
+    %wave_ftplus(:,i)=(wave_ftplus(:,i) + noisevec(:,i));% - res;
+    wave_ftplus(:,i)=(wave_ftplus(:,i) + noisevec(:,i));
+    
+    % calculates the log of the evidence for noise only
+    %evnoise(i) = 2*(1/len)*sum(-abs((wave_ftplus(1:end,i).^2))./(sigdet(1:end,i)));
+    %%evnoise(i) = 2*deltaF*sum(-abs((wave_ftplus(lowfreq_index:highfreq_index,i).^2))./(sigdet(lowfreq_index:highfreq_index,i)));
+    evnoise(i) = -2*deltaF*sum((abs(wave_ft(lowfreq_index:highfreq_index,i)).^2)./((sigdet(lowfreq_index:highfreq_index,i))));
+
+    % evnoise(i) = -sum(abs(wave_ftplus(1:end,i).^2)./(2*sigdet(1:end,i)));
+    fprintf(1, 'Detector %i: log(Noise evidence) = %f\n', i, evnoise(i));
+end
+
+%%wave_ft = wave_ftplus; %%%% HACK %%%
+
+if(doDistance)
+    for cntdet=1:detno;
+        V_ft(cntdet).V_ft=fft(vectorsPC(cntdet).vectorPC)*sample_deltaT;% * 1e-22;%* scale_factor;
+        V_ft(cntdet).V_ft=V_ft(cntdet).V_ft(1+1:numFreqs+1,:);
+    end
+else
+    if scale_factor>1;
+        for cntdet=1:detno;
+            V_ft(cntdet).V_ft=fft(vectorsPC(cntdet).vectorPC)*sample_deltaT;% * 1e-22* scale_factor;
+            V_ft(cntdet).V_ft=V_ft(cntdet).V_ft(1+1:numFreqs+1,:);
+        end
+    else
+        for cntdet=1:detno;
+            V_ft(cntdet).V_ft=fft(vectorsPC(cntdet).vectorPC)*sample_deltaT;% * 1e-22;
+            V_ft(cntdet).V_ft=V_ft(cntdet).V_ft(1+1:numFreqs+1,:);
+        end
+    end
+end
 
 %PCs in fourier domain
-V_ft_full = fft(V)*sample_deltaT;
-V_ft = V_ft_full(1+1:numFreqs+1,:);
+%V_ft_full = fft(V);
+%V_ft = V_ft_full(1+1:numFreqs+1,:);
+%V_ft=(V);
 %V_ft=real(V_ft);
 %wave_ft=real(wave_ft);
+
 % create active points initially drawn from a uniform distribution for
 % each value in beta
 for cnt=1:numPCs
     activebeta(:,cnt) = rand(numactive,1)*(maxbeta(cnt)-minbeta(cnt)) + minbeta(cnt);
 end
-
-
+activetmp = rand(1,numactive)*(maxtmp-mintmp) + mintmp;
+if(doSky)
+    activera = rand(1,numactive)*(maxra-minra) + minra;
+    activedec = rand(1,numactive)*(maxdec-mindec) + mindec;
+    activepsi = rand(1,numactive)*(maxpsi-minpsi) + minpsi;
+end
 actived = rand(1,numactive)*(maxd-mind) + mind;
 
-if(doTimeshift)
-    %find sum of likelihood for points in all the time shift bins, and then
-    %only use range of bins with highest summed likelihood
-    for k=1:length(mid_T0)
-        %activeT_range(:,k) = rand(1,numactive)*(maxT-minT) - Trange/2 + mid_T0(k);
-        activeT(:,k) = rand(1,numactive)*(maxT-minT) - Trange/2 + mid_T0(k);
-        
-        like_sum = -1e37;
-        % calculate the likelihood*prior at these current active points
-        likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
-            + Tprior + dprior;
-        %coherent case: L is product over individual detector likelihoods
-        for j=1:numactive
-            for i=1:detno
-                lp = like_gauss_fspace_td(wave_ft(:,i), sigdet(:,i), ...
-                    deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
-                    @findy, V_ft, activebeta(j,:), actived(j), numPCs);
-                
-                likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
-                
-            end
-            like_sum = logplus(like_sum,likeactive(j)-numactive);
-        end
-        
-        like_avg(k) = like_sum;
-    end
-    
-    %pick the bins with highest sumed likelihood
-    like_avg_max = max(like_avg);
-    like_avg_min = min(like_avg);
-    idcs = find(like_avg_max-like_avg < 0.1*(like_avg_max-like_avg_min));
-    %minT = mid_T0(idcs(1))-bin_size/2;
-    %maxT = mid_T0(idcs(end))+bin_size/2;
-    Tprior = -log(maxT-minT);
-end
+% if(doTimeshift)
+%     %find sum of likelihood for points in all the time shift bins, and then
+%     %only use range of bins with highest summed likelihood
+%     for k=1:length(mid_T0)
+%         activeT_range(:,k) = rand(1,numactive)*(maxT-minT) - Trange/2 + mid_T0(k);
+%         
+%         like_sum = -1e37;
+%         % calculate the likelihood*prior at these current active points
+%         if(doSky)
+%         likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
+%             + raprior + decprior + psiprior + tmpprior + Tprior + dprior;
+%         %coherent case: L is product over individual detector likelihoods
+%         for j=1:numactive
+%             for i=1:detno
+%                 lp = like_gauss_fspace(wave_ft(:,i), sigdet(:,i), ...
+%                     deltaF, len, f, activeT_range(j,k), @findy_Fptd, V_ft, ...
+%                     activebeta(j,:), actived(j), numPCs, activera(j),activedec(j), ...
+%                     activepsi(j),activetmp(j),detector{i});
+%                 
+%                 likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
+%                 
+%             end
+%             like_sum = logplus(like_sum,likeactive(j)-numactive);
+%         end
+%         else
+%             likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
+%             + Tprior + dprior;
+%         %coherent case: L is product over individual detector likelihoods
+%         for j=1:numactive
+%             for i=1:detno
+%                 lp = like_gauss_fspace(wave_ft(:,i), sigdet(:,i), ...
+%                     deltaF, len, f, activeT_range(j,k), @findy_Fptd, V_ft, ...
+%                     activebeta(j,:), actived(j), numPCs, ra,dec, ...
+%                     psi,trigtime,detector{i});
+%                 
+%                 likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
+%                 
+%             end
+%             like_sum = logplus(like_sum,likeactive(j)-numactive);
+%         end
+%         end
+%         like_avg(k) = like_sum;
+%     
+%     end
+%     %pick the bins with highest sumed likelihood
+%     like_avg_max = max(like_avg);
+%     like_avg_min = min(like_avg);
+%     idcs = find(like_avg_max-like_avg < 0.1*(like_avg_max-like_avg_min));
+%     minT = mid_T0(idcs(1))-bin_size/2;
+%     maxT = mid_T0(idcs(end))+bin_size/2;
+%     Tprior = -log(maxT-minT);
+% end
 %time shift values for active points
 activeT = rand(1,numactive)*(maxT-minT) + minT;
 
 % calculate the likelihood*prior at these current active points
-likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
-    + Tprior + dprior;
-
+if(doSky)
+    likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs))+ raprior + decprior ...
+        +psiprior + tmpprior+ Tprior + dprior;
 %coherent case: L is product over individual detector likelihoods
-for j=1:numactive
-    for i=1:detno
-        lp = like_gauss_fspace_td(wave_ft(:,i), sigdet(:,i), ...
-            deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
-            @findy, V_ft, activebeta(j,:), actived(j), numPCs);
-        
-        likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
-        
+    for j=1:numactive
+        for i=1:detno
+            lp = like_gauss_tspace(wave_ft(:,i), noisevec(:,i),sigdet(:,i), ...
+                deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
+                activedec(j),activera(j),activepsi(j), activetmp(j),...
+                detector{i},@findy_Fptd, V_ft(i).V_ft, activebeta(j,:), ...
+                numPCs, actived(j));
+            likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
+        end
+    end
+else
+    likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs))+ ...
+    Tprior + dprior+tmpprior;
+%coherent case: L is product over individual detector likelihoods
+    for j=1:numactive
+        for i=1:detno
+            lp = like_gauss_tspace(wave_ft(:,i), noisevec(:,i), sigdet(:,i), ...
+                deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
+                actived(j),ra,dec,psi,activetmp(j), detector{i}, ...
+                @findy_Fptd, V_ft(i).V_ft, activebeta(j,:), numPCs,actived(j));
+            likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
+        end
     end
 end
-
 Z(1) = -1e37;
 
 j = 2;
@@ -455,61 +667,71 @@ logw(1) = log(1 - exp(-1/numactive));
 infosafe = 1.5;
 H(1) = 0;
 
-%doPlot = 1;
 if(doPlot)
     figure('OuterPosition',[70,100,1200,600]);
 end
 
-% Define the output directory so that we can save intermittently
-resultsdir=run_name;
-mkdir(resultsdir)
-
-verbose=1;
-
 while j-2 <= numactive * infosafe * H(j-1)
-
-    if verbose
-        disp(sprintf('j-2: %.2f | stop: %.2f', j-2, numactive * infosafe * H(j-1)))
-    end
-
     if(doPlot)
         activebeta_avg = mean(activebeta);
         activeD_avg = mean(actived);
-        activeT_avg = mean(activeT);
-        
+        %activeT_avg = mean(activeT);
+        activetmp_avg = mean(activetmp);
+        if(doSky);
+            activera_avg = mean(activera);
+            activedec_avg = mean(activedec);
+            activepsi_avg = mean(activepsi);
+            y_fft = findy_Fptd(V_ft(1).V_ft, activebeta_avg, activeD_avg, numPCs, activera_avg, ...
+                activedec_avg,activepsi_avg,activetmp_avg,detector{i});%.*exp(-2*pi*1i*f.*activetmp_avg);
+        % y = ifft([0; y_fft; 0; flipud(conj(y_fft))]);
+        % y_sig_fft = wave0hplus+wave0hcross;
+        else
+            % y_fft = findy_Fptd(V_ft, activebeta_avg, activeD_avg, numPCs,ra, ...
+            %   dec,psi,trigtime,detector{i}).*exp(-2*pi*1i*f.*trigtime);
+            y_fft = findy_Fptd(V_ft(1).V_ft, activebeta_avg, numPCs);%.*exp(-2*pi*1i*f.*trigtime);
+            % y = ifft([0; y_fft; 0; flipud(conj(y_fft))]);
+            %y_sig_fft = fft(wave0hplus;
+        end
+        %same, in frequency domain, plus signal received by detector    
+        subplot(1,3,1),loglog(f(30:6000),(wave_ftplus(30:6000,1)),...
+            f(30:6000),abs(y_fft(30:6000)));
     
-        y_fft = findy(V_ft, activebeta_avg, activeD_avg, numPCs);
-        y = ifft([0; y_fft; 0; flipud(conj(y_fft))]);
-        y_sig_fft = fft(wave0)*sample_deltaT;
+        min1 = min(activebeta(:,1));
+        max1 = max(activebeta(:,1));
+        min2 = min(activebeta(:,2));
+        max2 = max(activebeta(:,2));
+        min3 = min(activebeta(:,3));
+        max3 = max(activebeta(:,3));
     
-      %plot waveforms corresponding average of active points, in time domain   
-       % subplot(1,3,1),plot((-100:100),wave0(4000:4200),(-100:100),y(4000:4200))
-    
-      %same, in frequency domain, plus signal received by detector    
-%         subplot(1,2,1),plot((50:4000),abs(wave_ft(50:4000,1)),...
-%             (50:4000),abs(y_sig_fft(50:4000)),...
-%             (50:4000),abs(y_fft(50:4000)));
-         h = subplot(1,2,1);
-            plot(wave0,'r');
-%             hold on
-            plot(y)
-    
-            min1 = min(activebeta(:,1));
-            max1 = max(activebeta(:,1));
-            min2 = min(activebeta(:,2));
-            max2 = max(activebeta(:,2));
-            min3 = min(activebeta(:,3));
-            max3 = max(activebeta(:,3));
-    
+        % creates a plot of points for betas 1, 2 and 3, zooms in on final outcomes
+        subplot(1,3,2),plot3(activebeta(:,1), activebeta(:,2), activebeta(:,3), '.');
+        subplot(1,3,2),xlim([min1 max1]);
+        xlabel('beta1');
+        subplot(1,3,2),ylim([min2 max2]);
+        ylabel('beta2');
+        subplot(1,3,2),zlim([min3 max3]);
+        zlabel('beta3');
+        subplot(1,3,2),text(max1,max2,max3,['Iterations: ' num2str(j-2)]);
+   
+        if(doSky)
+            ramin = min(activera);
+            ramax = max(activera);
+            decmin = min(activedec);
+            decmax = max(activedec);
+            psimin = min(activepsi);
+            psimax = max(activepsi);
+   
             % creates a plot of points for betas 1, 2 and 3, zooms in on final outcomes
-            subplot(1,2,2),plot3(activebeta(:,1), activebeta(:,2), activebeta(:,3), '.');
-            subplot(1,2,2),xlim([min1 max1]);
-            subplot(1,2,2),ylim([min2 max2]);
-            subplot(1,2,2),zlim([min3 max3]);
-            subplot(1,2,2),text(max1,max2,max3,['Iterations: ' num2str(j-2)]);
-            
+            subplot(1,3,3),plot3(activera, activedec, activepsi, '.');
+            subplot(1,3,3),xlim([ramin ramax]);
+            xlabel('ra');
+            subplot(1,3,3),ylim([decmin decmax]);
+            ylabel('dec');
+            subplot(1,3,3),zlim([psimin psimax]);
+            zlabel('psi');
+            subplot(1,3,3),text(ramax,decmax,psimax,['Iterations: ' num2str(j-2)]);
+        end     
         drawnow;
-%         Movie(j) = getframe(h);
     end
     
     % find minimum of likelihoods
@@ -525,30 +747,56 @@ while j-2 <= numactive * infosafe * H(j-1)
     betas(j-1,:) = activebeta(idx,:);
     Ts(j-1) = activeT(idx);
     Distance(j-1) = actived(idx);
-    
+    Tmp(j-1)=activetmp(idx);
+    if(doSky)
+        Ra(j-1)= activera(idx);
+        Dec(j-1)=activedec(idx);
+        Psi(j-1)=activepsi(idx);
+    end
+
     % calculate the information H
     H(j) = exp(logWt - Z(j))*Lmin + exp(Z(j-1) - Z(j)) *...
         (H(j-1) + Z(j-1)) - Z(j);
     
-    Activebeta=activebeta;
-
-    if (doDistance && doTimeshift)
-        Activebeta(:,numPCs+1)=actived;
-        Activebeta(:,numPCs+2)=activeT;
-    elseif (doDistance)
-        Activebeta(:,numPCs+1)=actived;
-    elseif (doTimeshift)
-        Activebeta(:,numPCs+1)=activeT;
+    Activebeta(:,1:numPCs)=activebeta;
+    Activebeta(:,numPCs+1)=activetmp;
+    if(doSky);
+        Activebeta(:,numPCs+2)=activera;
+        Activebeta(:,numPCs+3)=activedec;
+        Activebeta(:,numPCs+4)=activepsi;
     end
-    
+    if(doSky)
+%      if (doDistance && doTimeshift)
+%       Activebeta(:,numPCs+5)=actived;
+%       Activebeta(:,numPCs+6)=activeT;
+        if (doDistance)
+            Activebeta(:,numPCs+5)=actived;
+%           elseif (doTimeshift)
+%           Activebeta(:,numPCs+5)=activeT;
+        end   
+    else
+%     if (doDistance && doTimeshift)
+%         Activebeta(:,numPCs+2)=actived;
+%         Activebeta(:,numPCs+3)=activeT;
+        if (doDistance)
+            Activebeta(:,numPCs+2)=actived;
+%           elseif (doTimeshift)
+%           Activebeta(:,numPCs+2)=activeT;
+        end
+    end
     % update the log width
     logw(j) = logw(j-1) - 1/numactive;
     
     % will need to change 2nd argument to number of PC's used
-    if mod(j-2, numPCs + doDistance + doTimeshift)== 0
-        cholmat = cholcov(cov(Activebeta));
+    if(doSky)
+        if mod(j-2, numPCs + 4 + doDistance + doTimeshift)== 0
+            cholmat = cholcov(cov(Activebeta));
+        end
+    else
+        if mod(j-2, numPCs +1+ doDistance + doTimeshift)== 0
+            cholmat = cholcov(cov(Activebeta));
+        end
     end
-    
     good = 0;
     
     % incase no useable point is returned in the first MCMC keep repeating
@@ -556,100 +804,150 @@ while j-2 <= numactive * infosafe * H(j-1)
     while good == 0
         % from the active points randomly pick a starting point for the chain
         randval = ceil(rand(1)*numactive);
-        
         betachain = zeros(nits+1, numPCs);
         Tchain = zeros(nits+1, 1);
         dchain = zeros(nits+1, 1);
-        
+        tmpchain = zeros(nits+1, 1);
+        if(doSky)
+            rachain = zeros(nits+1, 1);
+            decchain = zeros(nits+1, 1);
+            psichain = zeros(nits+1, 1);
+        end
         betachain(1,:) = activebeta(randval,:);
         Tchain(1) = activeT(randval);
         dchain(1) = actived(randval);
-        
+        tmpchain(1) = activetmp(randval);
+        if(doSky)
+            rachain(1) = activera(randval);
+            decchain(1) = activedec(randval);
+            psichain(1) = activepsi(randval);
+        end
         Lcur = likeactive(randval);
-        
         acc = 0; % count accepted points
         
         % start MCMC chain
-        %if verbose; disp('sampling new point'); end
         for k=1:nits
             % generate new position from proposal
-            gasvals = randn(numPCs + doTimeshift + doDistance,1);
-            newvals = cholmat*gasvals;
-            
-            betanew = betachain(k,:) + newvals(1:numPCs)';
-            
-            if(doTimeshift)
-                Tnew = Tchain(k) + newvals(end);
+            if(doSky)
+                gasvals = randn(numPCs + 4 + doTimeshift + doDistance,1);
             else
-                Tnew = Tchain(k);
+                gasvals = randn(numPCs +1+ doTimeshift + doDistance,1);
             end
+            newvals = cholmat*gasvals;
+            betanew = betachain(k,:) + newvals(1:numPCs)';
+            tmpnew = tmpchain(k) + newvals(numPCs+1);
+            if(doSky)
+                ranew = rachain(k) + newvals(numPCs+2);
+                decnew = decchain(k) + newvals(numPCs+3);
+                psinew = psichain(k) + newvals(numPCs+4);
+            end
+%           if(doTimeshift)
+%               Tnew = Tchain(k) + newvals(end);
+%           else
+            Tnew = Tchain(k);
+            %end
             if(doDistance)
                 dnew = dchain(k) + newvals(end-doTimeshift);
             else
                 dnew = dchain(k);
             end
-            
+            if(doSky)
             % if new point is not within prior range then reject point
-            if any((betanew < minbeta(1:numPCs)) | (betanew > maxbeta(1:numPCs))) || ...
+                if any((betanew < minbeta(1:numPCs)) | (betanew > maxbeta(1:numPCs))) || ...
+                        ranew < minra || ranew > maxra || ...
+                        decnew < mindec || decnew > maxdec || ...
+                        psinew < minpsi || psinew > maxpsi || ...
+                        tmpnew < mintmp || tmpnew > maxtmp || ...
+                        dnew < mind || dnew > maxd || ...
+                        Tnew < minT || Tnew > maxT
+                
+                    betachain(k+1,:) = betachain(k,:);
+                    rachain(k+1) = rachain(k);
+                    decchain(k+1) = decchain(k);
+                    psichain(k+1) = psichain(k);
+                    tmpchain(k+1) = tmpchain(k);
+                    Tchain(k+1) = Tchain(k);
+                    dchain(k+1) = dchain(k);
+                    continue;
+                end
+            else
+                if any((betanew < minbeta(1:numPCs)) | (betanew > maxbeta(1:numPCs))) || ...
+                        tmpnew < mintmp || tmpnew > maxtmp || ...  
                     dnew < mind || dnew > maxd || ...
                     Tnew < minT || Tnew > maxT
-                %disp('outside prior')
                 
-                betachain(k+1,:) = betachain(k,:);
-                Tchain(k+1) = Tchain(k);
-                dchain(k+1) = dchain(k);
-                continue;
+                    betachain(k+1,:) = betachain(k,:);
+                    tmpchain(k+1) = tmpchain(k);
+                    Tchain(k+1) = Tchain(k);
+                    dchain(k+1) = dchain(k);
+                    continue;
+                end
             end
-            
             % get likelihood for new position
             %coherent case: L is product over individual detector likelihoods
-            Lnew = sum(betaprior(1:numPCs)) + Tprior + dprior;
-            for i=1:detno
-                %disp('computing likelihood')
-                lp = like_gauss_fspace_td(wave_ft(:,i), sigma, ...
-                    deltaF, len, f, lowfreq_index, highfreq_index, Tnew, ...
-                    @findy, V_ft, betanew, dnew, numPCs);
-                
-                Lnew = Lnew + lp;% + sum(betaprior) ;
+            if(doSky)
+            Lnew = sum(betaprior(1:numPCs)) + raprior + decprior + psiprior + tmpprior + Tprior + dprior;
+                for i=1:detno
+                    lp = like_gauss_tspace(wave_ft(:,i), noisevec(:,i), sigdet(:,i), ...
+                        deltaF, len, f, lowfreq_index, highfreq_index, Tnew, dnew, ...
+                        ranew,decnew,psinew,tmpnew,detector{i}, @findy_Fptd, ...
+                        V_ft(i).V_ft, betanew,numPCs,dnew);
+                    Lnew = Lnew + lp;% + sum(betaprior) ;
+                end
+            else
+                Lnew = sum(betaprior(1:numPCs))  + Tprior + dprior+tmpprior;
+                for i=1:detno
+                    lp = like_gauss_tspace(wave_ft(:,i), noisevec(:,i),sigdet(:,i), ...
+                        deltaF, len, f, lowfreq_index, highfreq_index, ...
+                        Tnew,dnew, ra,dec,psi,tmpnew,detector{i},...
+                        @findy_Fptd, V_ft(i).V_ft, betanew, numPCs,dnew);
+                    Lnew = Lnew + lp;% + sum(betaprior) ;
+                end
             end
-            
             % check whether to accept or reject the new point
             Lrat = Lnew - Lcur;
-            
             if Lrat - log(rand) >= 0 && Lnew > Lmin
-                
                 betachain(k+1,:) = betanew;
+                tmpchain(k+1) = tmpnew;
+                if(doSky)
+                    rachain(k+1) = ranew;
+                    decchain(k+1) = decnew;
+                    psichain(k+1) = psinew;   
+                end
                 Tchain(k+1) = Tnew;
                 dchain(k+1) = dnew;
                 Lcur = Lnew;
                 acc = acc + 1;
             else
-                
                 betachain(k+1,:) = betachain(k,:);
-                Tchain(k+1) = Tchain(k);
-                dchain(k+1) = dchain(k);
+                tmpchain(k+1) = tmpchain(k);
+                if(doSky)
+                    rachain(k+1) = rachain(k);
+                    decchain(k+1) = decchain(k);
+                    psichain(k+1) = psichain(k);               
+                end
+            Tchain(k+1) = Tchain(k);
+            dchain(k+1) = dchain(k);
             end
-        end % MCMC sampling
+        end
         
         if acc > 0
             good = 1;
         end
-    end 
+    end
     % substitute the final values of the MCMC chain into the position of
     % Lmin
     activebeta(idx,:) = betachain(end,:);
+    activetmp(idx) = tmpchain(end);
+    if(doSky)
+        activera(idx) = rachain(end);
+        activedec(idx) = decchain(end);
+        activepsi(idx) = psichain(end);
+    end
     activeT(idx) = Tchain(end);
     actived(idx) = dchain(end);
-    
     likeactive(idx) = Lcur;
-    
     j=j+1;
-    
-    %if rem(j,500) == 0
-    %    disp('saving workspace')
-    %    workspace_filename = strcat('workspace_iteration',num2str(j),'.mat');
-    %    save([resultsdir '/' workspace_filename])
-    %end
 end
 
 % we're no longer reducing the prior distribution, so weights stay the same
@@ -662,6 +960,12 @@ for k=1:numactive
     Z(j+k-1) = logplus(Z(j+k-2), likeactive(k) + logw(j+k-1));
     Lw(k+j-2) = likeactive(k) + logw(j+k-1);
     betas(k+j-2,:) = activebeta(k,:);
+    Tmp(k+j-2) = activetmp(k);
+    if(doSky)
+        Ra(k+j-2) = activera(k);
+        Dec(k+j-2) = activedec(k);
+        Psi(k+j-2) = activepsi(k);
+    end
     Ts(k+j-2) = activeT(k);
     Distance(k+j-2) = actived(k);
 end
@@ -670,31 +974,36 @@ end
 Z = Z(1:j-1+numactive);
 Lw = Lw(1:j-2+numactive);
 betas = betas(1:j-2+numactive,:);
+Tmp= Tmp (1:j-2+numactive);
+if(doSky)
+    Ra = Ra(1:j-2+numactive);
+    Dec = Dec(1:j-2+numactive);
+    Psi = Psi(1:j-2+numactive);
+end
 Ts = Ts(1:j-2+numactive);
 Z_end= Z(j-1+numactive);
 Bayes=Z(j-1+numactive)-sum(evnoise);
 distance= Distance(1:j-2+numactive);
-
-% calculates the posterior distribution on the beta distributions
 rnums = rand(1,length(Lw));
-
 wt = logw(1:length(Lw)) + Lw;
 maxwt = max(wt);
 idx = find(wt' > maxwt+log(rnums));
-
 postbetas = betas(idx,:);
+postTmp = Tmp(idx,:);
+if(doSky)
+    postra = Ra(idx,:);
+    postdec = Dec(idx,:);
+    postpsi = Psi(idx,:);
+end
 postT= Ts(idx,:);
 postdis= distance(idx,:);
-
-posterior_params_savefile = ['smee_output_' catalogue num2str(wv) '_model' model '_PCs' num2str(numPCs)...
-    '_detno' num2str(detno) '_' typeofscaling strrep(num2str(scaling), '.', 'p') '_seed' num2str(seed)];
-save([resultsdir '/' posterior_params_savefile],'catalogue','wv','model','betas','activebeta','detno',...
-    'Ts','seed','distance','Lw', 'evnoise','Z_end','Bayes','SNR','postbetas','postT','postdis','effective_distance', 'numPCs');
+resultsdir=run_name;
+mkdir(resultsdir)
 
 % save a simple txt file with a line of output
-outFile = sprintf('%s/smee_results.txt', resultsdir);
+outFile = sprintf('%s/bhextractor_results.txt', resultsdir);
 fid = fopen(outFile, 'a');
-fprintf(fid, '%i %1.4e %1.4e %1.4e %i \n', wv, evnoise, Bayes, SNR, numPCs);
+fprintf(fid, '%1.4e %8.4f %1.4e\n ', evnoise, Bayes, SNR);
 fclose(fid);
 
 %print evidence for model
@@ -705,18 +1014,40 @@ fprintf(1, 'log(nested sampling Bayes factor vs Noise) = %f\n', Bayes);
 fprintf(1, 'No. of Iterations: %i\n', j);
 fprintf(1,'H = %f\n', H(j-1));
 for cnt=1:numPCs
-    fprintf(1,'<B_%i> = %f\n',cnt,mean(activebeta(:,cnt)));
+    B(cnt)=mean(postbetas(:,cnt));
+    fprintf(1,'<B_%i> = %f\n',cnt,mean(postbetas(:,cnt)));
 end
-fprintf(1,'<T> = %f\n',mean(activeT));
-fprintf(1,'<D> = %f\n',mean(actived));
+fprintf(1,'<trigtime> = %f\n',mean(postTmp));
+if(doSky)
+    fprintf(1,'<ra> = %f\n',mean(postra));
+    fprintf(1,'<dec> = %f\n',mean(postdec));
+    fprintf(1,'<psi> = %f\n',mean(postpsi));
+end
+fprintf(1,'<T> = %f\n',mean(postT));
+fprintf(1,'<D> = %f\n',10/mean(postdis));
+lp_end = like_gauss_tspace(wave_ft(:,1), noisevec(:,1), sigdet(:,1), ...
+    deltaF, len, f, lowfreq_index, highfreq_index, mean(postT),...
+    mean(postdis), ra,dec,psi,mean(postTmp),detector{1},...
+    @findy_Fptd, V_ft(1).V_ft, B,numPCs,mean(postdis));
+lp_end=lp_end+sum(betaprior(1:numPCs)) + Tprior + dprior + tmpprior;
+Dtheta=-2*lp_end;
+D=-2*mean(Lw);
+DIC=2*D-Dtheta;
+if(doSky)
+    posterior_params_savefile = ['bhextractor_output_' catalogue num2str(wv) '_model' model '_PCs' num2str(numPCs)...
+        '_detno' num2str(detno) '_' typeofscaling strrep(num2str(scaling), '.', 'p') '_seed' num2str(seed)];
+    save([resultsdir '/' posterior_params_savefile],'catalogue','wv','model','betas','detno',...
+        'Ts','seed','distance','Lw', 'evnoise','Z_end','Bayes','NSNR','effective_distance', 'numPCs', ...
+        'postbetas','postra', 'postdec', 'postpsi', 'postTmp','postT','postdis','DIC','postdis');
+else
+    posterior_params_savefile = ['bhextractor_output_' catalogue num2str(wv) '_model' model '_PCs' num2str(numPCs)...
+        '_detno' num2str(detno) '_' typeofscaling strrep(num2str(scaling), '.', 'p') '_seed' num2str(seed)];
+    save([resultsdir '/' posterior_params_savefile],'catalogue','wv','model','betas','detno',...
+        'Ts','seed','distance','Lw', 'evnoise','Z_end','Bayes','NSNR','effective_distance', 'numPCs', ...
+        'postbetas','postT','postdis','postTmp','Z','likeactive','logw','DIC','postdis');
+end
 
-% Save betas from nested sampling
-%BETAS=activebeta;
-%betas_savefile = ['betas_model' model wv '-cat' catalogue '-seed' seed];
-%save([resultsdir betas_savefile],'BETAS');
+%save('smee_time_workspace.mat')
 
-clear H Lcur betas Lmin Lnew Lrat acc activebeta betachain cholmat betanew V fs...
-    gasvals good idx infosafe likeactive logWt logdbeta Lw logwend logw maxwt...
-    mlog2 newvals randval rnums wt Z lp l j k Activebeta ActiveT activeT Ts Tchain Tnew model
+clear all
 toc
-exit

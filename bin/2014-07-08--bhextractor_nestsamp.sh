@@ -6,25 +6,18 @@ then
     exit
 fi
 
-# User inputs
 injection=${1}
 waveformN=${2}
 seed=${3}
 targetSNR=${4}
 
-# Constants
-Ndet=1 # DON"T CHANGE THIS
-doplots=0
-dodistance=0
-dotimeshift=0
-ra=1.57
-dec=0.81
-psi=0.89
-trigtime=1087588740
-realnoise=0
-dosky=0
 Fmin=10
 Fmax=200
+
+Ndet=1 # DON"T CHANGE THIS
+doplots=0
+dodistance=1
+dotimeshift=0
 
 # Make run name
 run_name=Inj-${injection}_Wf-${waveformN}_Seed-${seed}
@@ -52,10 +45,8 @@ do
         NumPCA=5
     fi  
 
-    echo matlab -nosplash -nojvm -nodisplay -r "SMEE_time_hacked('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplot},${dosky},${dodistance},${dotimeshift})"
+    echo matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}','${injection}',${waveformN},${Fmin},${Fmax},${seed},${Ndet},${NumPCA},${doplots},'SNR',${targetSNR},${dodistance},${dotimeshift})"
 
-    matlab -nosplash -nojvm -nodisplay -r "SMEE_time_hacked('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplots},${dosky},${dodistance},${dotimeshift})"
-
-
+    matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}','${injection}',${waveformN},${Fmin},${Fmax},${seed},${Ndet},${NumPCA},${doplots},'SNR',${targetSNR},${dodistance},${dotimeshift})"
 done
 
