@@ -52,9 +52,9 @@ do
         NumPCA=5
     fi  
 
-    echo matlab -nosplash -nojvm -nodisplay -r "SMEE_time_hacked('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplot},${dosky},${dodistance},${dotimeshift})"
+    echo matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplot},${dosky},${dodistance},${dotimeshift})"
 
-    matlab -nosplash -nojvm -nodisplay -r "SMEE_time_hacked('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplots},${dosky},${dodistance},${dotimeshift})"
+    matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplots},${dosky},${dodistance},${dotimeshift})"
 
 
 done
