@@ -256,6 +256,9 @@ for w in range(len(waveforms)):
         tmp = pycbc.types.TimeSeries(initial_array=resampled_wf, delta_t=1.0/fs)
         tmp = pycbc.filter.highpass(tmp, frequency=10, filter_order=8, attenuation=0.1)
         resampled_wf = np.copy(tmp.data)
+        #b, a = signal.butter(8, 10 / (16384/2.), btype='high')
+        #resampled_wf = signal.filtfilt(b, a, resampled_wf)
+        #sys.exit()
 
         # --- Compute SNR and rescale to SNR=1
         hoft = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
@@ -267,6 +270,30 @@ for w in range(len(waveforms)):
 
         # Populate catalogue with scaled, resampled, tapered data. 
         resamp_catalogue[:,w] = resampled_wf
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Create standardised catalogue 
+
+targetlen=4*fs
+waveform_catalogue = np.zeros(shape=(targetlen,len(waveforms)))
+peak_indices=np.argmax(resamp_catalogue,axis=0)
+align_to_idx=np.floor(0.75*targetlen)
+for w in range(len(waveforms)):
+
+    # current waveform
+    wf=resamp_catalogue[:,w]
+
+    # Get the lengths of current waveform data to the left/right of the peak of
+    # this waveform
+    llen = len(wf[:peak_indices[w]])
+    rlen = len(wf[peak_indices[w]:])
+
+    # populate left side of peak
+    waveform_catalogue[align_to_idx-llen:align_to_idx,w] = wf[:peak_indices[w]]
+    # populate right side of peak
+    waveform_catalogue[align_to_idx:align_to_idx+rlen,w] = wf[peak_indices[w]:peak_indices[w]+rlen]
+
+del resamp_catalogue
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PCA
@@ -281,7 +308,7 @@ print 'Performing PCA'
 
 # --- Make catalogue a matrix for matrix arithmetic
 #H = np.matrix(waveform_catalogue)
-H = np.matrix(resamp_catalogue)
+H = np.matrix(waveform_catalogue)
 
 # --- 1) Compute catalogue covariance
 C = H.T * H / np.shape(H)[0]
@@ -311,7 +338,7 @@ catalogue_path=os.environ['BHEX_PREFIX']+'/data/'+'signal_data'
 if not os.path.exists(catalogue_path): os.makedirs(catalogue_path)
 catalogue_outname=catalogue_path + '/' + catalogue_name + '_catalogue_' + 'theta-%.0f'%theta
 #waveform_dict={'MDC_final':waveform_catalogue}
-waveform_dict={'MDC_final':resamp_catalogue}
+waveform_dict={'MDC_final':waveform_catalogue}
 sio.savemat(catalogue_outname, waveform_dict)
 
 print "PCA complete"
