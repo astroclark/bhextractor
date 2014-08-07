@@ -155,10 +155,17 @@ time_rescaled = np.arange(0, hrescaled.data.length*deltaT_new, deltaT_new)
 
 # --- Finally high-pass the rescaled data to eliminate the unnecessary
 #     low-frequencies (unnecessary really, but good for sanity checking)
+import pycbc
 from pycbc import filter
 # make pycbc time series object:
-hrescaled_tmp = filter.matchedfilter.TimeSeries(\
+
+hrescaled_tmp = pycbc.types.TimeSeries(\
         initial_array=hrescaled.data.data, delta_t=hrescaled.deltaT)
+hhighmass_tmp = pycbc.types.TimeSeries(\
+        initial_array=hhighmass.data.data, delta_t=hhighmass.deltaT)
+hhighmass_tmp.resize(len(hrescaled_tmp.data))
+sys.exit()
+
 #hrescaled_tmp = filter.highpass(hrescaled_tmp,10,filter_order=12,attenuation=0.9)
 hrescaled.data.data = hrescaled_tmp.data
 
