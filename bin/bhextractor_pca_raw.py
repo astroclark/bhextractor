@@ -245,7 +245,7 @@ for w in range(len(waveforms)):
                 NR_deltaT, lal.StrainUnit, maxlengths[catalogue_name])
         hoft.data.data = catalogue[:,w]
         lalsim.SimInspiralREAL8WaveTaper(hoft.data,
-                lalsim.LAL_SIM_INSPIRAL_TAPER_STARTEND)
+                lalsim.SIM_INSPIRAL_TAPER_STARTEND)
 
 
         # --- Resampling (Note that LAL only handles downsampling by a factor of 2)

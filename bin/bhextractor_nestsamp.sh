@@ -1,6 +1,6 @@
 #!/bin/bash
 
-if [ $# -ne 4 ] 
+if [ $# -ne 6 ] 
 then
     echo "insufficient args"
     exit
@@ -11,6 +11,8 @@ injection=${1}
 waveformN=${2}
 seed=${3}
 targetSNR=${4}
+cat_inc=${5}
+model_inc=${6}
 
 # Constants
 Ndet=1 # DON"T CHANGE THIS
@@ -43,18 +45,21 @@ do
 
     if [ ${model} == "Q" ]
     then
-        NumPCA=2
+        #NumPCA=2
+        NumPCA=3
     elif [ ${model} == "HR" ]
     then
-        NumPCA=4
+        #NumPCA=4
+        NumPCA=6
     elif [ ${model} == "RO3" ]
     then
-        NumPCA=5
+        #NumPCA=5
+        NumPCA=7
     fi  
 
-    echo matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplot},${dosky},${dodistance},${dotimeshift})"
+    echo matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}',${model_inc},'${injection}',${cat_inc},${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplot},${dosky},${dodistance},${dotimeshift})"
 
-    matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}','${injection}',${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplots},${dosky},${dodistance},${dotimeshift})"
+    matlab -nosplash -nojvm -nodisplay -r "bhextractor_nestsamp('${run_name}','aligo','${model}',${model_inc},'${injection}',${cat_inc},${waveformN},${ra},${dec},${psi},${Fmin},${Fmax},${trigtime},${Ndet},${NumPCA},${seed},'SNR',${targetSNR},${realnoise},${doplots},${dosky},${dodistance},${dotimeshift})"
 
 
 done

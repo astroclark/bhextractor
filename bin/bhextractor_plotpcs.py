@@ -68,7 +68,8 @@ Mscale_T = Mtot * lal.LAL_MTSUN_SI #/ (Dist * 1e9 * lal.LAL_PC_SI)
 # other identifiers)
 catname=outname.split('/')[-1].split('_')[0]
 
-time_axis=np.arange(0,1,1.0/fs)
+#time_axis=np.arange(0,1,1.0/fs)
+time_axis=np.arange(0, len(data['PCs_final'][:,0])/16384.0, 1.0/16384)
 
 npcs={'Q':2, 'HR':4, 'RO3':5}
 

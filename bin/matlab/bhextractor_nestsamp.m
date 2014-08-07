@@ -1,4 +1,4 @@
-function bhextractor_nestsamp(run_name, noiseType, model, catalogue, ...
+function bhextractor_nestsamp(run_name, noiseType, model, model_inc, catalogue, cat_inc,...
     wv, ra, dec, psi, lowfreq, highfreq, trigtime, detno, numPCs, seed, typeofscaling, ...
     scaling, realnoise,doPlot,doSky,doDistance, doTimeshift)
 
@@ -109,6 +109,9 @@ if doDistance > 0, doDistance = 1; else doDistance = 0; end
 if (~exist('doPlot','var')), doPlot=0;
 elseif (ischar(doPlot)), doPlot=str2num(doPlot); end
 
+theta1 = cat_inc;
+theta2 = model_inc;
+
 %noise curve to use
 if strcmpi(noiseType, 'ligo3')
    noise_curve='ET_B.txt';
@@ -123,7 +126,7 @@ tic
 
 clearvars -except run_name catalogue wv model seed typeofscaling scaling ...
     numPCs doTimeshift doDistance doPlot noise_curve ra dec psi trigtime ...
-    lowfreq highfreq detno doSky realnoise BHEX_PREFIX
+    lowfreq highfreq detno doSky realnoise BHEX_PREFIX theta1 theta2
 
 %names of detectors
 detector = {'H1','L1','V1','I1','J1'};%LIGO H1 and L1
@@ -232,10 +235,10 @@ if numPCs > 10;
 end
 
 % load the catalogue
-load(sprintf('%s/data/signal_data/%s_catalogue_theta-0',BHEX_PREFIX,catalogue));
+load(sprintf('%s/data/signal_data/%s_catalogue_theta-%d',BHEX_PREFIX,catalogue,theta1));
 
 % load the principle components
-load(sprintf('%s/data/PCA_data/%s_PCs_theta-0',BHEX_PREFIX,model));
+load(sprintf('%s/data/PCA_data/%s_PCs_theta-%d',BHEX_PREFIX,model,theta2));
 
 rg=0.1;
 if(doSky)
@@ -1048,6 +1051,8 @@ else
 end
 
 %save('smee_time_workspace.mat')
+fprintf('Injection=%s Model=%s Bayes Factor=%f Injection Inclination=%d,Model Inclination=%d\n',catalogue,model,Bayes,theta1,theta2)
 
 clear all
 toc
+exit

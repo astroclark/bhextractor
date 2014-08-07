@@ -199,7 +199,7 @@ ax2.grid(which='major',color='grey',linestyle='-')
 #ax2.grid(which='minor',color='grey',linestyle=':')
 ax2.set_xlim(0.5,10)
 ax2.legend(loc='lower right')
-f2.tight_layout()
+#f2.tight_layout()
 pl.subplots_adjust(bottom=0.2,top=0.95)
 
 

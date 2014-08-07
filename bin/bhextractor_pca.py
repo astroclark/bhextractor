@@ -299,8 +299,10 @@ resamp_catalogue = resamp_catalogue[:min(trail_nonzero_idx),:]
 # --- all waveforms have 1s duration with peak aligned to 0.75s
 
 waveform_catalogue = np.zeros(shape=(targetlen,len(waveforms)))
-peak_indices=np.argmax(resamp_catalogue,axis=0)
-align_to_idx=np.floor(0.75*targetlen)
+#peak_indices=np.argmax(resamp_catalogue,axis=0)
+peak_indices=np.argwhere(abs(resamp_catalogue)>0,axis=0)[0]
+#align_to_idx=np.floor(0.75*targetlen)
+align_to_idx=np.floor(0.01*targetlen)
 for w in range(len(waveforms)):
 
     # current waveform

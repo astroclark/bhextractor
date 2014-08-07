@@ -23,6 +23,7 @@ import scipy.io as sio
 from scipy import signal
 import HHT
 import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as pl
 
 #font = {'family' : 'Helvetica',
@@ -71,15 +72,15 @@ data=sio.loadmat(inputfile)
 
 Mtot=250.
 Dist=1.
-Mscale_D = Mtot * lal.LAL_MRSUN_SI / (Dist * 1e9 * lal.LAL_PC_SI)
-Mscale_T = Mtot * lal.LAL_MTSUN_SI #/ (Dist * 1e9 * lal.LAL_PC_SI)
+Mscale_D = Mtot * lal.MRSUN_SI / (Dist * 1e9 * lal.PC_SI)
+Mscale_T = Mtot * lal.MTSUN_SI #/ (Dist * 1e9 * lal.PC_SI)
 fs=16384.
 
 #ZDHP=np.loadtxt('/Users/jclark/Projects/BHEX/SMEE_repo/SRDs/ZERO_DET_high_P.txt')
 #noise_freqs=ZDHP[:,0]
 #Sf=ZDHP[:,1]**2
 
-time_axis=np.arange(0,1,1.0/fs)
+#time_axis=np.arange(0,1,1.0/fs)
 
 # --- Labels for the different waveforms
 Q_labels=['q=1.0','q=1.15','q=1.3','q=1.45','q=1.5','q=1.6',
@@ -122,6 +123,11 @@ labels={'Q':Q_labels, 'HR':HR_labels, 'RO3':RO3_labels}
 # other identifiers)
 catname=outname.split('/')[-1].split('_')[0]
 
+print np.shape(data['MDC_final'])
+time_axis=np.linspace(0,np.shape(data['MDC_final'])[0]/fs,np.shape(data['MDC_final'])[0])
+print np.shape(time_axis)
+
+
 # --- Time series
 #fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],figsize=(10,15),sharex='col')
 fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],sharex='col')
@@ -136,15 +142,15 @@ for r,row in enumerate(ax):
             color='k',linewidth=0.5, label=labels[catname][r])
     #row.minorticks_on()
     #row.grid(which='major',color='grey',linestyle='-')
-    row.set_xlim(0.25/Mscale_T,0.85/Mscale_T)
+    #row.set_xlim(0.25/Mscale_T,0.85/Mscale_T)
     if r==np.floor(len(ax)/2): 
         #row.set_title(
         #        '%s Waveform Catalogue'%catname,
         #        weight='bold')
         row.set_ylabel('rh$_{+}$ [M$_{\odot}$]')
-    leg=row.legend(loc='upper left',frameon=True)
-    for label in leg.get_lines():
-            label.set_linewidth(0.01)  # the legend line width
+    #leg=row.legend(loc='upper right',frameon=True)
+    #for label in leg.get_lines():
+    #        label.set_linewidth(0.01)  # the legend line width
 
 pl.xlabel('Time [M$_{\odot}$]')
 pl.subplots_adjust(hspace=0.0,wspace=0.35,left=0.2,bottom=0.08,top=0.98)
