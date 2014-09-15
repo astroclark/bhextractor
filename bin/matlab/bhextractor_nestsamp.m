@@ -899,6 +899,8 @@ while j-2 <= numactive * infosafe * H(j-1)
                 end
             else
                 Lnew = sum(betaprior(1:numPCs))  + Tprior + dprior+tmpprior;
+                priorvaltmp = sum(betaprior(1:numPCs))  + Tprior + dprior+tmpprior;
+                
                 for i=1:detno
                     lp = like_gauss_tspace(wave_ft(:,i), noisevec(:,i),sigdet(:,i), ...
                         deltaF, len, f, lowfreq_index, highfreq_index, ...
@@ -1049,10 +1051,16 @@ else
         'Ts','seed','distance','Lw', 'evnoise','Z_end','Bayes','NSNR','effective_distance', 'numPCs', ...
         'postbetas','postT','postdis','postTmp','Z','likeactive','logw','DIC','postdis');
 end
+% save files for prior volume tests
+%save([resultsdir '/' 'Z_end_' model '_inj' catalogue '.txt'],'Z_end','-ascii')
+%save([resultsdir '/' 'evnoise_' model '_inj' catalogue '.txt'],'evnoise','-ascii')
+%save([resultsdir '/' 'priorval_' model '_inj' catalogue '.txt'],'priorvaltmp','-ascii')
 
-%save('smee_time_workspace.mat')
-fprintf('Injection=%s Model=%s Bayes Factor=%f Injection Inclination=%d,Model Inclination=%d\n',catalogue,model,Bayes,theta1,theta2)
+%fprintf('Injection=%s \nModel=%s \nBayes Factor=%f \nInjection Inclination=%d \nModel Inclination=%d\n',catalogue,model,Bayes,theta1,theta2)
+
+%fprintf('prior value=%e\n', priorvaltmp)
 
 clear all
 toc
+
 exit

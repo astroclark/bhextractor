@@ -40,7 +40,7 @@ export MATLABPATH=${MATLABPATH}:"${BHEX_PREFIX}/SMEE"
 
 
 # ---- Loop through models
-for model in Q HR RO3
+for model in Q #HR RO3
 do
 
     if [ ${model} == "Q" ]

@@ -6,7 +6,6 @@ import scipy.io as sio
 from scipy import signal
 import HHT
 from matplotlib import pyplot as pl
-
 import matplotlib
 
 #font = {'family' : 'Helvetica',
@@ -61,8 +60,8 @@ fs=16384.
 
 Mtot=250.
 Dist=1.
-Mscale_D = Mtot * lal.LAL_MRSUN_SI / (Dist * 1e9 * lal.LAL_PC_SI)
-Mscale_T = Mtot * lal.LAL_MTSUN_SI #/ (Dist * 1e9 * lal.LAL_PC_SI)
+Mscale_D = Mtot * lal.MRSUN_SI / (Dist * 1e9 * lal.PC_SI)
+Mscale_T = Mtot * lal.MTSUN_SI #/ (Dist * 1e9 * lal.LAL_PC_SI)
 
 # Get catalogue label from filename XXX: careful with this (doesn't care about
 # other identifiers)
@@ -71,14 +70,14 @@ catname=outname.split('/')[-1].split('_')[0]
 #time_axis=np.arange(0,1,1.0/fs)
 time_axis=np.arange(0, len(data['PCs_final'][:,0])/16384.0, 1.0/16384)
 
-npcs={'Q':2, 'HR':4, 'RO3':5}
+npcs={'Q':3, 'HR':6, 'RO3':7}
 
 # --- Time series
 #fig,ax=pl.subplots(np.shape(data['PCs_final'])[1],figsize=(8,12),sharex='col')
 fig,ax=pl.subplots(npcs[catname],sharex='col')
 for r,row in enumerate(ax):
     #row.plot(data['PCs_final'][:,r]/max(data['PCs_final'][:,r]))
-    row.plot(time_axis/Mscale_T,data['PCs_final'][:,r], color='k', linewidth=0.5)
+    row.plot(time_axis/Mscale_T,np.imag(data['PCs_final'][:,r]), color='k', linewidth=0.5)
     #row.set_ylim(-1.1,1.1)
     #row.set_yticklabels('')
 
@@ -89,7 +88,7 @@ for r,row in enumerate(ax):
 
     #row.minorticks_on()
     #row.grid(which='major',color='grey',linestyle='-')
-    row.set_xlim(0.25/Mscale_T,0.85/Mscale_T)
+    ##row.set_xlim(0.25/Mscale_T,0.85/Mscale_T)
     #if r==0: 
     #    row.set_title(
     #            '%s-catalogue dominant principle components'%catname,

@@ -138,8 +138,8 @@ for pc_file, wf_file in zip(PC_files,WF_files):
     PC_dict = sio.loadmat(pc_file)
     waveform_dict = sio.loadmat(wf_file)
 
-    PCs = PC_dict['PCs_final']
-    waveforms = waveform_dict['MDC_final']
+    PCs = np.imag(PC_dict['PCs_final'])
+    waveforms = np.imag(waveform_dict['MDC_final'])
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Calculate the beta values by projecting data onto PCs
@@ -153,7 +153,7 @@ for pc_file, wf_file in zip(PC_files,WF_files):
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute cumulative energy content for each eigenvector
     #
-    cum_energy = eigenenergy(np.array(PC_dict['EigVals'])[0])
+    cum_energy = eigenenergy(np.array(np.imag(PC_dict['EigVals'])[0]))
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Plot Results

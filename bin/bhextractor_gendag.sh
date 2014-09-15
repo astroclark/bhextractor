@@ -17,7 +17,7 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 
-if [ $# -ne 3 ] 
+if [ $# -ne 5 ] 
 then
     echo "insufficient args"
     exit
@@ -26,13 +26,11 @@ fi
 # ---------------------------------
 # INPUTS
 
-# The name of the Injection catalogue
 signal=${1}
-
-# The waveform number
 waveformN=${2}
-
 snr=${3}
+cat_inc=${4}
+model_inc=${5}
 
 # The name of the condor submission file for this run
 subfile=inj-${signal}_wf-${waveformN}_snr-${snr}.sub
@@ -119,9 +117,9 @@ then
     shaexec=`which sha256sum`
 fi
 
-for j in `seq 1 1000`
+for j in `seq 1 10`
 do
-    echo "generating job ${j} of 1000"
+    echo "generating job ${j} of 100"
 
     # seed for this job
     seed=$((${j}+`lalapps_tconvert now`))
@@ -133,7 +131,7 @@ do
 
 
     # arguments for this job
-    jobargs="${signal} ${waveformN} ${seed} ${snr}"
+    jobargs="${signal} ${waveformN} ${seed} ${snr} ${cat_inc} ${model_inc}"
 
 	# Set up DAG lines
 	jobname="bhex_${seed}"
@@ -146,7 +144,7 @@ do
 
     echo "# JOB ${jobname}" >> ${shellfile}
     echo """
-    sh ${bhexnest_exec} ${signal} ${waveformN} ${seed} ${snr}
+    sh ${bhexnest_exec} ${signal} ${waveformN} ${seed} ${snr} ${cat_inc} ${model_inc}
     """ >> ${shellfile}
 
 done
