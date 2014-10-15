@@ -1,5 +1,5 @@
 #! /bin/sh
-# Make env setup script
+# MMake env setup script
 # James Clark, james.clark@ligo.org
 
 # Get the location of the git repository by finding the full path of this file
