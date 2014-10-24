@@ -48,7 +48,7 @@ deltaT = 1./sample_rate
 phiC=0.0
 distance=1e9*lal.PC_SI
 mtot=500
-inclination=45.0
+inclination=0.0
 mass_ratio=100
 
 
@@ -86,8 +86,18 @@ time = time[idx]
 import cwt
 
 scales = 1+np.arange(256)
-mother_wavelet = cwt.SDG(len_signal = len(data), scales = scales,
-        normalize = True, fc = 'center')
+
+#mother_wavelet = cwt.SDG(len_signal = len(data), scales = scales,
+#        normalize = True, fc = 'center')
+
+#mother_wavelet = cwt.Morlet(len_signal = len(data), scales = scales,
+#                sampf=sample_rate, f0=1)
+
+mother_wavelet = cwt.Morlet(len_signal = len(data), scales = scales,
+                sampf=sample_rate, f0=1)
+
+
+
 wavelet = cwt.cwt(data, mother_wavelet)
 
 # --- Plotting
