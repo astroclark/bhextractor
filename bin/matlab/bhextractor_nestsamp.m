@@ -1,8 +1,8 @@
 function bhextractor_nestsamp(run_name, noiseType, model, catalogue, ...
     wv, lowfreq, highfreq, seed, detno,numPCs,doPlot,...
-    typeofscaling, scaling, doDistance, doTimeshift)
+    typeofscaling, scaling, doDistance, doTimeshift, doMass, mass_target)
 
-maxNumCompThreads(1)
+maxNumCompThreads(1);
 
 BHEX_PREFIX=getenv('BHEX_PREFIX');
 FRGETVECT_PATH=getenv('FRGETVECT_PATH');
@@ -88,12 +88,19 @@ if numPCs < 1 || mod(numPCs,1)
     numPCs = floor(abs(numPCs)+1);
     fprintf(1,'numPCs changed to %i\n',numPCs);
 end
+
 if (~exist('doTimeshift','var')), doTimeshift=0;
 elseif (ischar(doTimeshift)), doTimeshift=str2num(doTimeshift); end
 if doTimeshift > 0, doTimeshift = 1; else doTimeshift = 0; end
+
 if (~exist('doDistance','var')), doDistance=0;
 elseif (ischar(doDistance)), doDistance=str2num(doDistance); end
 if doDistance > 0, doDistance = 1; else doDistance = 0; end
+% addmass
+if (~exist('doMass','var')), doMass=0;
+elseif (ischar(doMass)), doMass=str2num(doMass); end
+if doMass > 0, doMass = 1; else doMass = 0; end
+
 if (~exist('doPlot','var')), doPlot=0;
 elseif (ischar(doPlot)), doPlot=str2num(doPlot); end
 
@@ -111,7 +118,7 @@ warning('off','MATLAB:RandStream:GetDefaultStream')
 tic
 
 clearvars -except run_name catalogue wv model seed lowfreq highfreq typeofscaling scaling ...
-    detno numPCs doTimeshift doDistance doPlot noise_curve BHEX_PREFIX
+    detno numPCs doTimeshift doDistance doPlot doMass noise_curve BHEX_PREFIX mass_target
 
 evnoise = zeros(detno,1);
 
@@ -123,6 +130,7 @@ Lw = zeros(maxits,1);
 betas = zeros(maxits,numPCs);
 Ts = zeros(maxits,1);
 Distance = zeros(maxits,1);
+Mass = zeros(maxits,1);
 
 %sampling frequency of waveforms
 % fs = 4096;
@@ -242,17 +250,33 @@ else
     drange=maxd-mind;
     dprior=-log(1);
 end
-
+% addmass help
+if(doMass)
+    maxm=560;
+    %mind=0.05;
+    minm=440;
+    mrange=maxm-minm;
+    mprior=-log(mrange);
+else
+    maxm=1;
+    minm=1;
+    mrange=maxm-minm;
+    mprior=-log(1);
+end
 
 % set the number of active points in the Nested Sampling
-numactive = 50;
+numactive = 100; % ~ 6 min, 350 Msun, no recovery
+% numactive = 500; % ~ 6 hours, 350 Msun, no recovery
 
 % set the number of iterations in the MCMC for finding the next active
 % point
 nits = 10;
 
 % This loads the waveform indicated in the input
-wave=MDC_final(:,wv);
+%wave=MDC_final(:,wv);
+catalog_mass = 250;
+wave_unscaled=MDC_final(:,wv);
+wave=MDC_final(:,wv)*mass_target/catalog_mass; % scales injection waveform amplitude
 
 % XXX: HACK XXX
 %wave=wave.*hann(length(wave));
@@ -262,7 +286,74 @@ wave=MDC_final(:,wv);
 % phi = pi/2;
 % psi= 45;
 
+%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+% Scale waveform in time-domain
+%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+scale_ratio = mass_target/catalog_mass;
+f_vec = (0:1:fs/2)';
+f_vec_scaled = (0:1*scale_ratio:(fs/2)*scale_ratio)';
+f_vec_long = (0:1:fs-1)';
 
+wave_resampled=resample(wave,mass_target,catalog_mass);
+
+peak_idx_unscaled = find(abs(wave_unscaled)==max(abs(wave_unscaled)));
+peak_idx = find(abs(wave_resampled)==max(abs(wave_resampled)));
+
+wave_aligned = wave_resampled((peak_idx-peak_idx_unscaled):length(wave_resampled));
+wave = wave_aligned.*tukeywin(length(wave_aligned),0.25);
+wave = wave(1:length(wave_unscaled));
+
+% figure(1);
+% plot(wave_unscaled,'r'); hold on; plot(wave,'b'); hold off;
+% mleg=legend('M=250',sprintf('M=%i',mass_target));
+% set(mleg,'Location','NorthWest')
+% axis auto
+% title('Mass Scaling Test');
+% xlabel('Sample Number');
+% ylabel('Amplitude');
+% 
+% 
+% PSD_unscaled = abs((fft(wave_unscaled))).^2;
+% PSD_scaled = abs((fft(wave))).^2;
+% figure(2);
+% semilogy(PSD_unscaled,'r'); hold on; semilogy(PSD_scaled,'b'); hold off;
+% xlim([0,200]);
+% mleg=legend('M=250',sprintf('M=%i (scaled)',mass_target));
+% set(mleg,'Location','SouthWest')
+% title('Mass Scaling Test - Frequency Domain');
+% xlabel('Frequency (Hz)');
+% ylabel('Power');
+
+%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+% Compute FFT from scaled time-domain waveform
+%xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+
+% px1_tmp = abs((fft(wave_unscaled))).^2;
+% px1 = interp1(f_vec_long,px1_tmp,f_vec);
+% px2_tmp = abs((fft(wave_aligned))).^2;
+% px2 = interp1(f_vec_long,px2_tmp,f_vec);
+% px3 = interp1(f_vec_long,px2_tmp,f_vec_scaled);
+% 
+% %xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+% % Scale waveform in frequency-domain
+% %xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+% example_template_250 = wave_unscaled;
+% example_template_250_fft = fft(example_template_250);
+% example_template_250_FD = interp1(f_vec_long,example_template_250_fft,f_vec);
+% PSD_250 = (abs(example_template_250_FD)).^2;
+% 
+% example_template_500_FD = interp1(f_vec_long,example_template_250_fft,f_vec/scale_ratio,'nearest');
+% PSD_500 = (abs(example_template_500_FD)).^2;
+% 
+% semilogy(f_vec,PSD_250,f_vec,px2,f_vec,PSD_500);
+% %semilogy(f_vec,PSD_250,'+',f_vec,px2,'x',f_vec,PSD_500,'o');
+% %grid on;
+% xlim([0,200]);
+% mleg=legend('M=250',sprintf('M=%i peak-aligned (TD)',mass_target), sprintf('M=%i (FD)',mass_target));
+% set(mleg,'Location','SouthWest')
+% title('Mass Scaling Test - Scaled in FD After FFT');
+% xlabel('Frequency (Hz)');
+% ylabel('Power');
 
 %Preparations FFTs
 len = length(wave);
@@ -389,6 +480,8 @@ end
 
 
 actived = rand(1,numactive)*(maxd-mind) + mind;
+%addmass
+activem = rand(1,numactive)*(maxm-minm) + minm;
 
 if(doTimeshift)
     %find sum of likelihood for points in all the time shift bins, and then
@@ -399,14 +492,16 @@ if(doTimeshift)
         
         like_sum = -1e37;
         % calculate the likelihood*prior at these current active points
+        %addmass
         likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
-            + Tprior + dprior;
+            + Tprior + dprior + mprior;
         %coherent case: L is product over individual detector likelihoods
         for j=1:numactive
             for i=1:detno
+                %addmass
                 lp = like_gauss_fspace_td(wave_ft(:,i), sigdet(:,i), ...
                     deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
-                    @findy, V_ft, activebeta(j,:), actived(j), numPCs);
+                    @findy, V_ft, activebeta(j,:), actived(j),activem(j), numPCs);
                 
                 likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
                 
@@ -429,15 +524,17 @@ end
 activeT = rand(1,numactive)*(maxT-minT) + minT;
 
 % calculate the likelihood*prior at these current active points
+%addmass
 likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
-    + Tprior + dprior;
+    + Tprior + dprior + mprior;
 
 %coherent case: L is product over individual detector likelihoods
 for j=1:numactive
     for i=1:detno
+        %addmass
         lp = like_gauss_fspace_td(wave_ft(:,i), sigdet(:,i), ...
             deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
-            @findy, V_ft, activebeta(j,:), actived(j), numPCs);
+            @findy, V_ft, activebeta(j,:), actived(j), activem(j), numPCs);
         
         likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
         
@@ -464,7 +561,7 @@ end
 resultsdir=run_name;
 mkdir(resultsdir)
 
-verbose=1;
+verbose=0;
 
 while j-2 <= numactive * infosafe * H(j-1)
 
@@ -476,9 +573,11 @@ while j-2 <= numactive * infosafe * H(j-1)
         activebeta_avg = mean(activebeta);
         activeD_avg = mean(actived);
         activeT_avg = mean(activeT);
+        %addmass
+        activeM_avg = mean(activem);
         
-    
-        y_fft = findy(V_ft, activebeta_avg, activeD_avg, numPCs);
+        %addmass
+        y_fft = findy(V_ft, activebeta_avg, activeD_avg, activeM_avg, numPCs);
         y = ifft([0; y_fft; 0; flipud(conj(y_fft))]);
         y_sig_fft = fft(wave0)*sample_deltaT;
     
@@ -525,27 +624,42 @@ while j-2 <= numactive * infosafe * H(j-1)
     betas(j-1,:) = activebeta(idx,:);
     Ts(j-1) = activeT(idx);
     Distance(j-1) = actived(idx);
+    %addmass
+    Mass(j-1) = activem(idx);
     
     % calculate the information H
     H(j) = exp(logWt - Z(j))*Lmin + exp(Z(j-1) - Z(j)) *...
         (H(j-1) + Z(j-1)) - Z(j);
     
     Activebeta=activebeta;
-
-    if (doDistance && doTimeshift)
+    %addmass
+    if (doDistance && doTimeshift && doMass)
         Activebeta(:,numPCs+1)=actived;
+        Activebeta(:,numPCs+2)=activeT;
+        Activebeta(:,numPCs+3)=activem;
+    elseif (doDistance && doTimeshift)
+        Activebeta(:,numPCs+1)=actived;
+        Activebeta(:,numPCs+2)=activeT;
+    elseif (doDistance && doMass)
+        Activebeta(:,numPCs+1)=actived;
+        Activebeta(:,numPCs+2)=activem;
+    elseif (doMass && doTimeshift)
+        Activebeta(:,numPCs+1)=activem;
         Activebeta(:,numPCs+2)=activeT;
     elseif (doDistance)
         Activebeta(:,numPCs+1)=actived;
     elseif (doTimeshift)
         Activebeta(:,numPCs+1)=activeT;
+    elseif (doMass)
+        Activebeta(:,numPCs+1)=activem;
     end
     
     % update the log width
     logw(j) = logw(j-1) - 1/numactive;
     
     % will need to change 2nd argument to number of PC's used
-    if mod(j-2, numPCs + doDistance + doTimeshift)== 0
+    %addmass
+    if mod(j-2, numPCs + doDistance + doTimeshift + doMass)== 0
         cholmat = cholcov(cov(Activebeta));
     end
     
@@ -560,10 +674,14 @@ while j-2 <= numactive * infosafe * H(j-1)
         betachain = zeros(nits+1, numPCs);
         Tchain = zeros(nits+1, 1);
         dchain = zeros(nits+1, 1);
+        %addmass
+        mchain = zeros(nits+1, 1);
         
         betachain(1,:) = activebeta(randval,:);
         Tchain(1) = activeT(randval);
         dchain(1) = actived(randval);
+        %addmass
+        mchain(1) = activem(randval);
         
         Lcur = likeactive(randval);
         
@@ -573,7 +691,8 @@ while j-2 <= numactive * infosafe * H(j-1)
         %if verbose; disp('sampling new point'); end
         for k=1:nits
             % generate new position from proposal
-            gasvals = randn(numPCs + doTimeshift + doDistance,1);
+            %addmass
+            gasvals = randn(numPCs + doTimeshift + doDistance + doMass,1);
             newvals = cholmat*gasvals;
             
             betanew = betachain(k,:) + newvals(1:numPCs)';
@@ -588,27 +707,38 @@ while j-2 <= numactive * infosafe * H(j-1)
             else
                 dnew = dchain(k);
             end
+            %addmass
+            if(doMass)
+                mnew = mchain(k) + newvals(end-doTimeshift);
+            else
+                mnew = mchain(k);
+            end
             
             % if new point is not within prior range then reject point
+            %addmass
             if any((betanew < minbeta(1:numPCs)) | (betanew > maxbeta(1:numPCs))) || ...
                     dnew < mind || dnew > maxd || ...
-                    Tnew < minT || Tnew > maxT
+                    Tnew < minT || Tnew > maxT || ...
+                    mnew < minm || mnew > maxm
                 %disp('outside prior')
                 
                 betachain(k+1,:) = betachain(k,:);
                 Tchain(k+1) = Tchain(k);
                 dchain(k+1) = dchain(k);
+                mchain(k+1) = mchain(k);
                 continue;
             end
             
             % get likelihood for new position
             %coherent case: L is product over individual detector likelihoods
-            Lnew = sum(betaprior(1:numPCs)) + Tprior + dprior;
+            %addmass
+            Lnew = sum(betaprior(1:numPCs)) + Tprior + dprior + mprior;
             for i=1:detno
                 %disp('computing likelihood')
+                %addmass
                 lp = like_gauss_fspace_td(wave_ft(:,i), sigma, ...
                     deltaF, len, f, lowfreq_index, highfreq_index, Tnew, ...
-                    @findy, V_ft, betanew, dnew, numPCs);
+                    @findy, V_ft, betanew, dnew, mnew, numPCs);
                 
                 Lnew = Lnew + lp;% + sum(betaprior) ;
             end
@@ -621,6 +751,8 @@ while j-2 <= numactive * infosafe * H(j-1)
                 betachain(k+1,:) = betanew;
                 Tchain(k+1) = Tnew;
                 dchain(k+1) = dnew;
+                %addmass
+                mchain(k+1) = mnew;
                 Lcur = Lnew;
                 acc = acc + 1;
             else
@@ -628,6 +760,8 @@ while j-2 <= numactive * infosafe * H(j-1)
                 betachain(k+1,:) = betachain(k,:);
                 Tchain(k+1) = Tchain(k);
                 dchain(k+1) = dchain(k);
+                %addmass
+                mchain(k+1) = mchain(k);
             end
         end % MCMC sampling
         
@@ -640,6 +774,8 @@ while j-2 <= numactive * infosafe * H(j-1)
     activebeta(idx,:) = betachain(end,:);
     activeT(idx) = Tchain(end);
     actived(idx) = dchain(end);
+    %addmass
+    activem(idx) = mchain(end);
     
     likeactive(idx) = Lcur;
     
@@ -664,6 +800,8 @@ for k=1:numactive
     betas(k+j-2,:) = activebeta(k,:);
     Ts(k+j-2) = activeT(k);
     Distance(k+j-2) = actived(k);
+    %addmass
+    Mass(k+j-2) = activem(k);
 end
 
 %reduce size of variables to be exported
@@ -674,6 +812,8 @@ Ts = Ts(1:j-2+numactive);
 Z_end= Z(j-1+numactive);
 Bayes=Z(j-1+numactive)-sum(evnoise);
 distance= Distance(1:j-2+numactive);
+%addmass
+mass= Mass(1:j-2+numactive);
 
 % calculates the posterior distribution on the beta distributions
 rnums = rand(1,length(Lw));
@@ -685,11 +825,13 @@ idx = find(wt' > maxwt+log(rnums));
 postbetas = betas(idx,:);
 postT= Ts(idx,:);
 postdis= distance(idx,:);
+%addmass
+postmass= mass(idx,:);
 
 posterior_params_savefile = ['smee_output_' catalogue num2str(wv) '_model' model '_PCs' num2str(numPCs)...
     '_detno' num2str(detno) '_' typeofscaling strrep(num2str(scaling), '.', 'p') '_seed' num2str(seed)];
 save([resultsdir '/' posterior_params_savefile],'catalogue','wv','model','betas','activebeta','detno',...
-    'Ts','seed','distance','Lw', 'evnoise','Z_end','Bayes','SNR','postbetas','postT','postdis','effective_distance', 'numPCs');
+    'Ts','seed','distance','mass','Lw', 'evnoise','Z_end','Bayes','SNR','postbetas','postT','postdis','postmass','effective_distance', 'numPCs');
 
 % save a simple txt file with a line of output
 outFile = sprintf('%s/smee_results.txt', resultsdir);
@@ -699,6 +841,7 @@ fclose(fid);
 
 %print evidence for model
 fprintf(1, 'Network: log(%s Evidence) = %f\n', model, Z_end);
+fprintf(1, 'INPUT MASS = %f\n', mass_target);
 fprintf(1, 'log(nested sampling Bayes factor vs Noise) = %f\n', Bayes);
 
 %print extra output data
@@ -709,6 +852,8 @@ for cnt=1:numPCs
 end
 fprintf(1,'<T> = %f\n',mean(activeT));
 fprintf(1,'<D> = %f\n',mean(actived));
+%addmass
+fprintf(1,'<M> = %f\n',mean(activem));
 
 % Save betas from nested sampling
 %BETAS=activebeta;
@@ -719,4 +864,4 @@ clear H Lcur betas Lmin Lnew Lrat acc activebeta betachain cholmat betanew V fs.
     gasvals good idx infosafe likeactive logWt logdbeta Lw logwend logw maxwt...
     mlog2 newvals randval rnums wt Z lp l j k Activebeta ActiveT activeT Ts Tchain Tnew model
 toc
-exit
+%exit

@@ -122,7 +122,11 @@ if catalogue_name not in ['Q','HR','RO3']:
 Mtot=250.0
 Dist=1 # Gpc
 fs=16384
-targetlen=1.0*fs # length of waveforms in catalogue
+
+# XXX: ENSURE TARGETLEN is large enough to accommodate a) longest (lowest mass)
+# waveform AND (b) has enough 'slop' to accommodate the aligned highest mass
+# waveform.
+targetlen=4.0*fs # length of waveforms in catalogue (in samples)
 NRD_sampls=500 # number of samples to retain after peak
 
 # Dictionary with the maximum waveform data lengths
