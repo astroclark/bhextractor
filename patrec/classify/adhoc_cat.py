@@ -50,7 +50,7 @@ def truncparms(low,upp,mu,sigma):
 Fs=1024
 datalen=1.
 time_axis = np.arange(-0.5*datalen, 0.5*datalen, 1./Fs)
-Nwaveforms = 500
+Nwaveforms = 1000
 Ntypes = 2
 
 catalogue = np.zeros(shape=(len(time_axis), Ntypes*Nwaveforms))
@@ -108,8 +108,33 @@ for i in xrange(Nwaveforms):
     catalogue[:,i+Nwaveforms][idx]*=win.data.data
     catalogue[:,i] /= np.sqrt(np.dot(catalogue[:,i], catalogue[:,i]))
 
-catalogue += 0.01*np.random.randn(Fs*datalen, Ntypes*Nwaveforms)
+#catalogue += 0.1*np.random.randn(Fs*datalen, Ntypes*Nwaveforms)
 
+
+if 0:
+    #
+    # PCAT magic: Lifting the following from GMM.py in PCAT
+    #
+    import PCA, GMM
+
+    score_matrix, principal_components, means, stds, eigenvalues = \
+            PCA.PCA(catalogue, components_number=10)
+
+    principal_components_number=10
+
+    reduced_score_matrix = score_matrix[:,:principal_components_number]
+
+    mat, tmp, tmp1 = PCA.matrix_whiten(reduced_score_matrix, std=True)
+
+    #labels = GMM.gaussian_mixture(mat,upper_bound=5)
+    labels = GMM.gaussian_mixture(reduced_score_matrix,upper_bound=5)
+
+    colored_clusters = GMM.color_clusters( score_matrix, labels )
+
+    GMM.print_cluster_info(colored_clusters)
+
+
+#sys.exit()
 #
 # PCA
 #
@@ -135,18 +160,47 @@ for i in xrange(Ntypes*Nwaveforms):
 # Coeffs
 coeffs = H.T*U
 
+# 'scores'
+Z = np.dot(catalogue, coeffs)
+
+# whiten
+for i in xrange(np.shape(catalogue)[0]):
+    Z[i,:] -= np.mean(Z[i,:])
+    Z[i,:] /= np.std(Z[i,:])
+
+# reduce
+Z = Z[:100,:]
+
 #
 # GMM
 #
 from sklearn import mixture
 
-bic=np.zeros(10)
-for c in xrange(10):
-    print c
-    g = mixture.GMM(n_components=c+1)
-    g.fit(coeffs)
-    bic[c] = g.bic(coeffs)
+niterations=10
+print ''
+for i in xrange(niterations):
+    bic=np.zeros(5)
+    min_bic=np.inf
+    for c in xrange(5):
+        #print c
+        g = mixture.GMM(n_components=c+1)
+        g.fit(Z)
+        bic[c] = g.bic(Z)
+        
+        if bic[c] < min_bic:
+            min_bic=bic[c]
+            best_g = g
 
+    best_g.fit(Z)
+    labels=best_g.predict(Z)
+
+    nclusters=np.argmin(bic)+1
+    print 'favoured # of clusters:', nclusters
+
+    print 'Cluster membership:'
+    for label in xrange(nclusters):
+        print 'cluster %d: %.2f percent'%(label,
+                float(sum(labels==label))/len(labels) )
 
 
 
