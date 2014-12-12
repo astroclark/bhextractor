@@ -331,35 +331,51 @@ del resamp_catalogue_real,resamp_catalogue_imag
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PCA
 #
-# This should be a straight copy of the matlab PCA scripts.  It looks like there
-# are some differences in eig() between numpy and matlab but the results should
-# come out the same.
+# This part follows the procedure in http://arxiv.org/abs/0810.5707
 #
 # H = catalogue matrix (columns=waveforms)
 # 
 print 'Performing PCA'
 
 # --- Combine real and imaginary parts of the catalogue
-waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
+waveform_catalogue = waveform_catalogue_real #- 1j*waveform_catalogue_imag
+#waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
 
 # --- Make catalogue a matrix for matrix arithmetic
-#H = np.matrix(waveform_catalogue)
 H = np.matrix(waveform_catalogue)
 
-# --- 1) Compute catalogue covariance
-C = H.T * H / np.shape(H)[0]
+# --- 1) Compute H^T * H - left side of equation (5) in 0810.5707
+HTH = H.T * H
 
-# --- 2) Compute eigenvectors (V) and eigenvalues (S) of C
-S, V = np.linalg.eig(C)
+# --- 2) Compute eigenvectors (V) and eigenvalues (S) of H^T * H
+#S, V = np.linalg.eigh(HTH)
+S, V = np.linalg.eig(HTH)
 
 # --- 3) Sort eigenvectors in descending order
 idx = np.argsort(S)[::-1]
 V = V[:,idx]
 S = S[idx]
 
-# --- 4) Compute the eigenvectors of the real covariance matrix U and normalise
+# --- 4) Sorted Eigenvectors of covariance matrix, C = PCs
+# To get these, note:  H.(H^T.H) = M*C.H, since C = 1/M * H.H^T
+# so H. eigenvectors of HTH are the eigenvectors of C
+# i..e.,  C.U = s*U
+#         (1/M)*H.H^T . U = s*U
+#         U = H.V, V = eigenvectors of H^T.H
+
 U = H*V 
-U /= np.linalg.norm(U,axis=0)
+
+for i in xrange(np.shape(U)[1]):
+    U[:,i] /= np.linalg.norm(U[:,i])
+
+# PC coefficients
+Betas = H.T*U
+
+# i.e to reconstruct H[:,0]:
+h = np.zeros(len(H[:,0]),dtype=complex)
+u = np.array(U)
+for n in xrange(len(S)):
+    h += Betas[0,n]*u[:,n]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
