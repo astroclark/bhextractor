@@ -347,7 +347,8 @@ S = S[idx]
 
 # --- 4) Compute the eigenvectors of the real covariance matrix U and normalise
 U = H*V 
-U /= np.linalg.norm(U,axis=0)
+for i in xrange(np.shape(U)[1]):
+    U[:,i] /= np.linalg.norm(U[:,i])
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
