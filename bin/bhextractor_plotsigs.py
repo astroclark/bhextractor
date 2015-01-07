@@ -130,25 +130,15 @@ time_axis=np.linspace(0,np.shape(data['MDC_final'])[0]/fs,np.shape(data['MDC_fin
 #fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],figsize=(10,15),sharex='col')
 fig,ax=pl.subplots(np.shape(data['MDC_final'])[1],sharex='col')
 for r,row in enumerate(ax):
-    #row.plot(data['MDC_final'][:,r]/max(data['MDC_final'][:,r]),)
-    #row.set_ylim(-1.1,1.1)
-    #row.set_yticklabels('')
+
     row.set_yticks(np.arange(-3e-3,3e-3+0.001,0.002))
     row.set_ylim(-3e-3-0.001,3e-3+0.001)
-    #row.set_yticklabels('')
+
     row.plot(time_axis/Mscale_T, data['MDC_final'][:,r]/Mscale_D,
             color='k',linewidth=0.5, label=labels[catname][r])
-    #row.minorticks_on()
-    #row.grid(which='major',color='grey',linestyle='-')
-    #row.set_xlim(0.25/Mscale_T,0.85/Mscale_T)
+
     if r==np.floor(len(ax)/2): 
-        #row.set_title(
-        #        '%s Waveform Catalogue'%catname,
-        #        weight='bold')
         row.set_ylabel('rh$_{+}$ [M$_{\odot}$]')
-    #leg=row.legend(loc='upper right',frameon=True)
-    #for label in leg.get_lines():
-    #        label.set_linewidth(0.01)  # the legend line width
 
 pl.xlabel('Time [M$_{\odot}$]')
 pl.subplots_adjust(hspace=0.0,wspace=0.35,left=0.2,bottom=0.08,top=0.98)
