@@ -48,7 +48,7 @@ def lal_fft(timeseries,seglen=5,fs=16384):
     timeseries.data.data*=window.data.data
 
     freqseries = lal.CreateCOMPLEX16FrequencySeries("h(f)", timeseries.epoch,
-            timeseries.f0, 1./seglen, lal.lalHertzUnit, int(N/2 + 1)) 
+            timeseries.f0, 1./seglen, lal.HertzUnit, int(N/2 + 1)) 
 
     fftplan = lal.CreateForwardREAL8FFTPlan(N, 0)
     lal.REAL8TimeFreqFFT(freqseries, timeseries, fftplan)
@@ -95,12 +95,12 @@ def optimal_snr(tSeries,freqmin=1500,freqmax=4096):
     hrss = np.trapz(p_FD,x=freq)**0.5
 
     # energy (assume elliptical polarisation)
-    D = 20.0 * 1e6 * lal.LAL_PC_SI
-    Egw = 8.0 * lal.LAL_PI**2 * lal.LAL_C_SI**3 * D*D * \
+    D = 20.0 * 1e6 * lal.PC_SI
+    Egw = 8.0 * lal.PI**2 * lal.C_SI**3 * D*D * \
             np.trapz(freq*freq*p_FD, x=freq)
-    Egw /= 5*lal.LAL_G_SI
+    Egw /= 5*lal.G_SI
 
-    Egw /= lal.LAL_MSUN_SI * lal.LAL_C_SI * lal.LAL_C_SI
+    Egw /= lal.MSUN_SI * lal.C_SI * lal.C_SI
 
     # return Egw in solar masses
 
@@ -229,15 +229,15 @@ for w in range(len(waveforms)):
 print 'truncating and tapering'
 
 inspiral_time = 0.5
-inspiral_len = np.ceil((inspiral_time / (Mtot*lal.LAL_MTSUN_SI)) /
+inspiral_len = np.ceil((inspiral_time / (Mtot*lal.MTSUN_SI)) /
         np.diff(time)[0])
 turn_on_idx = align_to_idx - inspiral_len
 catalogue[0:turn_on_idx] = 0.0
 
 # ---------- MASS DEPENDENT CALCULATIONS -----------
 # Determine current sample rate.  XXX: This assumes a mass scale
-NR_deltaT = Mtot * lal.LAL_MTSUN_SI * NR_deltaT[catalogue_name]
-Mscale = Mtot * lal.LAL_MRSUN_SI / (Dist * 1e9 * lal.LAL_PC_SI)
+NR_deltaT = Mtot * lal.MTSUN_SI * NR_deltaT[catalogue_name]
+Mscale = Mtot * lal.MRSUN_SI / (Dist * 1e9 * lal.PC_SI)
 
 # Resampled catalogue
 #resamp_catalogue = np.zeros(shape=(wflen*NR_deltaT*fs,len(waveforms)))
@@ -254,10 +254,10 @@ for w in range(len(waveforms)):
 
         # --- Tapering is done on lal TimeSeries objects
         hoft = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
-                NR_deltaT, lal.lalStrainUnit, maxlengths[catalogue_name])
+                NR_deltaT, lal.StrainUnit, maxlengths[catalogue_name])
         hoft.data.data = catalogue[:,w]
         lalsim.SimInspiralREAL8WaveTaper(hoft.data,
-                lalsim.LAL_SIM_INSPIRAL_TAPER_STARTEND)
+                lalsim.SIM_INSPIRAL_TAPER_STARTEND)
 
         # --- Resampling (Note that LAL only handles downsampling by a factor of 2)
         # XXX apply mass scaling here.
@@ -265,7 +265,7 @@ for w in range(len(waveforms)):
 
         # --- Compute SNR and rescale to SNR=1
         hoft = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
-                1/float(fs), lal.lalStrainUnit, len(resampled_wf))
+                1/float(fs), lal.StrainUnit, len(resampled_wf))
         hoft.data.data = resampled_wf
         rho, hrss, _, _, _ = optimal_snr(hoft,freqmin=10,freqmax=100)
         resampled_wf *= 1.0/rho
