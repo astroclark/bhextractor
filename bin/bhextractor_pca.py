@@ -297,10 +297,8 @@ resamp_catalogue = resamp_catalogue[:min(trail_nonzero_idx),:]
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Create standardised catalogue 
 # --- all waveforms have 1s duration with peak aligned to 0.75s
-
 waveform_catalogue = np.zeros(shape=(targetlen,len(waveforms)))
-#peak_indices=np.argmax(resamp_catalogue,axis=0)
-peak_indices=np.argwhere(abs(resamp_catalogue)>0,axis=0)[0]
+
 #align_to_idx=np.floor(0.75*targetlen)
 align_to_idx=np.floor(0.01*targetlen)
 for w in range(len(waveforms)):
@@ -308,15 +306,17 @@ for w in range(len(waveforms)):
     # current waveform
     wf=resamp_catalogue[:,w]
 
+    peak_index=np.argmax(abs(wf))
+
     # Get the lengths of current waveform data to the left/right of the peak of
     # this waveform
-    llen = len(wf[:peak_indices[w]])
-    rlen = len(wf[peak_indices[w]:])
+    llen = len(wf[:peak_index])
+    rlen = len(wf[peak_index:])
 
     # populate left side of peak
-    waveform_catalogue[align_to_idx-llen:align_to_idx,w] = wf[:peak_indices[w]]
+    waveform_catalogue[align_to_idx-llen:align_to_idx,w] = wf[:peak_index]
     # populate right side of peak
-    waveform_catalogue[align_to_idx:align_to_idx+rlen,w] = wf[peak_indices[w]:peak_indices[w]+rlen]
+    waveform_catalogue[align_to_idx:align_to_idx+rlen,w] = wf[peak_index:peak_index+rlen]
 
 del resamp_catalogue
 
