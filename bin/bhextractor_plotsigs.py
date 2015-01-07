@@ -123,9 +123,7 @@ labels={'Q':Q_labels, 'HR':HR_labels, 'RO3':RO3_labels}
 # other identifiers)
 catname=outname.split('/')[-1].split('_')[0]
 
-print np.shape(data['MDC_final'])
 time_axis=np.linspace(0,np.shape(data['MDC_final'])[0]/fs,np.shape(data['MDC_final'])[0])
-print np.shape(time_axis)
 
 
 # --- Time series
@@ -138,7 +136,7 @@ for r,row in enumerate(ax):
     row.set_yticks(np.arange(-3e-3,3e-3+0.001,0.002))
     row.set_ylim(-3e-3-0.001,3e-3+0.001)
     #row.set_yticklabels('')
-    row.plot(time_axis/Mscale_T, np.imag(data['MDC_final'][:,r])/Mscale_D,
+    row.plot(time_axis/Mscale_T, data['MDC_final'][:,r]/Mscale_D,
             color='k',linewidth=0.5, label=labels[catname][r])
     #row.minorticks_on()
     #row.grid(which='major',color='grey',linestyle='-')
