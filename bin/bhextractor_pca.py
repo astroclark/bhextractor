@@ -307,6 +307,7 @@ for w in range(len(waveforms)):
     wf=resamp_catalogue[:,w]
 
     peak_index=np.argmax(abs(wf))
+    print np.shape(peak_index)
 
     # Get the lengths of current waveform data to the left/right of the peak of
     # this waveform
