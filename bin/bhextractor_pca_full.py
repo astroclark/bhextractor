@@ -33,6 +33,31 @@ import pycbc.types
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
 
+def taper_start(input_data):
+    """  
+    Taper the start of the data
+    """
+
+    timeseries = lal.CreateREAL8TimeSeries('blah', 0.0, 0,
+            1.0/16384, lal.StrainUnit, int(len(input_data)))
+    timeseries.data.data = input_data
+
+    lalsim.SimInspiralREAL8WaveTaper(timeseries.data,
+        lalsim.SIM_INSPIRAL_TAPER_START)
+
+    return timeseries.data.data
+
+def window_wave(input_data):
+
+    nonzero=np.argwhere(abs(input_data)>0)
+    idx = range(nonzero[0],nonzero[-1])
+    beta = 0.25
+    win = lal.CreateTukeyREAL8Window(len(idx), beta)
+    win.data.data[int(0.5*len(idx)):]=1.0
+
+    input_data[idx] *= win.data.data
+
+    return input_data
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # INPUT 
@@ -47,11 +72,9 @@ if catalogue_name not in ['Q','HR','RO3']:
             "Error, catalogue '%s' not recognised "\
             "(must be Q, HR or RO3)"%catalogue_name
 
-Mtot=250.0
-Dist=1 # Gpc
-fs=16384
-targetlen=1.0*fs # length of waveforms in catalogue
+targetlen=5000
 NRD_sampls=500 # number of samples to retain after peak
+NINSP_sampls=2000 # number of samples to retain before peak
 
 # Dictionary with the maximum waveform data lengths
 maxlengths={'Q':10959, 'HR':31238, 'RO3':16493}
@@ -74,9 +97,8 @@ waveforms = [ f for f in os.listdir(catalogue_path) if
 # Preallocate a matrix for the catalogue
 wflen=maxlengths[catalogue_name]
 catalogue=np.zeros(shape=(wflen,len(waveforms))) + 0j
-times=np.zeros(shape=(wflen,len(waveforms)))
 
-# Get waveforms in this catalogue
+# Build waveforms in this catalogue
 for w,waveform in enumerate(waveforms):
     print 'Building %s waveform'%waveform
 
@@ -110,25 +132,30 @@ for w,waveform in enumerate(waveforms):
     catalogue[:,w] = hplus - 1j*hcross
     
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Align Peaks
+# Catalogue Conditioning
 
 catalogue_real = np.real(catalogue)
 catalogue_imag = np.imag(catalogue)
 
+# Resampled catalogue
+waveform_catalogue_real = np.zeros(shape=(targetlen,len(waveforms)))
+waveform_catalogue_imag = np.zeros(shape=(targetlen,len(waveforms)))
+
 print 'aligning peak times'
 
 # Time axis
-time=mode_data[:,0]
+#time=mode_data[:,0]
 
 # Find peak indices
 peak_indices_real=np.argmax(abs(catalogue_real),axis=0)
-#peak_indices_imag=np.argmax(abs(catalogue_imag),axis=0)
 
 # Align all waveform peaks to the latest-time peak
 align_to_idx_real=max(peak_indices_real)
-#align_to_idx_imag=max(peak_indices_imag)
 
-for w in range(len(waveforms)):
+for w in xrange(len(waveforms)):
+    print 'aligning & tapering %d of %d'%(w, len(waveforms))
+
+    # ~~~ Align Peaks
 
     # Temp array to hold aligned waveform
     tmp_real = np.zeros(len(catalogue_real[:,w]))
@@ -146,6 +173,7 @@ for w in range(len(waveforms)):
     # populate left side of peak
     tmp_real[align_to_idx_real-llen_real:align_to_idx_real] = wf_real[:peak_indices_real[w]]
     tmp_imag[align_to_idx_real-llen_imag:align_to_idx_real] = wf_imag[:peak_indices_real[w]]
+
     # populate right side of peak
     tmp_real[align_to_idx_real:] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
     tmp_imag[align_to_idx_real:] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
@@ -154,100 +182,27 @@ for w in range(len(waveforms)):
     catalogue_real[:,w] = np.copy(tmp_real)
     catalogue_imag[:,w] = np.copy(tmp_imag)
 
+    # --- Resampling 
+    # Resample to NR_deltaT = 0.01 (say)
+    waveform_catalogue_real[:,w] = signal.resample(catalogue_real[:,w], targetlen)
+    waveform_catalogue_imag[:,w] = signal.resample(catalogue_imag[:,w], targetlen)
 
-# ---------- MASS DEPENDENT CALCULATIONS -----------
-# Determine current sample rate.  XXX: This assumes a mass scale
-NR_deltaT = Mtot * lal.MTSUN_SI * NR_deltaT[catalogue_name]
-Mscale = Mtot * lal.MRSUN_SI / (Dist * 1e9 * lal.PC_SI)
+    # --- Get rid of early-time numerical noise
+    peak_idx = np.argmax(abs(waveform_catalogue_real[:,w]))
+    zero_idx = max(0,peak_idx-NINSP_sampls)
 
-# Resampled catalogue
-resamp_catalogue_real = np.zeros(shape=(wflen*NR_deltaT*fs,len(waveforms)))
-resamp_catalogue_imag = np.zeros(shape=(wflen*NR_deltaT*fs,len(waveforms)))
+    waveform_catalogue_real[:zero_idx,w] = 0.0
+    waveform_catalogue_imag[:zero_idx,w] = 0.0
 
-# Resample and taper
-for w in range(len(waveforms)):
+    # --- Get rid of late-time numerical noise
+    zero_idx = min(peak_idx + NRD_sampls, targetlen)
+    waveform_catalogue_real[zero_idx:,w] = 0.0
+    waveform_catalogue_imag[zero_idx:,w] = 0.0
 
-        # --- Get rid of late-time numerical noise
-        #zero_tail_idx = \
-        #        np.argwhere(abs(catalogue[:,w])>0.01*max(abs(catalogue[:,w])))[-1]
-        zero_tail_idx_real = np.argmax(abs(catalogue_real[:,w]))+NRD_sampls
-        zero_tail_idx_imag = np.argmax(abs(catalogue_imag[:,w]))+NRD_sampls
-        catalogue_real[zero_tail_idx_real:,w] = 0.0
-        catalogue_imag[zero_tail_idx_real:,w] = 0.0
+    # --- Windowing / tapering
+    waveform_catalogue_real[:,w] = window_wave(waveform_catalogue_real[:,w])
+    waveform_catalogue_imag[:,w] = window_wave(waveform_catalogue_imag[:,w])
 
-        # --- Tapering is done on lal TimeSeries objects
-        hoft_real = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
-                NR_deltaT, lal.StrainUnit, maxlengths[catalogue_name])
-        hoft_imag = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
-                NR_deltaT, lal.StrainUnit, maxlengths[catalogue_name])
-        hoft_real.data.data = catalogue_real[:,w]
-        hoft_imag.data.data = catalogue_imag[:,w]
-        lalsim.SimInspiralREAL8WaveTaper(hoft_real.data,
-                lalsim.SIM_INSPIRAL_TAPER_STARTEND)
-        lalsim.SimInspiralREAL8WaveTaper(hoft_imag.data,
-                lalsim.SIM_INSPIRAL_TAPER_STARTEND)
-
-        # --- Resampling 
-        # XXX applying mass scaling here.
-        resampled_wf_real = Mscale*signal.resample(hoft_real.data.data, wflen*NR_deltaT * fs)
-        resampled_wf_imag = Mscale*signal.resample(hoft_imag.data.data, wflen*NR_deltaT * fs)
-
-        # --- High-pass it above 10 Hz
-        tmp_real = pycbc.types.TimeSeries(initial_array=resampled_wf_real, delta_t=1.0/fs)
-        tmp_real = pycbc.filter.highpass(tmp_real, frequency=10, filter_order=8, attenuation=0.1)
-
-        tmp_imag = pycbc.types.TimeSeries(initial_array=resampled_wf_imag, delta_t=1.0/fs)
-        tmp_imag = pycbc.filter.highpass(tmp_imag, frequency=10, filter_order=8, attenuation=0.1)
-
-        # --- Compute SNR and rescale to SNR=1
-        noise_psd = aLIGOZeroDetHighPower(len(tmp_real.to_frequencyseries()),
-                tmp_real.to_frequencyseries().delta_f, low_freq_cutoff=10)
-
-#        rho = pycbc.filter.sigma(tmp_real, low_frequency_cutoff=10,
-#                psd=noise_psd)
-
-        rho = pycbc.filter.sigma(tmp_real, low_frequency_cutoff=10)
-
-        tmp_real.data *= 1.0/rho
-        tmp_imag.data *= 1.0/rho
-
-        # Populate catalogue with scaled, resampled, tapered data. 
-        resamp_catalogue_real[:,w] = tmp_real.data[:]
-        resamp_catalogue_imag[:,w] = tmp_imag.data[:]
-
-#sys.exit()
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Create standardised catalogue 
-
-targetlen=4*fs
-waveform_catalogue_real = np.zeros(shape=(targetlen,len(waveforms)))
-waveform_catalogue_imag = np.zeros(shape=(targetlen,len(waveforms)))
-peak_indices_real=np.argmax(resamp_catalogue_real,axis=0)
-#peak_indices_imag=np.argmax(resamp_catalogue_imag,axis=0)
-align_to_idx_real=np.floor(0.75*targetlen)
-#align_to_idx_imag=np.floor(0.75*targetlen)
-for w in range(len(waveforms)):
-
-    # current waveform
-    wf_real=resamp_catalogue_real[:,w]
-    wf_imag=resamp_catalogue_imag[:,w]
-
-    # Get the lengths of current waveform data to the left/right of the peak of
-    # this waveform
-    llen_real = len(wf_imag[:peak_indices_real[w]])
-    rlen_real = len(wf_imag[peak_indices_real[w]:])
-    llen_imag = len(wf_imag[:peak_indices_real[w]])
-    rlen_imag = len(wf_imag[peak_indices_real[w]:])
-
-
-    # populate left side of peak
-    waveform_catalogue_real[align_to_idx_real-llen_real:align_to_idx_real,w] = wf_real[:peak_indices_real[w]]
-    waveform_catalogue_imag[align_to_idx_real-llen_imag:align_to_idx_real,w] = wf_imag[:peak_indices_real[w]]
-    # populate right side of peak
-    waveform_catalogue_real[align_to_idx_real:align_to_idx_real+rlen_real,w] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
-    waveform_catalogue_imag[align_to_idx_real:align_to_idx_real+rlen_imag,w] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_imag]
-
-del resamp_catalogue_real,resamp_catalogue_imag
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PCA
@@ -297,6 +252,27 @@ u = np.array(U)
 for n in xrange(len(S)):
     h += Betas[0,n]*u[:,n]
 
+# And to interpolate, we could do something like:
+
+# mass ratios in Q-series:
+Qs = [1.75, 1.60, 1.15, 1.30, 2.05, 1.45, 2.20, 1.90, 2.00, 1.5, 2.5, 2.35, 1.0]
+
+interp_val = 2.1
+idx=np.argsort(Qs)
+
+q_axis = np.array(Qs)[idx]
+
+beta0=np.concatenate(np.array(Betas[idx,0]))
+beta1=np.concatenate(np.array(Betas[idx,1]))
+beta2=np.concatenate(np.array(Betas[idx,2]))
+
+beta0_target=np.interp(interp_val, np.array(Qs)[idx], beta0)
+beta1_target=np.interp(interp_val, np.array(Qs)[idx], beta1)
+beta2_target=np.interp(interp_val, np.array(Qs)[idx], beta2)
+
+h_interp = beta0_target*u[:,0] + beta1_target*u[:,1] + beta2_target*u[:,2]
+
+sys.exit()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
