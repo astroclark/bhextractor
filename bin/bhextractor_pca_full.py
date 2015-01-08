@@ -20,11 +20,7 @@
 from __future__ import division
 
 import os
-#from os import os.environ,os.listdir,os.makedirs
-#from os.path import os.isdir, os.isfile, join
 import sys 
-
-__author__ = "James Clark <james.clark@ligo.org>"
 
 import numpy as np
 import scipy.signal as signal
@@ -32,79 +28,11 @@ import scipy.io as sio
 
 import lal
 import lalsimulation as lalsim
-#import pmns_utils
 
-#import matplotlib
-#from matplotlib import pyplot as pl
-#from matplotlib.mlab import PCA
+import pycbc.types
+import pycbc.filter
+from pycbc.psd import aLIGOZeroDetHighPower
 
-def lal_fft(timeseries,seglen=5,fs=16384):
-
-    N = int(np.floor(seglen * fs))
-
-    if N!=len(timeseries.data.data): lal.ResizeREAL8TimeSeries(timeseries, 0, N)
-
-    window=lal.CreateRectangularREAL8Window(timeseries.data.length)
-    timeseries.data.data*=window.data.data
-
-    freqseries = lal.CreateCOMPLEX16FrequencySeries("h(f)", timeseries.epoch,
-            timeseries.f0, 1./seglen, lal.HertzUnit, int(N/2 + 1)) 
-
-    fftplan = lal.CreateForwardREAL8FFTPlan(N, 0)
-    lal.REAL8TimeFreqFFT(freqseries, timeseries, fftplan)
-
-    norm=np.sqrt(window.sumofsquares / window.data.length)
-    freqseries.data.data/=norm
-
-    freqs=np.linspace(0,fs/2.,int(N/2 + 1))
-
-    return freqseries,freqs
-
-def optimal_snr(tSeries,freqmin=1500,freqmax=4096):
-    """
-    Compute optimal snr, characteristic frequency and peak time (see
-    xoptimalsnr.m)
-    """
-
-    # Compute fft
-    fSpec,freq=lal_fft(tSeries)
-
-    p_FD = 2*abs(fSpec.data.data)**2
-
-    p_FD = p_FD[(freq>=freqmin)*(freq<freqmax)]
-    freq = freq[(freq>=freqmin)*(freq<freqmax)]
-
-    # Generate PSD
-    psd=np.zeros(len(freq))
-    for i in range(len(freq)):
-        psd[i]=lalsim.SimNoisePSDaLIGOZeroDetHighPower(freq[i])
-
-    # SNR^2 versus frequency.
-    rho2f = 2.0*p_FD/psd;
-
-    # Get peak frequency
-    fPeak = freq[np.argmax(p_FD)]
-
-    # Characteristic frequency.
-    fChar = np.trapz(freq*rho2f,x=freq)/np.trapz(rho2f,x=freq);
-
-    # SNR 
-    rho = np.sqrt(np.trapz(rho2f,x=freq))
-
-    # hrss
-    hrss = np.trapz(p_FD,x=freq)**0.5
-
-    # energy (assume elliptical polarisation)
-    D = 20.0 * 1e6 * lal.PC_SI
-    Egw = 8.0 * lal.PI**2 * lal.C_SI**3 * D*D * \
-            np.trapz(freq*freq*p_FD, x=freq)
-    Egw /= 5*lal.G_SI
-
-    Egw /= lal.MSUN_SI * lal.C_SI * lal.C_SI
-
-    # return Egw in solar masses
-
-    return rho,hrss,fChar,fPeak,Egw
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # INPUT 
@@ -132,6 +60,7 @@ maxlengths={'Q':10959, 'HR':31238, 'RO3':16493}
 # really
 NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Construct Waveforms
 
@@ -146,9 +75,6 @@ waveforms = [ f for f in os.listdir(catalogue_path) if
 wflen=maxlengths[catalogue_name]
 catalogue=np.zeros(shape=(wflen,len(waveforms))) + 0j
 times=np.zeros(shape=(wflen,len(waveforms)))
-
-import pycbc
-import pycbc.filter
 
 # Get waveforms in this catalogue
 for w,waveform in enumerate(waveforms):
@@ -180,57 +106,53 @@ for w,waveform in enumerate(waveforms):
         hplus[0:len(mode_data)]  += mode_data[:,1]*np.real(sYlm) + mode_data[:,2]*np.imag(sYlm)
         hcross[0:len(mode_data)] += mode_data[:,2]*np.real(sYlm) - mode_data[:,1]*np.imag(sYlm)
 
-
-    # XXX: for now we only consider optimally oriented signals so we'll only add
-    # the plus polarisation to the catalogue
+    # Use complex waveform!
     catalogue[:,w] = hplus - 1j*hcross
     
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Align Peaks
 
 catalogue_real = np.real(catalogue)
 catalogue_imag = np.imag(catalogue)
 
-if 1:
-    print 'aligning peak times'
+print 'aligning peak times'
 
-    # Time axis
-    time=mode_data[:,0]
+# Time axis
+time=mode_data[:,0]
 
-    # Find peak indices
-    peak_indices_real=np.argmax(abs(catalogue_real),axis=0)
-    #peak_indices_imag=np.argmax(abs(catalogue_imag),axis=0)
+# Find peak indices
+peak_indices_real=np.argmax(abs(catalogue_real),axis=0)
+#peak_indices_imag=np.argmax(abs(catalogue_imag),axis=0)
 
-    # Align all waveform peaks to the latest-time peak
-    align_to_idx_real=max(peak_indices_real)
-    #align_to_idx_imag=max(peak_indices_imag)
+# Align all waveform peaks to the latest-time peak
+align_to_idx_real=max(peak_indices_real)
+#align_to_idx_imag=max(peak_indices_imag)
 
-    for w in range(len(waveforms)):
+for w in range(len(waveforms)):
 
-        # Temp array to hold aligned waveform
-        tmp_real = np.zeros(len(catalogue_real[:,w]))
-        tmp_imag = np.zeros(len(catalogue_imag[:,w]))
-        wf_real = np.copy(catalogue_real[:,w])
-        wf_imag = np.copy(catalogue_imag[:,w])
+    # Temp array to hold aligned waveform
+    tmp_real = np.zeros(len(catalogue_real[:,w]))
+    tmp_imag = np.zeros(len(catalogue_imag[:,w]))
+    wf_real = np.copy(catalogue_real[:,w])
+    wf_imag = np.copy(catalogue_imag[:,w])
 
-        # Get the lengths of current waveform data to the left/right of the peak of
-        # this waveform
-        llen_real = len(wf_real[:peak_indices_real[w]])
-        llen_imag = len(wf_imag[:peak_indices_real[w]])
-        rlen_real = len(tmp_real[align_to_idx_real:])
-        rlen_imag = len(tmp_imag[align_to_idx_real:])
+    # Get the lengths of current waveform data to the left/right of the peak of
+    # this waveform
+    llen_real = len(wf_real[:peak_indices_real[w]])
+    llen_imag = len(wf_imag[:peak_indices_real[w]])
+    rlen_real = len(tmp_real[align_to_idx_real:])
+    rlen_imag = len(tmp_imag[align_to_idx_real:])
 
-        # populate left side of peak
-        tmp_real[align_to_idx_real-llen_real:align_to_idx_real] = wf_real[:peak_indices_real[w]]
-        tmp_imag[align_to_idx_real-llen_imag:align_to_idx_real] = wf_imag[:peak_indices_real[w]]
-        # populate right side of peak
-        tmp_real[align_to_idx_real:] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
-        tmp_imag[align_to_idx_real:] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
+    # populate left side of peak
+    tmp_real[align_to_idx_real-llen_real:align_to_idx_real] = wf_real[:peak_indices_real[w]]
+    tmp_imag[align_to_idx_real-llen_imag:align_to_idx_real] = wf_imag[:peak_indices_real[w]]
+    # populate right side of peak
+    tmp_real[align_to_idx_real:] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
+    tmp_imag[align_to_idx_real:] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
 
-        # Re-populate catalogue with the aligned waveform
-        catalogue_real[:,w] = np.copy(tmp_real)
-        catalogue_imag[:,w] = np.copy(tmp_imag)
+    # Re-populate catalogue with the aligned waveform
+    catalogue_real[:,w] = np.copy(tmp_real)
+    catalogue_imag[:,w] = np.copy(tmp_imag)
 
 
 # ---------- MASS DEPENDENT CALCULATIONS -----------
@@ -265,36 +187,35 @@ for w in range(len(waveforms)):
         lalsim.SimInspiralREAL8WaveTaper(hoft_imag.data,
                 lalsim.SIM_INSPIRAL_TAPER_STARTEND)
 
-
-        # --- Resampling (Note that LAL only handles downsampling by a factor of 2)
-        # XXX apply mass scaling here.
+        # --- Resampling 
+        # XXX applying mass scaling here.
         resampled_wf_real = Mscale*signal.resample(hoft_real.data.data, wflen*NR_deltaT * fs)
         resampled_wf_imag = Mscale*signal.resample(hoft_imag.data.data, wflen*NR_deltaT * fs)
 
-        # High-pass it above 10 Hz
+        # --- High-pass it above 10 Hz
         tmp_real = pycbc.types.TimeSeries(initial_array=resampled_wf_real, delta_t=1.0/fs)
         tmp_real = pycbc.filter.highpass(tmp_real, frequency=10, filter_order=8, attenuation=0.1)
-        resampled_wf_real = np.copy(tmp_real.data)
+
         tmp_imag = pycbc.types.TimeSeries(initial_array=resampled_wf_imag, delta_t=1.0/fs)
         tmp_imag = pycbc.filter.highpass(tmp_imag, frequency=10, filter_order=8, attenuation=0.1)
-        resampled_wf_imag = np.copy(tmp_imag.data)
 
         # --- Compute SNR and rescale to SNR=1
-        hoft_real = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
-                1/float(fs), lal.StrainUnit, len(resampled_wf_real))
-        hoft_real.data.data = resampled_wf_real
-        rho, hrss, _, _, _ = optimal_snr(hoft_real,freqmin=10,freqmax=100)
-        resampled_wf_real *= 1.0/rho
-        hoft_imag = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
-               1/float(fs), lal.StrainUnit, len(resampled_wf_imag))
-        hoft_imag.data.data = resampled_wf_imag
-        rho, hrss, _, _, _ = optimal_snr(hoft_imag,freqmin=10,freqmax=100)
-        resampled_wf_imag *= 1.0/rho
+        noise_psd = aLIGOZeroDetHighPower(len(tmp_real.to_frequencyseries()),
+                tmp_real.to_frequencyseries().delta_f, low_freq_cutoff=10)
+
+#        rho = pycbc.filter.sigma(tmp_real, low_frequency_cutoff=10,
+#                psd=noise_psd)
+
+        rho = pycbc.filter.sigma(tmp_real, low_frequency_cutoff=10)
+
+        tmp_real.data *= 1.0/rho
+        tmp_imag.data *= 1.0/rho
 
         # Populate catalogue with scaled, resampled, tapered data. 
-        resamp_catalogue_real[:,w] = resampled_wf_real
-        resamp_catalogue_imag[:,w] = resampled_wf_imag
+        resamp_catalogue_real[:,w] = tmp_real.data[:]
+        resamp_catalogue_imag[:,w] = tmp_imag.data[:]
 
+#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Create standardised catalogue 
 
@@ -362,7 +283,6 @@ S = S[idx]
 # i..e.,  C.U = s*U
 #         (1/M)*H.H^T . U = s*U
 #         U = H.V, V = eigenvectors of H^T.H
-
 U = H*V 
 
 for i in xrange(np.shape(U)[1]):
@@ -376,6 +296,7 @@ h = np.zeros(len(H[:,0]),dtype=complex)
 u = np.array(U)
 for n in xrange(len(S)):
     h += Betas[0,n]*u[:,n]
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
