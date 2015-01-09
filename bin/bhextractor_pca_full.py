@@ -203,6 +203,24 @@ for w in xrange(len(waveforms)):
     waveform_catalogue_real[:,w] = window_wave(waveform_catalogue_real[:,w])
     waveform_catalogue_imag[:,w] = window_wave(waveform_catalogue_imag[:,w])
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Wavelet games
+import cwt
+scales=np.logspace(np.log2(2), np.log2(512), 10, base=2)
+mother_wavelet = cwt.Morlet(len_signal = targetlen, scales=scales)
+
+wavelet=cwt.cwt(waveform_catalogue_real[:,0], mother_wavelet)
+
+collevs=np.linspace(0, 5*max(wavelet.get_wps()), 100)
+
+from matplotlib import pyplot as pl
+import matplotlib.cm as cm
+
+pl.figure()
+pl.contourf(np.arange(0,len(waveform_catalogue_real[:,0])),
+        scales, abs(wavelet.coefs)**2, cmap=cm.gnuplot2, levels=collevs)
+
+pl.show()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PCA
