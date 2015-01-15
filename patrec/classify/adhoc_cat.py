@@ -169,7 +169,7 @@ for i in xrange(np.shape(catalogue)[0]):
     Z[i,:] /= np.std(Z[i,:])
 
 # reduce
-Z = Z[:100,:]
+Z = Z[:50,:]
 
 #
 # GMM

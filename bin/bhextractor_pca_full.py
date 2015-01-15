@@ -206,12 +206,13 @@ for w in xrange(len(waveforms)):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Wavelet games
 import cwt
-scales=np.logspace(np.log2(2), np.log2(512), 10, base=2)
+#scales=np.logspace(np.log2(2), np.log2(256), 100, base=2)
+scales=np.linspace(2, 256, 100)
 mother_wavelet = cwt.Morlet(len_signal = targetlen, scales=scales)
 
 wavelet=cwt.cwt(waveform_catalogue_real[:,0], mother_wavelet)
 
-collevs=np.linspace(0, 5*max(wavelet.get_wps()), 100)
+collevs=np.linspace(0, 1*max(wavelet.get_wps()), 1000)
 
 from matplotlib import pyplot as pl
 import matplotlib.cm as cm
