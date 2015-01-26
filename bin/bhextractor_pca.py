@@ -72,10 +72,6 @@ if catalogue_name not in ['Q','HR','RO3']:
             "Error, catalogue '%s' not recognised "\
             "(must be Q, HR or RO3)"%catalogue_name
 
-targetlen=5000
-NRD_sampls=500 # number of samples to retain after peak
-NINSP_sampls=2000 # number of samples to retain before peak
-
 # Dictionary with the maximum waveform data lengths
 maxlengths={'Q':10959, 'HR':31238, 'RO3':16493}
 
@@ -83,6 +79,21 @@ maxlengths={'Q':10959, 'HR':31238, 'RO3':16493}
 # really
 NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 
+# Resample the waveform to the following deltaT:
+NR_deltaT_target = 0.1
+
+# Finally, zero-pad the waveforms to have length=2500 Msun
+catalogue_len = int(2500 / NR_deltaT_target)
+
+NRD_sampls=500 # number of samples to retain after peak
+NINSP_sampls=1e6#500/NR_deltaT_target # number of samples to retain before peak
+
+
+# We shall save the PCs as 4 second long time series sampled at 2048 Hz and
+# scale the waveforms to 250 Msun
+#data_fs       = 2048
+#catalogue_len = 4 * data_fs
+#Mtot          = 250.
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Construct Waveforms
@@ -138,8 +149,8 @@ catalogue_real = np.real(catalogue)
 catalogue_imag = np.imag(catalogue)
 
 # Resampled catalogue
-waveform_catalogue_real = np.zeros(shape=(targetlen,len(waveforms)))
-waveform_catalogue_imag = np.zeros(shape=(targetlen,len(waveforms)))
+waveform_catalogue_real = np.zeros(shape=(catalogue_len,len(waveforms)))
+waveform_catalogue_imag = np.zeros(shape=(catalogue_len,len(waveforms)))
 
 print 'aligning peak times'
 
@@ -151,6 +162,11 @@ peak_indices_real=np.argmax(abs(catalogue_real),axis=0)
 
 # Align all waveform peaks to the latest-time peak
 align_to_idx_real=max(peak_indices_real)
+
+
+# Resample length:
+resamp_len = NR_deltaT[catalogue_name]/NR_deltaT_target * \
+        maxlengths[catalogue_name]
 
 for w in xrange(len(waveforms)):
     print 'aligning & tapering %d of %d'%(w, len(waveforms))
@@ -183,9 +199,14 @@ for w in xrange(len(waveforms)):
     catalogue_imag[:,w] = np.copy(tmp_imag)
 
     # --- Resampling 
-    # Resample to NR_deltaT = 0.01 (say)
-    waveform_catalogue_real[:,w] = signal.resample(catalogue_real[:,w], targetlen)
-    waveform_catalogue_imag[:,w] = signal.resample(catalogue_imag[:,w], targetlen)
+    tmp_real = signal.resample(catalogue_real[:,w],
+            resamp_len)
+    tmp_imag = signal.resample(catalogue_imag[:,w],
+            resamp_len)
+
+    # --- Zero-padding to uniform catalogue size
+    waveform_catalogue_real[:resamp_len,w] = np.copy(tmp_real)
+    waveform_catalogue_imag[:resamp_len,w] = np.copy(tmp_imag)
 
     # --- Get rid of early-time numerical noise
     peak_idx = np.argmax(abs(waveform_catalogue_real[:,w]))
@@ -195,7 +216,7 @@ for w in xrange(len(waveforms)):
     waveform_catalogue_imag[:zero_idx,w] = 0.0
 
     # --- Get rid of late-time numerical noise
-    zero_idx = min(peak_idx + NRD_sampls, targetlen)
+    zero_idx = min(peak_idx + NRD_sampls, catalogue_len)
     waveform_catalogue_real[zero_idx:,w] = 0.0
     waveform_catalogue_imag[zero_idx:,w] = 0.0
 
@@ -203,25 +224,6 @@ for w in xrange(len(waveforms)):
     waveform_catalogue_real[:,w] = window_wave(waveform_catalogue_real[:,w])
     waveform_catalogue_imag[:,w] = window_wave(waveform_catalogue_imag[:,w])
 
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Wavelet games
-import cwt
-#scales=np.logspace(np.log2(2), np.log2(256), 100, base=2)
-scales=np.linspace(2, 256, 100)
-mother_wavelet = cwt.Morlet(len_signal = targetlen, scales=scales)
-
-wavelet=cwt.cwt(waveform_catalogue_real[:,0], mother_wavelet)
-
-collevs=np.linspace(0, 1*max(wavelet.get_wps()), 1000)
-
-from matplotlib import pyplot as pl
-import matplotlib.cm as cm
-
-pl.figure()
-pl.contourf(np.arange(0,len(waveform_catalogue_real[:,0])),
-        scales, abs(wavelet.coefs)**2, cmap=cm.gnuplot2, levels=collevs)
-
-pl.show()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PCA
@@ -259,48 +261,22 @@ S = S[idx]
 #         U = H.V, V = eigenvectors of H^T.H
 U = H*V 
 
-for i in xrange(np.shape(U)[1]):
-    U[:,i] /= np.linalg.norm(U[:,i])
-
-# PC coefficients
-Betas = H.T*U
-
-# i.e to reconstruct H[:,0]:
-h = np.zeros(len(H[:,0]),dtype=complex)
-u = np.array(U)
-for n in xrange(len(S)):
-    h += Betas[0,n]*u[:,n]
-
-# And to interpolate, we could do something like:
-
-# mass ratios in Q-series:
-Qs = [1.75, 1.60, 1.15, 1.30, 2.05, 1.45, 2.20, 1.90, 2.00, 1.5, 2.5, 2.35, 1.0]
-
-interp_val = 2.1
-idx=np.argsort(Qs)
-
-q_axis = np.array(Qs)[idx]
-
-beta0=np.concatenate(np.array(Betas[idx,0]))
-beta1=np.concatenate(np.array(Betas[idx,1]))
-beta2=np.concatenate(np.array(Betas[idx,2]))
-
-beta0_target=np.interp(interp_val, np.array(Qs)[idx], beta0)
-beta1_target=np.interp(interp_val, np.array(Qs)[idx], beta1)
-beta2_target=np.interp(interp_val, np.array(Qs)[idx], beta2)
-
-h_interp = beta0_target*u[:,0] + beta1_target*u[:,1] + beta2_target*u[:,2]
-
-sys.exit()
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
 
 PCA_path=os.environ['BHEX_PREFIX']+'/data/'+'PCA_data'
+
 if not os.path.exists(PCA_path): os.makedirs(PCA_path)
+
+# Save dictionary to mat file
 PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
 PC_dict={'PCs_final':np.array(U), 'EigVals':np.array(S)}
 sio.savemat(PCA_outname, PC_dict)
+
+# Save PCs to binary file
+f = open("%s.dat"%PCA_outname, 'wb')
+f.write(bytearray(U))
+f.close()
 
 catalogue_path=os.environ['BHEX_PREFIX']+'/data/'+'signal_data'
 if not os.path.exists(catalogue_path): os.makedirs(catalogue_path)
@@ -310,7 +286,7 @@ waveform_dict={'MDC_final':waveform_catalogue}
 sio.savemat(catalogue_outname, waveform_dict)
 
 print "PCA complete"
-print "PC matrix written to %s.mat"%PCA_outname
+print "PC matrix written to %s.mat and %s.dat"%(PCA_outname, PCA_outname)
 print "Catalogue matrix written to %s.mat"%catalogue_outname
 
 
