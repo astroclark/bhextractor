@@ -59,6 +59,39 @@ def window_wave(input_data):
 
     return input_data
 
+def highpass(timeseries, delta_t=1./2048, knee=10., order=8, attn=0.1):
+
+    tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
+
+    return np.array(pycbc.filter.highpass(tmp, frequency=knee, filter_order=order,
+            attenuation=attn).data)
+
+def comp_norm(timeseries, delta_t=1./2048, snr=True, flow=10.):
+    """
+    If snr=True (default) returns the optimal SNR in aLIGO ZDHP. 
+    If snr=False, returns the hrss
+    """
+
+    tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
+
+    if snr:
+
+        # make psd
+        flen = len(tmp.to_frequencyseries())
+        delta_f = np.diff(tmp.to_frequencyseries().sample_frequencies)[0]
+        psd = aLIGOZeroDetHighPower(flen, delta_f, low_freq_cutoff=flow)
+
+        return pycbc.filter.sigma(tmp, psd=psd, low_frequency_cutoff=flow)
+
+    else:
+
+        return pycbc.filter.sigma(tmp, low_frequency_cutoff=flow)
+
+def freqseries(timeseries, delta_t=1./2048):
+    tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
+    return np.array(tmp.to_frequencyseries().data)
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # INPUT 
 
@@ -79,21 +112,17 @@ maxlengths={'Q':10959, 'HR':31238, 'RO3':16493}
 # really
 NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 
-# Resample the waveform to the following deltaT:
-NR_deltaT_target = 0.1
-
-# Finally, zero-pad the waveforms to have length=2500 Msun
-catalogue_len = int(2500 / NR_deltaT_target)
-
-NRD_sampls=500 # number of samples to retain after peak
-NINSP_sampls=1e6#500/NR_deltaT_target # number of samples to retain before peak
+# Samples to discard due to NR noise
+NRD_sampls=500 # keep this many samples after the peak
+NINSP_sampls=1000 # discard this many samples from the start
 
 
 # We shall save the PCs as 4 second long time series sampled at 2048 Hz and
 # scale the waveforms to 250 Msun
-#data_fs       = 2048
-#catalogue_len = 4 * data_fs
-#Mtot          = 250.
+fs       = 2048
+catalogue_len = 4 * fs
+Mtot          = 250.
+Dist          = 1.
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Construct Waveforms
@@ -139,6 +168,22 @@ for w,waveform in enumerate(waveforms):
         hplus[0:len(mode_data)]  += mode_data[:,1]*np.real(sYlm) + mode_data[:,2]*np.imag(sYlm)
         hcross[0:len(mode_data)] += mode_data[:,2]*np.real(sYlm) - mode_data[:,1]*np.imag(sYlm)
 
+    #
+    # Clean up the waveform
+    #
+
+    # Get rid of junk
+    peak_idx = np.argmax(abs(hplus))
+    zero_idx = min(peak_idx + NRD_sampls, len(hplus))
+    hplus[zero_idx:]  = 0.0
+    hcross[zero_idx:] = 0.0
+
+    #hplus[:NINSP_sampls] = 0.0
+    #hcross[:NINSP_sampls] = 0.0
+
+    hplus=window_wave(hplus)
+    hcross=window_wave(hcross)
+
     # Use complex waveform!
     catalogue[:,w] = hplus - 1j*hcross
     
@@ -163,10 +208,13 @@ peak_indices_real=np.argmax(abs(catalogue_real),axis=0)
 # Align all waveform peaks to the latest-time peak
 align_to_idx_real=max(peak_indices_real)
 
+# ---------- MASS-DEPENDENT CALCULATIONS -----------
+# Determine current sample rate.  XXX: GIVEN A MASS 
+SI_deltaT = Mtot * lal.MTSUN_SI * NR_deltaT[catalogue_name]
+Mscale = Mtot * lal.MRSUN_SI / (Dist * 1e9 * lal.PC_SI)
 
-# Resample length:
-resamp_len = NR_deltaT[catalogue_name]/NR_deltaT_target * \
-        maxlengths[catalogue_name]
+# Length to resample to: length of (e.g.) 250 Msun waveform in seconds x desired sample rate
+resamp_len = wflen*SI_deltaT*fs
 
 for w in xrange(len(waveforms)):
     print 'aligning & tapering %d of %d'%(w, len(waveforms))
@@ -194,35 +242,26 @@ for w in xrange(len(waveforms)):
     tmp_real[align_to_idx_real:] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
     tmp_imag[align_to_idx_real:] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
 
-    # Re-populate catalogue with the aligned waveform
-    catalogue_real[:,w] = np.copy(tmp_real)
-    catalogue_imag[:,w] = np.copy(tmp_imag)
-
     # --- Resampling 
-    tmp_real = signal.resample(catalogue_real[:,w],
-            resamp_len)
-    tmp_imag = signal.resample(catalogue_imag[:,w],
-            resamp_len)
+    tmp_real = signal.resample(tmp_real, resamp_len)
+    tmp_imag = signal.resample(tmp_imag, resamp_len)
+
+    # --- Windowing / tapering
+    #tmp_real = window_wave(tmp_real)
+    #tmp_imag = window_wave(tmp_real)
+
+    # --- Filtering
+    tmp_real = highpass(tmp_real)
+    tmp_imag = highpass(tmp_imag)
+
+    # --- Normalisation
+    tmp_real /= comp_norm(tmp_real)
+    tmp_imag /= comp_norm(tmp_imag)
 
     # --- Zero-padding to uniform catalogue size
     waveform_catalogue_real[:resamp_len,w] = np.copy(tmp_real)
     waveform_catalogue_imag[:resamp_len,w] = np.copy(tmp_imag)
 
-    # --- Get rid of early-time numerical noise
-    peak_idx = np.argmax(abs(waveform_catalogue_real[:,w]))
-    zero_idx = max(0,peak_idx-NINSP_sampls)
-
-    waveform_catalogue_real[:zero_idx,w] = 0.0
-    waveform_catalogue_imag[:zero_idx,w] = 0.0
-
-    # --- Get rid of late-time numerical noise
-    zero_idx = min(peak_idx + NRD_sampls, catalogue_len)
-    waveform_catalogue_real[zero_idx:,w] = 0.0
-    waveform_catalogue_imag[zero_idx:,w] = 0.0
-
-    # --- Windowing / tapering
-    waveform_catalogue_real[:,w] = window_wave(waveform_catalogue_real[:,w])
-    waveform_catalogue_imag[:,w] = window_wave(waveform_catalogue_imag[:,w])
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -261,8 +300,16 @@ S = S[idx]
 #         U = H.V, V = eigenvectors of H^T.H
 U = H*V 
 
+# normalise PCs
+for i in xrange(np.shape(U)[1]):
+    U[:,i] /= np.linalg.norm(U[:,i])
+
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
+
+U = np.array(U)
+S = np.array(S)
 
 PCA_path=os.environ['BHEX_PREFIX']+'/data/'+'PCA_data'
 
@@ -270,10 +317,14 @@ if not os.path.exists(PCA_path): os.makedirs(PCA_path)
 
 # Save dictionary to mat file
 PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
-PC_dict={'PCs_final':np.array(U), 'EigVals':np.array(S)}
+PC_dict={'PCs_final':U, 'EigVals':S}
 sio.savemat(PCA_outname, PC_dict)
 
-# Save PCs to binary file
+# Save FFTs of PCs to binary file 
+U_fdomain = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
+for i in xrange(np.shape(U)[1]):
+    U_fdomain[:,i] = freqseries(U[:,i])
+
 f = open("%s.dat"%PCA_outname, 'wb')
 f.write(bytearray(U))
 f.close()
