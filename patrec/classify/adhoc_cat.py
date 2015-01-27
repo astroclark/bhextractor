@@ -36,8 +36,8 @@ import scipy.io as sio
 import lal 
 import lalsimulation as lalsim
 
-import pycbc
-import pycbc.filter
+#import pycbc
+#import pycbc.filter
 
 def truncparms(low,upp,mu,sigma):
     a = (low - mu) / sigma
