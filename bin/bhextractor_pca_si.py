@@ -121,7 +121,7 @@ NINSP_sampls=1000 # discard this many samples from the start
 # scale the waveforms to 250 Msun
 fs       = 2048
 catalogue_len = 4 * fs
-Mtot          = 250.
+Mtot          = 500.
 Dist          = 1.
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -132,11 +132,18 @@ catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+catalogue_name+'-serie
 waveforms = [ f for f in os.listdir(catalogue_path) if
         os.path.isdir(os.path.join(catalogue_path,f)) ]
 
-# --- Load waveforms
+# ---------- MASS-DEPENDENT CALCULATIONS -----------
+# Determine current sample rate.  XXX: GIVEN A MASS 
+SI_deltaT = Mtot * lal.MTSUN_SI * NR_deltaT[catalogue_name]
+Mscale = Mtot * lal.MRSUN_SI / (Dist * 1e9 * lal.PC_SI)
 
-# Preallocate a matrix for the catalogue
+# Get the length of the NR data
 wflen=maxlengths[catalogue_name]
-catalogue=np.zeros(shape=(wflen,len(waveforms))) + 0j
+
+# Length to resample to: length of (e.g.) 250 Msun waveform in seconds x desired sample rate
+resamp_len = np.ceil(wflen*SI_deltaT*fs)
+catalogue=np.zeros(shape=(resamp_len,len(waveforms))) + 0j
+
 
 # Build waveforms in this catalogue
 for w,waveform in enumerate(waveforms):
@@ -184,9 +191,22 @@ for w,waveform in enumerate(waveforms):
     hplus=window_wave(hplus)
     hcross=window_wave(hcross)
 
+    # --- Resampling 
+    tmp_real = signal.resample(tmp_real, resamp_len)
+    tmp_imag = signal.resample(tmp_imag, resamp_len)
+
+    # --- Windowing / tapering
+    #tmp_real = window_wave(tmp_real)
+    #tmp_imag = window_wave(tmp_real)
+
+    # --- Filtering
+    tmp_real = highpass(tmp_real)
+    tmp_imag = highpass(tmp_imag)
+
     # Use complex waveform!
     catalogue[:,w] = hplus - 1j*hcross
     
+sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Catalogue Conditioning
 
@@ -207,14 +227,6 @@ peak_indices_real=np.argmax(abs(catalogue_real),axis=0)
 
 # Align all waveform peaks to the latest-time peak
 align_to_idx_real=max(peak_indices_real)
-
-# ---------- MASS-DEPENDENT CALCULATIONS -----------
-# Determine current sample rate.  XXX: GIVEN A MASS 
-SI_deltaT = Mtot * lal.MTSUN_SI * NR_deltaT[catalogue_name]
-Mscale = Mtot * lal.MRSUN_SI / (Dist * 1e9 * lal.PC_SI)
-
-# Length to resample to: length of (e.g.) 250 Msun waveform in seconds x desired sample rate
-resamp_len = wflen*SI_deltaT*fs
 
 for w in xrange(len(waveforms)):
     print 'aligning & tapering %d of %d'%(w, len(waveforms))
@@ -241,18 +253,6 @@ for w in xrange(len(waveforms)):
     # populate right side of peak
     tmp_real[align_to_idx_real:] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
     tmp_imag[align_to_idx_real:] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
-
-    # --- Resampling 
-    tmp_real = signal.resample(tmp_real, resamp_len)
-    tmp_imag = signal.resample(tmp_imag, resamp_len)
-
-    # --- Windowing / tapering
-    #tmp_real = window_wave(tmp_real)
-    #tmp_imag = window_wave(tmp_real)
-
-    # --- Filtering
-    tmp_real = highpass(tmp_real)
-    tmp_imag = highpass(tmp_imag)
 
     # --- Normalisation
     tmp_real /= comp_norm(tmp_real)
