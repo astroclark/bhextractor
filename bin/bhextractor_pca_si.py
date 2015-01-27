@@ -188,79 +188,95 @@ for w,waveform in enumerate(waveforms):
     #hplus[:NINSP_sampls] = 0.0
     #hcross[:NINSP_sampls] = 0.0
 
+    # --- Windowing / tapering
     hplus=window_wave(hplus)
     hcross=window_wave(hcross)
 
     # --- Resampling 
-    tmp_real = signal.resample(tmp_real, resamp_len)
-    tmp_imag = signal.resample(tmp_imag, resamp_len)
-
-    # --- Windowing / tapering
-    #tmp_real = window_wave(tmp_real)
-    #tmp_imag = window_wave(tmp_real)
+    hplus = signal.resample(hplus, resamp_len)
+    hcross = signal.resample(hcross, resamp_len)
 
     # --- Filtering
-    tmp_real = highpass(tmp_real)
-    tmp_imag = highpass(tmp_imag)
+    hplus = highpass(hplus)
+    hcross = highpass(hcross)
 
     # Use complex waveform!
     catalogue[:,w] = hplus - 1j*hcross
     
-sys.exit()
+# XXX: note to self:  put waveform peak at 0.75x length of final catalogue width
+# and retain whatever remains of waveform inside there.  Should be doable with
+# align_to_idx
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Catalogue Conditioning
 
 catalogue_real = np.real(catalogue)
 catalogue_imag = np.imag(catalogue)
 
-# Resampled catalogue
+# Standardised catalogue (4 seconds long)
 waveform_catalogue_real = np.zeros(shape=(catalogue_len,len(waveforms)))
 waveform_catalogue_imag = np.zeros(shape=(catalogue_len,len(waveforms)))
 
 print 'aligning peak times'
 
-# Time axis
-#time=mode_data[:,0]
-
 # Find peak indices
 peak_indices_real=np.argmax(abs(catalogue_real),axis=0)
 
 # Align all waveform peaks to the latest-time peak
-align_to_idx_real=max(peak_indices_real)
+#align_to_idx_real=max(peak_indices_real)
+align_to_idx_real=np.floor(0.75*catalogue_len)
 
 for w in xrange(len(waveforms)):
-    print 'aligning & tapering %d of %d'%(w, len(waveforms))
+    print 'aligning %d of %d'%(w, len(waveforms))
 
     # ~~~ Align Peaks
+    if catalogue_len >= resamp_len:
+        # populate the final catalogue with the full resampled waveform
+        start_idx = align_to_idx - peak_indices_real[w] 
 
-    # Temp array to hold aligned waveform
-    tmp_real = np.zeros(len(catalogue_real[:,w]))
-    tmp_imag = np.zeros(len(catalogue_imag[:,w]))
-    wf_real = np.copy(catalogue_real[:,w])
-    wf_imag = np.copy(catalogue_imag[:,w])
+        waveform_catalogue_real[start_idx:,w] = np.copy(catalogue_real[:,w])
 
-    # Get the lengths of current waveform data to the left/right of the peak of
-    # this waveform
-    llen_real = len(wf_real[:peak_indices_real[w]])
-    llen_imag = len(wf_imag[:peak_indices_real[w]])
-    rlen_real = len(tmp_real[align_to_idx_real:])
-    rlen_imag = len(tmp_imag[align_to_idx_real:])
+    else:
+        # populate the final catalogue with the truncated waveform
+        start_idx = 
+        
+        waveform_catalogue_real[:,w] = np.copy(catalogue_real[startidx:,w])
 
-    # populate left side of peak
-    tmp_real[align_to_idx_real-llen_real:align_to_idx_real] = wf_real[:peak_indices_real[w]]
-    tmp_imag[align_to_idx_real-llen_imag:align_to_idx_real] = wf_imag[:peak_indices_real[w]]
 
-    # populate right side of peak
-    tmp_real[align_to_idx_real:] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
-    tmp_imag[align_to_idx_real:] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
+#
+#
+#
+#   # Temp array to hold aligned waveform
+#   tmp_real = np.zeros(len(catalogue_real[:,w]))
+#   tmp_imag = np.zeros(len(catalogue_imag[:,w]))
+#
+#   wf_real = np.copy(catalogue_real[:,w])
+#   wf_imag = np.copy(catalogue_imag[:,w])
+#
+#   # Get the lengths of current waveform data to the left/right of the peak of
+#   # this waveform
+#   llen_real = len(wf_real[:peak_indices_real[w]])
+#   llen_imag = len(wf_imag[:peak_indices_real[w]])
+#   rlen_real = len(tmp_real[align_to_idx_real:])
+#   rlen_imag = len(tmp_imag[align_to_idx_real:])
+#
+#   sys.exit()
+#
+#   # populate left side of peak
+#   tmp_real[align_to_idx_real-llen_real:align_to_idx_real] = wf_real[:peak_indices_real[w]]
+#   tmp_imag[align_to_idx_real-llen_imag:align_to_idx_real] = wf_imag[:peak_indices_real[w]]
+#
+#   # populate right side of peak
+#   tmp_real[align_to_idx_real:] = wf_real[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
+#   tmp_imag[align_to_idx_real:] = wf_imag[peak_indices_real[w]:peak_indices_real[w]+rlen_real]
 
-    # --- Normalisation
-    tmp_real /= comp_norm(tmp_real)
-    tmp_imag /= comp_norm(tmp_imag)
-
-    # --- Zero-padding to uniform catalogue size
-    waveform_catalogue_real[:resamp_len,w] = np.copy(tmp_real)
-    waveform_catalogue_imag[:resamp_len,w] = np.copy(tmp_imag)
+#   # --- Normalisation
+#   tmp_real /= comp_norm(tmp_real)
+#   tmp_imag /= comp_norm(tmp_imag)
+#
+#   # --- Zero-padding to uniform catalogue size
+#   waveform_catalogue_real[:resamp_len,w] = np.copy(tmp_real)
+#   waveform_catalogue_imag[:resamp_len,w] = np.copy(tmp_imag)
 
 
 
