@@ -121,7 +121,7 @@ NINSP_sampls=1000 # discard this many samples from the start
 # scale the waveforms to 250 Msun
 fs       = 2048
 catalogue_len = 4 * fs
-Mtot          = 250.
+Mtot          = 500.
 Dist          = 1.
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -224,17 +224,29 @@ align_idx=np.floor(0.75*catalogue_len)
 for w in xrange(len(waveforms)):
     print 'aligning %d of %d'%(w, len(waveforms))
 
-    start_idx = align_idx - peak_idx[w] 
-    # ~~~ Align Peaks
-    if catalogue_len >= resamp_len:
-        # populate the final catalogue with the full resampled waveform
-        waveform_catalogue_real[start_idx:resamp_len+start_idx,w] = catalogue_real[:,w]
-        waveform_catalogue_imag[start_idx:resamp_len+start_idx,w] = catalogue_imag[:,w]
+    non_zero_idx = \
+            np.argwhere(abs(catalogue_real[:,w])>1e-2*max(abs(catalogue_real[:,w])))
+    trunc_wav_real = \
+            catalogue_real[non_zero_idx[0]:non_zero_idx[-1],w]
+    trunc_wav_imag = \
+            catalogue_imag[non_zero_idx[0]:non_zero_idx[-1],w]
 
-    else:
-        # populate the final catalogue with the truncated waveform
-        waveform_catalogue_real[start_idx:,w] = catalogue_real[:catalog_len-start_idx,w]
-        waveform_catalogue_imag[start_idx:,w] = catalogue_imag[:catalog_len-start_idx,w]
+    peak_idx=np.argmax(abs(trunc_wav_real))
+    start_idx = align_idx - peak_idx
+
+    waveform_catalogue_real[start_idx:start_idx+len(trunc_wav_real),w] = trunc_wav_real
+    waveform_catalogue_imag[start_idx:start_idx+len(trunc_wav_real),w] = trunc_wav_imag
+
+    # ~~~ Align Peaks
+#   if catalogue_len >= resamp_len:
+#       # populate the final catalogue with the full resampled waveform
+#       waveform_catalogue_real[start_idx:resamp_len+start_idx,w] = catalogue_real[:,w]
+#       waveform_catalogue_imag[start_idx:resamp_len+start_idx,w] = catalogue_imag[:,w]
+#
+#   else:
+#       # populate the final catalogue with the truncated waveform
+#       waveform_catalogue_real[start_idx:,w] = catalogue_real[:catalog_len-start_idx,w]
+#       waveform_catalogue_imag[start_idx:,w] = catalogue_imag[:catalog_len-start_idx,w]
 
     # --- Normalisation (apply identical scaling to real, imag)
     waveform_catalogue_real[:,w] /= comp_norm(waveform_catalogue_real[:,w])
