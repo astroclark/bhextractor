@@ -314,7 +314,8 @@ for i in xrange(np.shape(U)[1]):
     U_fdomain[:,i] = freqseries(U[:,i])
 
 f = open("%s.dat"%PCA_outname, 'wb')
-f.write(bytearray(U_fdomain))
+#f.write(bytearray(U_fdomain))
+U_fdomain.tofile(f)
 f.close()
 
 catalogue_path=os.environ['BHEX_PREFIX']+'/data/'+'signal_data'
