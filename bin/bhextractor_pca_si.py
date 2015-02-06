@@ -249,8 +249,9 @@ for w in xrange(len(waveforms)):
 #       waveform_catalogue_imag[start_idx:,w] = catalogue_imag[:catalog_len-start_idx,w]
 
     # --- Normalisation (apply identical scaling to real, imag)
-    waveform_catalogue_real[:,w] /= comp_norm(waveform_catalogue_real[:,w])
-    waveform_catalogue_imag[:,w] /= comp_norm(waveform_catalogue_real[:,w])
+    N = comp_norm(waveform_catalogue_real[:,w])
+    waveform_catalogue_real[:,w] /= N
+    waveform_catalogue_imag[:,w] /= N
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PCA
