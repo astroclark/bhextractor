@@ -114,7 +114,7 @@ NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 
 # Samples to discard due to NR noise
 NRD_sampls=500 # keep this many samples after the peak
-NINSP_sampls=1000 # discard this many samples from the start
+NINSP_sampls=2000 # discard this many samples from the start
 
 
 # We shall save the PCs as 4 second long time series sampled at 2048 Hz and
@@ -187,6 +187,9 @@ for w,waveform in enumerate(waveforms):
 
     #hplus[:NINSP_sampls] = 0.0
     #hcross[:NINSP_sampls] = 0.0
+    hplus[:peak_idx-NINSP_sampls] = 0.0
+    hcross[:peak_idx-NINSP_sampls] = 0.0
+    
 
     # --- Windowing / tapering
     hplus=window_wave(hplus)
@@ -219,7 +222,8 @@ print 'aligning peak times'
 peak_idx=np.argmax(abs(catalogue_real),axis=0)
 
 # Align all waveform peaks to the 3/4 of the way through the final catalogue
-align_idx=np.floor(0.75*catalogue_len)
+#align_idx=np.floor(0.75*catalogue_len)
+align_idx=np.floor(0.5*catalogue_len)
 
 for w in xrange(len(waveforms)):
     print 'aligning %d of %d'%(w, len(waveforms))
