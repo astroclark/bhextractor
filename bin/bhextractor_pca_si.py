@@ -25,6 +25,7 @@ import sys
 import numpy as np
 import scipy.signal as signal
 import scipy.io as sio
+import scipy.linalg
 
 import lal
 import lalsimulation as lalsim
@@ -121,7 +122,7 @@ NINSP_sampls=2000 # discard this many samples from the start
 # scale the waveforms to 250 Msun
 fs       = 2048
 catalogue_len = 4 * fs
-Mtot          = 500.
+Mtot          = 250.
 Dist          = 1.
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -260,49 +261,69 @@ for w in xrange(len(waveforms)):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # PCA
 #
-# This part follows the procedure in http://arxiv.org/abs/0810.5707
-#
-# H = catalogue matrix (columns=waveforms)
-# 
+
 print 'Performing PCA'
 
-# --- Combine real and imaginary parts of the catalogue
-waveform_catalogue = waveform_catalogue_real #- 1j*waveform_catalogue_imag
-#waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
+Heng=False
+if Heng==True:
+    # This part follows the procedure in http://arxiv.org/abs/0810.5707
+    #
+    # H = catalogue matrix (columns=waveforms)
+    # 
+    # WARNING: I don't understand why the cross polarisation winds up looking so
+    # small...
 
-# --- Make catalogue a matrix for matrix arithmetic
-H = np.matrix(waveform_catalogue)
 
-# --- 1) Compute H^T * H - left side of equation (5) in 0810.5707
-HTH = H.T * H
+    # --- Combine real and imaginary parts of the catalogue
+    waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
+    #waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
 
-# --- 2) Compute eigenvectors (V) and eigenvalues (S) of H^T * H
-#S, V = np.linalg.eigh(HTH)
-S, V = np.linalg.eig(HTH)
+    # --- Make catalogue a matrix for matrix arithmetic
+    H = np.matrix(waveform_catalogue)
 
-# --- 3) Sort eigenvectors in descending order
-idx = np.argsort(S)[::-1]
-V = V[:,idx]
-S = S[idx]
+    # --- 1) Compute H^T * H - left side of equation (5) in 0810.5707
+    HTH = H.T * H
 
-# --- 4) Sorted Eigenvectors of covariance matrix, C = PCs
-# To get these, note:  H.(H^T.H) = M*C.H, since C = 1/M * H.H^T
-# so H. eigenvectors of HTH are the eigenvectors of C
-# i..e.,  C.U = s*U
-#         (1/M)*H.H^T . U = s*U
-#         U = H.V, V = eigenvectors of H^T.H
-U = H*V 
+    # --- 2) Compute eigenvectors (V) and eigenvalues (S) of H^T * H
+    #S, V = np.linalg.eigh(HTH)
+    S, V = np.linalg.eig(HTH)
 
-# normalise PCs
-for i in xrange(np.shape(U)[1]):
-    U[:,i] /= np.linalg.norm(U[:,i])
+    # --- 3) Sort eigenvectors in descending order
+    idx = np.argsort(S)[::-1]
+    V = V[:,idx]
+    S = S[idx]
 
+    # --- 4) Sorted Eigenvectors of covariance matrix, C = PCs
+    # To get these, note:  H.(H^T.H) = M*C.H, since C = 1/M * H.H^T
+    # so H. eigenvectors of HTH are the eigenvectors of C
+    # i..e.,  C.U = s*U
+    #         (1/M)*H.H^T . U = s*U
+    #         U = H.V, V = eigenvectors of H^T.H
+    U = H*V 
+
+    U = np.array(U)
+    S = np.array(S)
+
+    # normalise PCs
+    for i in xrange(np.shape(U)[1]):
+        U[:,i] /= np.linalg.norm(U[:,i])
+
+else:
+    # Use SVD
+
+    waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
+    U, S, Vt = scipy.linalg.svd(waveform_catalogue, full_matrices=False)
+    V = Vt.T
+
+    # sort the PCs by descending order of the singular values (i.e. by the
+    # proportion of total variance they explain)
+    ind = np.argsort(S)[::-1]
+    U = U[:, ind]
+    S = S[ind]
+    V = V[:, ind]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
-
-U = np.array(U)
-S = np.array(S)
 
 PCA_path=os.environ['BHEX_PREFIX']+'/data/'+'PCA_data'
 
@@ -314,14 +335,18 @@ PC_dict={'PCs_final':U, 'EigVals':S}
 sio.savemat(PCA_outname, PC_dict)
 
 # Save FFTs of PCs to binary file 
-U_fdomain = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
+U_fdomain_plus = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
+U_fdomain_cross = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
 for i in xrange(np.shape(U)[1]):
-    U_fdomain[:,i] = freqseries(U[:,i])
+    U_fdomain_plus[:,i] = freqseries(np.real(U[:,i]))
+    U_fdomain_cross[:,i] = freqseries(np.imag(U[:,i]))
 
-f = open("%s.dat"%PCA_outname, 'wb')
-#f.write(bytearray(U_fdomain))
-U_fdomain.tofile(f)
-f.close()
+fp = open("%s_plus.dat"%PCA_outname, 'wb')
+fc = open("%s_cross.dat"%PCA_outname, 'wb')
+U_fdomain_plus.tofile(fp)
+U_fdomain_cross.tofile(fc)
+fp.close()
+fc.close()
 
 catalogue_path=os.environ['BHEX_PREFIX']+'/data/'+'signal_data'
 if not os.path.exists(catalogue_path): os.makedirs(catalogue_path)
