@@ -12,7 +12,6 @@ gpsend=1097966376
 lalapps_inspinj \
     --i-distr fixed  --seed 101 \
     --fixed-inc 0.0 \
-    --polarization 0.0 \
     --waveform NumRelNinja2 \
     --gps-start-time ${gpsstart} --gps-end-time ${gpsend} --time-step 128 \
     --time-interval 10 --l-distr random --d-distr volume \
