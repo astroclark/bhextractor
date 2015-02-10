@@ -70,12 +70,17 @@ def compute_betas(waveforms, PCs):
 
 
 def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
-        weighted=True):
+        weighted=False):
     """
     """
 
-    tmp1 = pycbc.types.TimeSeries(initial_array=timeseries1, delta_t=delta_t)
-    tmp2 = pycbc.types.TimeSeries(initial_array=timeseries2, delta_t=delta_t)
+    #tmp1 = pycbc.types.TimeSeries(initial_array=timeseries1, delta_t=delta_t)
+    #tmp2 = pycbc.types.TimeSeries(initial_array=timeseries2, delta_t=delta_t)
+
+    tmp1 = pycbc.types.FrequencySeries(initial_array=np.fft.fft(timeseries1),
+            delta_f = 1.0 / len(timeseries1) / (1./delta_t))
+    tmp2 = pycbc.types.FrequencySeries(initial_array=np.fft.fft(timeseries2),
+            delta_f = 1.0 / len(timeseries2) / (1./delta_t))
 
     if weighted:
 
@@ -86,11 +91,12 @@ def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
 
 
         return pycbc.filter.match(tmp1, tmp2, psd=psd,
-                low_frequency_cutoff=flow)[1]
+                low_frequency_cutoff=flow)[0]
 
     else:
 
-        return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=flow)[1]
+        #return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=flow)[0]
+        return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=0.0)[0]
 
 def minimal_match_by_npc(waveforms,betas,PCs):
     """
@@ -172,8 +178,8 @@ for pc_file, wf_file in zip(PC_files,WF_files):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute match as a function of nPC
-#    minimal_match, average_match, maximum_match, npcs =\
-#            minimal_match_by_npc(waveforms,betas,PCs)
+    minimal_match, average_match, maximum_match, npcs =\
+            minimal_match_by_npc(waveforms,betas,PCs)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute cumulative energy content for each eigenvector
@@ -185,9 +191,9 @@ for pc_file, wf_file in zip(PC_files,WF_files):
     # Plot Results
 
     # --- Minimal Match
-#   ax1.plot(npcs, minimal_match, color=cols[fcounter],
-#           linestyle=styles[fcounter], marker='o', 
-#           label=labels[fcounter]+': min match')
+    ax1.plot(npcs, minimal_match, color=cols[fcounter],
+            linestyle=styles[fcounter], marker='o', 
+            label=labels[fcounter]+': min match')
 
     #ax1.plot(npcs, average_match, color=cols[fcounter],
     #        linestyle=styles[fcounter], marker='x',
@@ -215,7 +221,7 @@ ax1.set_ylim(0,1)
 ax1.legend(loc='lower right')
 
 f1.savefig('match.png')
-pl.close(f1)
+#pl.close(f1)
 
 ax2.set_xlabel('Number of PCs')
 #ax2.set_ylabel('Cumulative Eigenvector Energy')
