@@ -27,19 +27,16 @@ import scipy.io as sio
 import matplotlib
 from matplotlib import pyplot as pl
 
-#font = {'family' : 'Helvetica',
-#        'weight' : 'bold',
-#        'size'   : 12}
-#
-#matplotlib.rc('font', **font)
+import pycbc.types
+import pycbc.filter
+from pycbc.psd import aLIGOZeroDetHighPower
 
 
-fig_width_pt = 200  # Get this from LaTeX using \showthe\columnwidth
-#fig_height_pt = 300 
+
+fig_width_pt = 800  # Get this from LaTeX using \showthe\columnwidth
 inches_per_pt = 1.0/72.27               # Convert pt to inch
 golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
 fig_height_pt = fig_width_pt*golden_mean
-#fig_height_pt = fig_width_pt*0.8
 fig_width = fig_width_pt*inches_per_pt  # width in inches
 fig_height = fig_height_pt*inches_per_pt
 fig_size =  [fig_width,fig_height]
@@ -71,6 +68,30 @@ def compute_betas(waveforms, PCs):
     betas=np.array(np.matrix(waveforms).T * PCs)
     return betas
 
+
+def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
+        weighted=True):
+    """
+    """
+
+    tmp1 = pycbc.types.TimeSeries(initial_array=timeseries1, delta_t=delta_t)
+    tmp2 = pycbc.types.TimeSeries(initial_array=timeseries2, delta_t=delta_t)
+
+    if weighted:
+
+        # make psd
+        flen = len(tmp1.to_frequencyseries())
+        delta_f = np.diff(tmp1.to_frequencyseries().sample_frequencies)[0]
+        psd = aLIGOZeroDetHighPower(flen, delta_f, low_freq_cutoff=flow)
+
+
+        return pycbc.filter.match(tmp1, tmp2, psd=psd,
+                low_frequency_cutoff=flow)[1]
+
+    else:
+
+        return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=flow)[1]
+
 def minimal_match_by_npc(waveforms,betas,PCs):
     """
     """
@@ -91,9 +112,9 @@ def minimal_match_by_npc(waveforms,betas,PCs):
                 rec_wf+=betas[w,n] * PCs[:,n]
 
             # --- Normalise the reconstructed waveform to unit norm
-            rec_wf /= np.linalg.norm(rec_wf)
+            #rec_wf /= np.linalg.norm(rec_wf)
 
-            match[w,npcidx] = np.dot(rec_wf,target_wf)
+            match[w,npcidx] = comp_match(rec_wf,target_wf)
 
     # --- Find minimal match as a function of nPC
     minimal_match = np.zeros(len(npcs))
@@ -109,6 +130,7 @@ def minimal_match_by_npc(waveforms,betas,PCs):
 def eigenenergy(eigenvalues):
     """
     """
+    eigenvalues=abs(np.concatenate(eigenvalues))
     # See:
     # http://en.wikipedia.org/wiki/Principal_component_analysis#Compute_the_cumulative_energy_content_for_each_eigenvector
     gp = sum(eigenvalues)
@@ -138,30 +160,35 @@ for pc_file, wf_file in zip(PC_files,WF_files):
     PC_dict = sio.loadmat(pc_file)
     waveform_dict = sio.loadmat(wf_file)
 
-    PCs = np.imag(PC_dict['PCs_final'])
-    waveforms = np.imag(waveform_dict['MDC_final'])
+    PCs = PC_dict['PCs_final']
+    waveforms = waveform_dict['MDC_final']
+    betas = PC_dict['Betas']
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Calculate the beta values by projecting data onto PCs
-    betas=compute_betas(waveforms,PCs)
+    #betas=compute_betas(waveforms,PCs)
+
+    # XXX: NEED TO HANDLE COMPLEX MATCH???
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute match as a function of nPC
-    minimal_match, average_match, maximum_match, npcs =\
-            minimal_match_by_npc(waveforms,betas,PCs)
+#    minimal_match, average_match, maximum_match, npcs =\
+#            minimal_match_by_npc(waveforms,betas,PCs)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute cumulative energy content for each eigenvector
     #
-    cum_energy = eigenenergy(np.array(np.imag(PC_dict['EigVals'])[0]))
+    cum_energy = eigenenergy(PC_dict['EigVals'])
+    npcs = range(1,len(cum_energy)+1)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Plot Results
 
     # --- Minimal Match
-    ax1.plot(npcs, minimal_match, color=cols[fcounter],
-            linestyle=styles[fcounter], marker='o', 
-            label=labels[fcounter]+': min match')
+#   ax1.plot(npcs, minimal_match, color=cols[fcounter],
+#           linestyle=styles[fcounter], marker='o', 
+#           label=labels[fcounter]+': min match')
+
     #ax1.plot(npcs, average_match, color=cols[fcounter],
     #        linestyle=styles[fcounter], marker='x',
     #        label=labels[fcounter]+': mean match')
@@ -200,7 +227,7 @@ ax2.grid(which='major',color='grey',linestyle='-')
 ax2.set_xlim(0.5,10)
 ax2.legend(loc='lower right')
 #f2.tight_layout()
-pl.subplots_adjust(bottom=0.2,top=0.95)
+pl.subplots_adjust(bottom=0.1,top=0.95,left=0.1)
 
 
 #f2.savefig('eigenenergy.png')
