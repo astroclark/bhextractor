@@ -252,9 +252,9 @@ else
 end
 % addmass help
 if(doMass)
-    maxm=500;
+    maxm=700;
     %mind=0.05;
-    minm=250;
+    minm=300;
     mrange=maxm-minm;
     mprior=-log(mrange);
 else
@@ -265,7 +265,7 @@ else
 end
 
 % set the number of active points in the Nested Sampling
-% numactive = 50; ~ 6 min, 350 Msun, no recovery
+numactive = 50; % ~ 6 min, 350 Msun, no recovery
 % numactive = 500; % ~ 6 hours, 350 Msun, no recovery
 
 % set the number of iterations in the MCMC for finding the next active
@@ -303,23 +303,26 @@ wave_aligned = wave_resampled((peak_idx-peak_idx_unscaled):length(wave_resampled
 wave = wave_aligned.*tukeywin(length(wave_aligned),0.25);
 wave = wave(1:length(wave_unscaled));
 
-%figure(1);
-%plot(wave_unscaled,'r'); hold on; plot(wave,'b'); hold off;
-mleg=legend('M=250',sprintf('M=%i',mass_target));
-set(mleg,'Location','NorthWest')
-axis auto
+% figure(1);
+% plot(wave_unscaled,'r'); hold on; plot(wave,'b'); hold off;
+% mleg=legend('M=250',sprintf('M=%i',mass_target));
+% set(mleg,'Location','NorthWest')
+% axis auto
 % title('Mass Scaling Test');
 % xlabel('Sample Number');
 % ylabel('Amplitude');
-
-
-PSD_unscaled = abs((fft(wave_unscaled))).^2;
-PSD_scaled = abs((fft(wave))).^2;
-%figure(2);
-%semilogy(PSD_unscaled,'r'); hold on; semilogy(PSD_scaled,'b'); hold off;
-xlim([0,200]);
-mleg=legend('M=250',sprintf('M=%i (scaled)',mass_target));
-set(mleg,'Location','SouthWest')
+% 
+% 
+% PSD_unscaled = abs((fft(wave_unscaled))).^2;
+% PSD_scaled = abs((fft(wave))).^2;
+% figure(2);
+% semilogy(PSD_unscaled,'r'); hold on; semilogy(PSD_scaled,'b'); hold off;
+% xlim([0,200]);
+% mleg=legend('M=250',sprintf('M=%i (scaled)',mass_target));
+% set(mleg,'Location','SouthWest')
+% title('Mass Scaling Test - Frequency Domain');
+% xlabel('Frequency (Hz)');
+% ylabel('Power');
 
 %xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 % Compute FFT from scaled time-domain waveform
@@ -824,6 +827,20 @@ postT= Ts(idx,:);
 postdis= distance(idx,:);
 %addmass
 postmass= mass(idx,:);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plot convergent waveform
+% f_vec = (0:1:length(y_fft)-1)';
+% 
+% testplot=figure(3);
+% semilogy(f_vec,wave,f_vec,y_fft);
+% xlim([0,200]);
+% ylim([10^(-50),10^(-39)]);
+% mleg=legend('Injected (500 M_sun)',sprintf('Recovered (%i M_sun)',round(activeM_avg)));
+% set(mleg,'Location','SouthWest')
+% saveas(testplot, strcat(resultsdir,'/converged_waveform.png'));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 posterior_params_savefile = ['smee_output_' catalogue num2str(wv) '_model' model '_PCs' num2str(numPCs)...
     '_detno' num2str(detno) '_' typeofscaling strrep(num2str(scaling), '.', 'p') '_seed' num2str(seed)];

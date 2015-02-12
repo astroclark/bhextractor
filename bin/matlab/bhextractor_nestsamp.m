@@ -252,9 +252,9 @@ else
 end
 % addmass help
 if(doMass)
-    maxm=560;
+    maxm=700;
     %mind=0.05;
-    minm=440;
+    minm=300;
     mrange=maxm-minm;
     mprior=-log(mrange);
 else
@@ -265,7 +265,7 @@ else
 end
 
 % set the number of active points in the Nested Sampling
-numactive = 100; % ~ 6 min, 350 Msun, no recovery
+numactive = 50; % ~ 6 min, 350 Msun, no recovery
 % numactive = 500; % ~ 6 hours, 350 Msun, no recovery
 
 % set the number of iterations in the MCMC for finding the next active
@@ -827,6 +827,20 @@ postT= Ts(idx,:);
 postdis= distance(idx,:);
 %addmass
 postmass= mass(idx,:);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plot convergent waveform
+% f_vec = (0:1:length(y_fft)-1)';
+% 
+% testplot=figure(3);
+% semilogy(f_vec,wave,f_vec,y_fft);
+% xlim([0,200]);
+% ylim([10^(-50),10^(-39)]);
+% mleg=legend('Injected (500 M_sun)',sprintf('Recovered (%i M_sun)',round(activeM_avg)));
+% set(mleg,'Location','SouthWest')
+% saveas(testplot, strcat(resultsdir,'/converged_waveform.png'));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 posterior_params_savefile = ['smee_output_' catalogue num2str(wv) '_model' model '_PCs' num2str(numPCs)...
     '_detno' num2str(detno) '_' typeofscaling strrep(num2str(scaling), '.', 'p') '_seed' num2str(seed)];
