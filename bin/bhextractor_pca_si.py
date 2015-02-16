@@ -331,7 +331,7 @@ if not os.path.exists(PCA_path): os.makedirs(PCA_path)
 
 # Save dictionary to mat file
 PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
-PC_dict={'PCs_final':U, 'EigVals':S}
+PC_dict={'PCs_final':U, 'EigVals':S, 'Betas':V}
 sio.savemat(PCA_outname, PC_dict)
 
 # Save FFTs of PCs to binary file 
