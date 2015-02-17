@@ -265,8 +265,8 @@ else
 end
 
 % set the number of active points in the Nested Sampling
-%numactive = 50; % ~ 6 min, 350 Msun, no recovery
-numactive = 200; % ~ 6 hours, 350 Msun, no recovery
+numactive = 50; % ~ 6 min, 350 Msun, no recovery
+% numactive = 500; % ~ 6 hours, 350 Msun, no recovery
 
 % set the number of iterations in the MCMC for finding the next active
 % point
@@ -495,4 +495,387 @@ if(doTimeshift)
         %addmass
         likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
             + Tprior + dprior + mprior;
-        %coherent case: L is product over individual detector like
+        %coherent case: L is product over individual detector likelihoods
+        for j=1:numactive
+            for i=1:detno
+                %addmass
+                lp = like_gauss_fspace_td(wave_ft(:,i), sigdet(:,i), ...
+                    deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
+                    @findy, V_ft, activebeta(j,:), actived(j),activem(j), numPCs);
+                
+                likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
+                
+            end
+            like_sum = logplus(like_sum,likeactive(j)-numactive);
+        end
+        
+        like_avg(k) = like_sum;
+    end
+    
+    %pick the bins with highest sumed likelihood
+    like_avg_max = max(like_avg);
+    like_avg_min = min(like_avg);
+    idcs = find(like_avg_max-like_avg < 0.1*(like_avg_max-like_avg_min));
+    %minT = mid_T0(idcs(1))-bin_size/2;
+    %maxT = mid_T0(idcs(end))+bin_size/2;
+    Tprior = -log(maxT-minT);
+end
+%time shift values for active points
+activeT = rand(1,numactive)*(maxT-minT) + minT;
+
+% calculate the likelihood*prior at these current active points
+%addmass
+likeactive = zeros(1,numactive) + sum(betaprior(1:numPCs)) ...
+    + Tprior + dprior + mprior;
+
+%coherent case: L is product over individual detector likelihoods
+for j=1:numactive
+    for i=1:detno
+        %addmass
+        lp = like_gauss_fspace_td(wave_ft(:,i), sigdet(:,i), ...
+            deltaF, len, f, lowfreq_index, highfreq_index, activeT(j), ...
+            @findy, V_ft, activebeta(j,:), actived(j), activem(j), numPCs);
+        
+        likeactive(j) = likeactive(j) + lp;% + sum(betaprior);
+        
+    end
+end
+
+Z(1) = -1e37;
+
+j = 2;
+
+logw(1) = log(1 - exp(-1/numactive));
+
+% start nested sampling loop - use John Veitch's critereon of continuing until
+% i <= numactive*infosafe*H, where we steal infosafe = 1.5 from John's code
+infosafe = 1.5;
+H(1) = 0;
+
+%doPlot = 1;
+if(doPlot)
+    figure('OuterPosition',[70,100,1200,600]);
+end
+
+% Define the output directory so that we can save intermittently
+resultsdir=run_name;
+mkdir(resultsdir)
+
+verbose=0;
+
+while j-2 <= numactive * infosafe * H(j-1)
+
+    if verbose
+        disp(sprintf('j-2: %.2f | stop: %.2f', j-2, numactive * infosafe * H(j-1)))
+    end
+
+    if(doPlot)
+        activebeta_avg = mean(activebeta);
+        activeD_avg = mean(actived);
+        activeT_avg = mean(activeT);
+        %addmass
+        activeM_avg = mean(activem);
+        
+        %addmass
+        y_fft = findy(V_ft, activebeta_avg, activeD_avg, activeM_avg, numPCs);
+        y = ifft([0; y_fft; 0; flipud(conj(y_fft))]);
+        y_sig_fft = fft(wave0)*sample_deltaT;
+    
+      %plot waveforms corresponding average of active points, in time domain   
+       % subplot(1,3,1),plot((-100:100),wave0(4000:4200),(-100:100),y(4000:4200))
+    
+      %same, in frequency domain, plus signal received by detector    
+%         subplot(1,2,1),plot((50:4000),abs(wave_ft(50:4000,1)),...
+%             (50:4000),abs(y_sig_fft(50:4000)),...
+%             (50:4000),abs(y_fft(50:4000)));
+         h = subplot(1,2,1);
+            plot(wave0,'r');
+%             hold on
+            plot(y)
+    
+            min1 = min(activebeta(:,1));
+            max1 = max(activebeta(:,1));
+            min2 = min(activebeta(:,2));
+            max2 = max(activebeta(:,2));
+            min3 = min(activebeta(:,3));
+            max3 = max(activebeta(:,3));
+    
+            % creates a plot of points for betas 1, 2 and 3, zooms in on final outcomes
+            subplot(1,2,2),plot3(activebeta(:,1), activebeta(:,2), activebeta(:,3), '.');
+            subplot(1,2,2),xlim([min1 max1]);
+            subplot(1,2,2),ylim([min2 max2]);
+            subplot(1,2,2),zlim([min3 max3]);
+            subplot(1,2,2),text(max1,max2,max3,['Iterations: ' num2str(j-2)]);
+            
+        drawnow;
+%         Movie(j) = getframe(h);
+    end
+    
+    % find minimum of likelihoods
+    [Lmin, idx] = min(likeactive);
+    
+    % get the log weight
+    logWt = Lmin + logw(j-1);
+    
+    Z(j) = logplus(Z(j-1), logWt);
+    
+    % get values for using in posterior calculation
+    Lw(j-1) = logWt;
+    betas(j-1,:) = activebeta(idx,:);
+    Ts(j-1) = activeT(idx);
+    Distance(j-1) = actived(idx);
+    %addmass
+    Mass(j-1) = activem(idx);
+    
+    % calculate the information H
+    H(j) = exp(logWt - Z(j))*Lmin + exp(Z(j-1) - Z(j)) *...
+        (H(j-1) + Z(j-1)) - Z(j);
+    
+    Activebeta=activebeta;
+    %addmass
+    if (doDistance && doTimeshift && doMass)
+        Activebeta(:,numPCs+1)=actived;
+        Activebeta(:,numPCs+2)=activeT;
+        Activebeta(:,numPCs+3)=activem;
+    elseif (doDistance && doTimeshift)
+        Activebeta(:,numPCs+1)=actived;
+        Activebeta(:,numPCs+2)=activeT;
+    elseif (doDistance && doMass)
+        Activebeta(:,numPCs+1)=actived;
+        Activebeta(:,numPCs+2)=activem;
+    elseif (doMass && doTimeshift)
+        Activebeta(:,numPCs+1)=activem;
+        Activebeta(:,numPCs+2)=activeT;
+    elseif (doDistance)
+        Activebeta(:,numPCs+1)=actived;
+    elseif (doTimeshift)
+        Activebeta(:,numPCs+1)=activeT;
+    elseif (doMass)
+        Activebeta(:,numPCs+1)=activem;
+    end
+    
+    % update the log width
+    logw(j) = logw(j-1) - 1/numactive;
+    
+    % will need to change 2nd argument to number of PC's used
+    %addmass
+    if mod(j-2, numPCs + doDistance + doTimeshift + doMass)== 0
+        cholmat = cholcov(cov(Activebeta));
+    end
+    
+    good = 0;
+    
+    % incase no useable point is returned in the first MCMC keep repeating
+    % until one is
+    while good == 0
+        % from the active points randomly pick a starting point for the chain
+        randval = ceil(rand(1)*numactive);
+        
+        betachain = zeros(nits+1, numPCs);
+        Tchain = zeros(nits+1, 1);
+        dchain = zeros(nits+1, 1);
+        %addmass
+        mchain = zeros(nits+1, 1);
+        
+        betachain(1,:) = activebeta(randval,:);
+        Tchain(1) = activeT(randval);
+        dchain(1) = actived(randval);
+        %addmass
+        mchain(1) = activem(randval);
+        
+        Lcur = likeactive(randval);
+        
+        acc = 0; % count accepted points
+        
+        % start MCMC chain
+        %if verbose; disp('sampling new point'); end
+        for k=1:nits
+            % generate new position from proposal
+            %addmass
+            gasvals = randn(numPCs + doTimeshift + doDistance + doMass,1);
+            newvals = cholmat*gasvals;
+            
+            betanew = betachain(k,:) + newvals(1:numPCs)';
+            
+            if(doTimeshift)
+                Tnew = Tchain(k) + newvals(end);
+            else
+                Tnew = Tchain(k);
+            end
+            if(doDistance)
+                dnew = dchain(k) + newvals(end-doTimeshift);
+            else
+                dnew = dchain(k);
+            end
+            %addmass
+            if(doMass)
+                mnew = mchain(k) + newvals(end-doTimeshift);
+            else
+                mnew = mchain(k);
+            end
+            
+            % if new point is not within prior range then reject point
+            %addmass
+            if any((betanew < minbeta(1:numPCs)) | (betanew > maxbeta(1:numPCs))) || ...
+                    dnew < mind || dnew > maxd || ...
+                    Tnew < minT || Tnew > maxT || ...
+                    mnew < minm || mnew > maxm
+                %disp('outside prior')
+                
+                betachain(k+1,:) = betachain(k,:);
+                Tchain(k+1) = Tchain(k);
+                dchain(k+1) = dchain(k);
+                mchain(k+1) = mchain(k);
+                continue;
+            end
+            
+            % get likelihood for new position
+            %coherent case: L is product over individual detector likelihoods
+            %addmass
+            Lnew = sum(betaprior(1:numPCs)) + Tprior + dprior + mprior;
+            for i=1:detno
+                %disp('computing likelihood')
+                %addmass
+                lp = like_gauss_fspace_td(wave_ft(:,i), sigma, ...
+                    deltaF, len, f, lowfreq_index, highfreq_index, Tnew, ...
+                    @findy, V_ft, betanew, dnew, mnew, numPCs);
+                
+                Lnew = Lnew + lp;% + sum(betaprior) ;
+            end
+            
+            % check whether to accept or reject the new point
+            Lrat = Lnew - Lcur;
+            
+            if Lrat - log(rand) >= 0 && Lnew > Lmin
+                
+                betachain(k+1,:) = betanew;
+                Tchain(k+1) = Tnew;
+                dchain(k+1) = dnew;
+                %addmass
+                mchain(k+1) = mnew;
+                Lcur = Lnew;
+                acc = acc + 1;
+            else
+                
+                betachain(k+1,:) = betachain(k,:);
+                Tchain(k+1) = Tchain(k);
+                dchain(k+1) = dchain(k);
+                %addmass
+                mchain(k+1) = mchain(k);
+            end
+        end % MCMC sampling
+        
+        if acc > 0
+            good = 1;
+        end
+    end 
+    % substitute the final values of the MCMC chain into the position of
+    % Lmin
+    activebeta(idx,:) = betachain(end,:);
+    activeT(idx) = Tchain(end);
+    actived(idx) = dchain(end);
+    %addmass
+    activem(idx) = mchain(end);
+    
+    likeactive(idx) = Lcur;
+    
+    j=j+1;
+    
+    %if rem(j,500) == 0
+    %    disp('saving workspace')
+    %    workspace_filename = strcat('workspace_iteration',num2str(j),'.mat');
+    %    save([resultsdir '/' workspace_filename])
+    %end
+end
+
+% we're no longer reducing the prior distribution, so weights stay the same
+% as (1/N)*X_j
+logwend = logw(j-1) -logw(1) - log(numactive);
+
+% add the remaining points
+for k=1:numactive
+    logw(j+k-1) = logwend;
+    Z(j+k-1) = logplus(Z(j+k-2), likeactive(k) + logw(j+k-1));
+    Lw(k+j-2) = likeactive(k) + logw(j+k-1);
+    betas(k+j-2,:) = activebeta(k,:);
+    Ts(k+j-2) = activeT(k);
+    Distance(k+j-2) = actived(k);
+    %addmass
+    Mass(k+j-2) = activem(k);
+end
+
+%reduce size of variables to be exported
+Z = Z(1:j-1+numactive);
+Lw = Lw(1:j-2+numactive);
+betas = betas(1:j-2+numactive,:);
+Ts = Ts(1:j-2+numactive);
+Z_end= Z(j-1+numactive);
+Bayes=Z(j-1+numactive)-sum(evnoise);
+distance= Distance(1:j-2+numactive);
+%addmass
+mass= Mass(1:j-2+numactive);
+
+% calculates the posterior distribution on the beta distributions
+rnums = rand(1,length(Lw));
+
+wt = logw(1:length(Lw)) + Lw;
+maxwt = max(wt);
+idx = find(wt' > maxwt+log(rnums));
+
+postbetas = betas(idx,:);
+postT= Ts(idx,:);
+postdis= distance(idx,:);
+%addmass
+postmass= mass(idx,:);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Plot convergent waveform
+% f_vec = (0:1:length(y_fft)-1)';
+% 
+% testplot=figure(3);
+% semilogy(f_vec,wave,f_vec,y_fft);
+% xlim([0,200]);
+% ylim([10^(-50),10^(-39)]);
+% mleg=legend('Injected (500 M_sun)',sprintf('Recovered (%i M_sun)',round(activeM_avg)));
+% set(mleg,'Location','SouthWest')
+% saveas(testplot, strcat(resultsdir,'/converged_waveform.png'));
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+posterior_params_savefile = ['smee_output_' catalogue num2str(wv) '_model' model '_PCs' num2str(numPCs)...
+    '_detno' num2str(detno) '_' typeofscaling strrep(num2str(scaling), '.', 'p') '_seed' num2str(seed)];
+save([resultsdir '/' posterior_params_savefile],'catalogue','wv','model','betas','activebeta','detno',...
+    'Ts','seed','distance','mass','Lw', 'evnoise','Z_end','Bayes','SNR','postbetas','postT','postdis','postmass','effective_distance', 'numPCs');
+
+% save a simple txt file with a line of output
+outFile = sprintf('%s/smee_results.txt', resultsdir);
+fid = fopen(outFile, 'a');
+fprintf(fid, '%i %1.4e %1.4e %1.4e %i \n', wv, evnoise, Bayes, SNR, numPCs);
+fclose(fid);
+
+%print evidence for model
+fprintf(1, 'Network: log(%s Evidence) = %f\n', model, Z_end);
+fprintf(1, 'INPUT MASS = %f\n', mass_target);
+fprintf(1, 'log(nested sampling Bayes factor vs Noise) = %f\n', Bayes);
+
+%print extra output data
+fprintf(1, 'No. of Iterations: %i\n', j);
+fprintf(1,'H = %f\n', H(j-1));
+for cnt=1:numPCs
+    fprintf(1,'<B_%i> = %f\n',cnt,mean(activebeta(:,cnt)));
+end
+fprintf(1,'<T> = %f\n',mean(activeT));
+fprintf(1,'<D> = %f\n',mean(actived));
+%addmass
+fprintf(1,'<M> = %f\n',mean(activem));
+
+% Save betas from nested sampling
+%BETAS=activebeta;
+%betas_savefile = ['betas_model' model wv '-cat' catalogue '-seed' seed];
+%save([resultsdir betas_savefile],'BETAS');
+
+clear H Lcur betas Lmin Lnew Lrat acc activebeta betachain cholmat betanew V fs...
+    gasvals good idx infosafe likeactive logWt logdbeta Lw logwend logw maxwt...
+    mlog2 newvals randval rnums wt Z lp l j k Activebeta ActiveT activeT Ts Tchain Tnew model
+toc
+%exit
