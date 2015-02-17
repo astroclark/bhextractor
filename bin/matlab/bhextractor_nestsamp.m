@@ -252,9 +252,9 @@ else
 end
 % addmass help
 if(doMass)
-    maxm=700;
+    maxm=750;
     %mind=0.05;
-    minm=300;
+    minm=250;
     mrange=maxm-minm;
     mprior=-log(mrange);
 else
