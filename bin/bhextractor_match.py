@@ -42,11 +42,11 @@ fig_height = fig_height_pt*inches_per_pt
 fig_size =  [fig_width,fig_height]
 
 matplotlib.rcParams.update(
-        {'axes.labelsize': 8,
-        'text.fontsize':   8,  
-        'legend.fontsize': 8,
-        'xtick.labelsize': 8,
-        'ytick.labelsize': 8,
+        {'axes.labelsize': 12,
+        'text.fontsize':   12,  
+        'legend.fontsize': 12,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
         'text.usetex': True,
         'figure.figsize': fig_size,
         'font.family': "serif",
@@ -236,7 +236,8 @@ ax2.legend(loc='lower right')
 pl.subplots_adjust(bottom=0.1,top=0.95,left=0.1)
 
 
-#f2.savefig('eigenenergy.png')
+f2.tight_layout()
+f2.savefig('eigenenergy.png')
 f2.savefig('eigenenergy.pdf')
 
 #pl.show()
