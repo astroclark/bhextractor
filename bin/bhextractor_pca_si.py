@@ -92,6 +92,27 @@ def freqseries(timeseries, delta_t=1./2048):
     tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
     return np.array(tmp.to_frequencyseries().data)
 
+def pca(catalogue):
+
+    U, S, Vt = scipy.linalg.svd(catalogue, full_matrices=False)
+    V = Vt.T
+
+    # sort the PCs by descending order of the singular values (i.e. by the
+    # proportion of total variance they explain)
+    ind = np.argsort(S)[::-1]
+    U = U[:,ind]
+    S = S[ind]
+    V = V[:,ind]
+
+    # See e.g.,:
+    # http://en.wikipedia.org/wiki/Principal_component_analysis#Singular_value_decomposition
+
+    # Score matrix:
+    PCs = U * S 
+
+    return PCs, V, S**2 #Betas
+
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # INPUT 
@@ -312,15 +333,9 @@ else:
     # Use SVD
 
     waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
-    U, S, Vt = scipy.linalg.svd(waveform_catalogue, full_matrices=False)
-    V = Vt.T
 
-    # sort the PCs by descending order of the singular values (i.e. by the
-    # proportion of total variance they explain)
-    ind = np.argsort(S)[::-1]
-    U = U[:, ind]
-    S = S[ind]
-    V = V[:, ind]
+    U, V, S = pca(waveform_catalogue)
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Save results
