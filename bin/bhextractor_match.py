@@ -74,13 +74,8 @@ def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
     """
     """
 
-    #tmp1 = pycbc.types.TimeSeries(initial_array=timeseries1, delta_t=delta_t)
-    #tmp2 = pycbc.types.TimeSeries(initial_array=timeseries2, delta_t=delta_t)
-
-    tmp1 = pycbc.types.FrequencySeries(initial_array=np.fft.fft(timeseries1),
-            delta_f = 1.0 / len(timeseries1) / (1./delta_t))
-    tmp2 = pycbc.types.FrequencySeries(initial_array=np.fft.fft(timeseries2),
-            delta_f = 1.0 / len(timeseries2) / (1./delta_t))
+    tmp1 = pycbc.types.TimeSeries(initial_array=timeseries1, delta_t=delta_t)
+    tmp2 = pycbc.types.TimeSeries(initial_array=timeseries2, delta_t=delta_t)
 
     if weighted:
 
@@ -95,43 +90,44 @@ def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
 
     else:
 
-        #return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=flow)[0]
-        return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=0.0)[0]
+        return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=flow)[0]
 
 def minimal_match_by_npc(waveforms,betas,PCs):
     """
     """
-    match=np.zeros(shape=(np.shape(waveforms)[1],np.shape(waveforms)[1]))
+    match_real=np.zeros(shape=(np.shape(waveforms)[1],np.shape(waveforms)[1]))
+    match_imag=np.zeros(shape=(np.shape(waveforms)[1],np.shape(waveforms)[1]))
     npcs=np.arange(np.shape(waveforms)[1])+1
 
     w=0
     for w in range(np.shape(waveforms)[1]):
 
         # --- Normalise the test waveform to unit norm
-        target_wf = waveforms[:,w] / np.linalg.norm(waveforms[:,w])
+        #target_wf = waveforms[:,w] / np.linalg.norm(waveforms[:,w])
+        target_wf = waveforms[:,w]
 
         for npcidx, npc in enumerate(npcs):
 
             # --- Reconstruct the wf-th waveform using n PCs
-            rec_wf = np.zeros(np.shape(waveforms)[0])
+            rec_wf = np.zeros(np.shape(waveforms)[0], dtype=complex)
             for n in range(npc):
                 rec_wf+=betas[w,n] * PCs[:,n]
 
             # --- Normalise the reconstructed waveform to unit norm
             #rec_wf /= np.linalg.norm(rec_wf)
 
-            match[w,npcidx] = comp_match(rec_wf,target_wf)
+            match_real[w,npcidx] = comp_match(np.real(rec_wf),np.real(target_wf))
+            match_imag[w,npcidx] = comp_match(np.imag(rec_wf),np.imag(target_wf))
 
     # --- Find minimal match as a function of nPC
-    minimal_match = np.zeros(len(npcs))
-    average_match = np.zeros(len(npcs))
-    maximum_match = np.zeros(len(npcs))
-    for npc, _ in enumerate(npcs):
-        minimal_match[npc] = min(match[:,npc])
-        average_match[npc] = np.mean(match[:,npc])
-        maximum_match[npc] = max(match[:,npc])
+    minimal_match_real = np.zeros(len(npcs))
+    minimal_match_imag = np.zeros(len(npcs))
 
-    return minimal_match, average_match, maximum_match, npcs
+    for npc, _ in enumerate(npcs):
+        minimal_match_real[npc] = min(match_real[:,npc])
+        minimal_match_imag[npc] = min(match_imag[:,npc])
+
+    return minimal_match_real, minimal_match_imag, match_real, match_imag
 
 def eigenenergy(eigenvalues):
     """
@@ -160,6 +156,7 @@ WF_files=sys.argv[2].split(',')
 
 f1,ax1 = pl.subplots()
 f2,ax2 = pl.subplots()
+f3,ax3 = pl.subplots()
 fcounter=0
 for pc_file, wf_file in zip(PC_files,WF_files):
 
@@ -178,7 +175,8 @@ for pc_file, wf_file in zip(PC_files,WF_files):
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute match as a function of nPC
-    minimal_match, average_match, maximum_match, npcs =\
+
+    minimal_match_real, minimal_match_imag, match_real, match_imag = \
             minimal_match_by_npc(waveforms,betas,PCs)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -191,19 +189,16 @@ for pc_file, wf_file in zip(PC_files,WF_files):
     # Plot Results
 
     # --- Minimal Match
-    ax1.plot(npcs, minimal_match, color=cols[fcounter],
+    ax1.plot(npcs, minimal_match_real, color=cols[fcounter],
             linestyle=styles[fcounter], marker='o', 
-            label=labels[fcounter]+': min match')
-
-    #ax1.plot(npcs, average_match, color=cols[fcounter],
-    #        linestyle=styles[fcounter], marker='x',
-    #        label=labels[fcounter]+': mean match')
-    #ax1.plot(npcs, maximum_match, color=cols[fcounter],
-    #        linestyle=styles[fcounter], marker='s',
-    #        label=labels[fcounter]+': max match')
+            label=labels[fcounter]+': min match (real)')
+    
+    ax2.plot(npcs, minimal_match_imag, color=cols[fcounter],
+            linestyle=styles[fcounter], marker='o', 
+            label=labels[fcounter]+': min match (imag)')
 
     # --- Eigenenergy
-    ax2.plot(npcs, cum_energy, color=cols[fcounter], linestyle=styles[fcounter],
+    ax3.plot(npcs, cum_energy, color=cols[fcounter], linestyle=styles[fcounter],
             marker='o', label=labels[fcounter])
 
     fcounter+=1
@@ -217,27 +212,36 @@ ax1.minorticks_on()
 ax1.grid(which='major',color='grey',linestyle='-')
 #ax1.grid(which='minor',color='grey',linestyle=':')
 ax1.set_xlim(0.5,10)
-ax1.set_ylim(0,1)
+#ax1.set_ylim(0,1)
 ax1.legend(loc='lower right')
-
-f1.savefig('match.png')
+f1.savefig('match_real.png')
 #pl.close(f1)
 
 ax2.set_xlabel('Number of PCs')
-#ax2.set_ylabel('Cumulative Eigenvector Energy')
-#ax2.set_title('Distribution of Energy Among Eigenvectors')
-ax2.set_ylabel('$E(k)$')
+ax2.set_ylabel('Minimal Match')
+#ax1.set_title('Match for worst-reconstruction in catalogue')
 ax2.minorticks_on()
 ax2.grid(which='major',color='grey',linestyle='-')
-#ax2.grid(which='minor',color='grey',linestyle=':')
+#ax1.grid(which='minor',color='grey',linestyle=':')
 ax2.set_xlim(0.5,10)
+#ax2.set_ylim(0,1)
 ax2.legend(loc='lower right')
+f2.savefig('match_imag.png')
+
+ax3.set_xlabel('Number of PCs')
+#ax2.set_ylabel('Cumulative Eigenvector Energy')
+#ax2.set_title('Distribution of Energy Among Eigenvectors')
+ax3.set_ylabel('$E(k)$')
+ax3.minorticks_on()
+ax3.grid(which='major',color='grey',linestyle='-')
+#ax2.grid(which='minor',color='grey',linestyle=':')
+ax3.set_xlim(0.5,10)
+ax3.legend(loc='lower right')
 #f2.tight_layout()
 pl.subplots_adjust(bottom=0.1,top=0.95,left=0.1)
 
-
-f2.tight_layout()
-f2.savefig('eigenenergy.png')
-f2.savefig('eigenenergy.pdf')
+f3.tight_layout()
+f3.savefig('eigenenergy.png')
+f3.savefig('eigenenergy.pdf')
 
 #pl.show()
