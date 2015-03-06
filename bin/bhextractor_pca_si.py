@@ -225,6 +225,11 @@ for w,waveform in enumerate(waveforms):
     hplus = highpass(hplus)
     hcross = highpass(hcross)
 
+    # --- Set polarisations to unit norm
+    # XXX: might need to be careful with relative +,x amplitudes...
+    #hplus /= np.linalg.norm(hplus)
+    #hcross /= np.linalg.norm(hcross)
+
     # Use complex waveform!
     catalogue[:,w] = hplus - 1j*hcross
     
@@ -275,7 +280,7 @@ for w in xrange(len(waveforms)):
 #       waveform_catalogue_imag[start_idx:,w] = catalogue_imag[:catalog_len-start_idx,w]
 
     # --- Normalisation (apply identical scaling to real, imag)
-    N = comp_norm(waveform_catalogue_real[:,w])
+    N = comp_norm(waveform_catalogue_real[:,w], snr=False)
     waveform_catalogue_real[:,w] /= N
     waveform_catalogue_imag[:,w] /= N
 
@@ -344,12 +349,19 @@ PCA_path=os.environ['BHEX_PREFIX']+'/data/'+'PCA_data'
 
 if not os.path.exists(PCA_path): os.makedirs(PCA_path)
 
+#
 # Save dictionary to mat file
+#
 PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
 PC_dict={'PCs_final':U, 'EigVals':S, 'Betas':V}
 sio.savemat(PCA_outname, PC_dict)
 
+#
 # Save FFTs of PCs to binary file 
+#
+
+# These are the template basis functions LIB will use to find the signal.
+
 U_fdomain_plus = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
 U_fdomain_cross = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
 for i in xrange(np.shape(U)[1]):
