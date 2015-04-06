@@ -151,8 +151,15 @@ labels=['Q','HR','RO3']
 cols=['k','gray','k']
 styles=['-','-','--']
 # comma-separated lists of files
-PC_files=sys.argv[1].split(',')
-WF_files=sys.argv[2].split(',')
+#PC_files=sys.argv[1].split(',')
+#WF_files=sys.argv[2].split(',')
+
+import os
+data_path=os.environ['BHEX_PREFIX']+'/data/'
+PC_files = [data_path + '/PCA_data/' + label + '_PCs_theta-0.mat' for label in
+        labels]
+WF_files = [data_path + '/signal_data/' + label + '_catalogue_theta-0.mat' for label in
+        labels]
 
 f1,ax1 = pl.subplots()
 f2,ax2 = pl.subplots()
@@ -172,6 +179,20 @@ for pc_file, wf_file in zip(PC_files,WF_files):
     #betas=compute_betas(waveforms,PCs)
 
     # XXX: NEED TO HANDLE COMPLEX MATCH???
+
+    y1  = pycbc.types.TimeSeries(np.real(waveforms[:,0]), delta_t = 1./2048)
+    y2  = pycbc.types.TimeSeries(np.real(PCs[:,0]), delta_t = 1./2048)
+    Y1 = y1.to_frequencyseries()
+    Y2 = y2.to_frequencyseries()
+
+    pl.close(f1)
+    pl.close(f2)
+    pl.close(f3)
+    pl.figure()
+    pl.plot(Y1.sample_frequencies, abs(Y1)/max(abs(Y1)))
+    pl.plot(Y2.sample_frequencies, abs(Y2)/max(abs(Y2)))
+    pl.show()
+    sys.exit()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute match as a function of nPC
