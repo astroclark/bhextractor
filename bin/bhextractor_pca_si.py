@@ -349,12 +349,6 @@ PCA_path=os.environ['BHEX_PREFIX']+'/data/'+'PCA_data'
 
 if not os.path.exists(PCA_path): os.makedirs(PCA_path)
 
-#
-# Save dictionary to mat file
-#
-PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
-PC_dict={'PCs_final':U, 'EigVals':S, 'Betas':V}
-sio.savemat(PCA_outname, PC_dict)
 
 #
 # Save FFTs of PCs to binary file 
@@ -374,6 +368,13 @@ U_fdomain_plus.tofile(fp)
 U_fdomain_cross.tofile(fc)
 fp.close()
 fc.close()
+
+#
+# Save dictionary with PCs to mat file
+#
+PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
+PC_dict={'PCs_final':U, 'EigVals':S, 'Betas':V}
+sio.savemat(PCA_outname, PC_dict)
 
 catalogue_path=os.environ['BHEX_PREFIX']+'/data/'+'signal_data'
 if not os.path.exists(catalogue_path): os.makedirs(catalogue_path)
