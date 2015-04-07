@@ -70,7 +70,7 @@ def compute_betas(waveforms, PCs):
 
 
 def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
-        weighted=False):
+        weighted=True):
     """
     """
 
@@ -100,24 +100,53 @@ def minimal_match_by_npc(waveforms,betas,PCs):
     npcs=np.arange(np.shape(waveforms)[1])+1
 
     w=0
-    for w in range(np.shape(waveforms)[1]):
+    #for w in range(np.shape(waveforms)[1]):
+    for w in [3]:
 
         # --- Normalise the test waveform to unit norm
         #target_wf = waveforms[:,w] / np.linalg.norm(waveforms[:,w])
         target_wf = waveforms[:,w]
 
+        npcs = [3]
         for npcidx, npc in enumerate(npcs):
 
             # --- Reconstruct the wf-th waveform using n PCs
             rec_wf = np.zeros(np.shape(waveforms)[0], dtype=complex)
             for n in range(npc):
                 rec_wf+=betas[w,n] * PCs[:,n]
+                print betas[w,n]
 
             # --- Normalise the reconstructed waveform to unit norm
             #rec_wf /= np.linalg.norm(rec_wf)
 
             match_real[w,npcidx] = comp_match(np.real(rec_wf),np.real(target_wf))
             match_imag[w,npcidx] = comp_match(np.imag(rec_wf),np.imag(target_wf))
+
+            if npc==3:
+
+
+                y0  = pycbc.types.TimeSeries(np.real(waveforms[:,0]), delta_t = 1./2048)
+                y1  = pycbc.types.TimeSeries(np.real(waveforms[:,3]), delta_t = 1./2048)
+                y2  = pycbc.types.TimeSeries(np.real(rec_wf), delta_t = 1./2048)
+                Y0 = y0.to_frequencyseries()
+                Y1 = y1.to_frequencyseries()
+                Y2 = y2.to_frequencyseries()
+
+                print sum((abs(Y1)-abs(Y2))**2)/sum(abs(Y1)**2)
+
+                print match_real[w,npcidx]
+
+                pl.close(f1)
+                pl.close(f2)
+                pl.close(f3)
+                pl.figure()
+                pl.plot(Y0.sample_frequencies, abs(Y1)/max(abs(Y1)), label='injection')
+                pl.plot(Y1.sample_frequencies, abs(Y1)/max(abs(Y1)), label='injection')
+                pl.plot(Y2.sample_frequencies, abs(Y2)/max(abs(Y2)), label='PC reconstruction')
+                pl.legend()
+                pl.xlim(0,200)
+                pl.show()
+                sys.exit()
 
     # --- Find minimal match as a function of nPC
     minimal_match_real = np.zeros(len(npcs))
@@ -180,19 +209,6 @@ for pc_file, wf_file in zip(PC_files,WF_files):
 
     # XXX: NEED TO HANDLE COMPLEX MATCH???
 
-    y1  = pycbc.types.TimeSeries(np.real(waveforms[:,0]), delta_t = 1./2048)
-    y2  = pycbc.types.TimeSeries(np.real(PCs[:,0]), delta_t = 1./2048)
-    Y1 = y1.to_frequencyseries()
-    Y2 = y2.to_frequencyseries()
-
-    pl.close(f1)
-    pl.close(f2)
-    pl.close(f3)
-    pl.figure()
-    pl.plot(Y1.sample_frequencies, abs(Y1)/max(abs(Y1)))
-    pl.plot(Y2.sample_frequencies, abs(Y2)/max(abs(Y2)))
-    pl.show()
-    sys.exit()
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute match as a function of nPC
