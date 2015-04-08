@@ -92,7 +92,7 @@ def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
 
         return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=flow)[0]
 
-def minimal_match_by_npc(waveforms,betas,PCs):
+def minimal_match_by_npc(waveforms,betas,PCs,PCs_FD):
     """
     """
     match_real=np.zeros(shape=(np.shape(waveforms)[1],np.shape(waveforms)[1]))
@@ -101,19 +101,35 @@ def minimal_match_by_npc(waveforms,betas,PCs):
 
     w=0
     #for w in range(np.shape(waveforms)[1]):
-    for w in [3]:
+    for w in [11]:
 
         # --- Normalise the test waveform to unit norm
         #target_wf = waveforms[:,w] / np.linalg.norm(waveforms[:,w])
         target_wf = waveforms[:,w]
+
+        betas_test = np.array([
+                0.169297009243-0.227168442698j, 
+                -0.126125348997+0.152986448947j,
+                -0.211089290872-0.186187720424j])
+
 
         npcs = [3]
         for npcidx, npc in enumerate(npcs):
 
             # --- Reconstruct the wf-th waveform using n PCs
             rec_wf = np.zeros(np.shape(waveforms)[0], dtype=complex)
+            rec_wf_FD = np.zeros(np.shape(PCs_FD)[0], dtype=complex)
             for n in range(npc):
-                rec_wf+=betas[w,n] * PCs[:,n]
+                #rec_wf+=betas[w,n] * PCs[:,n]
+                #rec_wf_FD += betas[w,n] * PCs_FD[:,n]
+
+                rec_wf+=betas_test[n] * PCs[:,n]
+                rec_wf_FD +=betas_test[n] * PCs_FD[:,n]
+                print 'first point', rec_wf_FD[0]
+
+                
+                print '---'
+                print betas_test[n]
                 print betas[w,n]
 
             # --- Normalise the reconstructed waveform to unit norm
@@ -124,27 +140,33 @@ def minimal_match_by_npc(waveforms,betas,PCs):
 
             if npc==3:
 
-
-                y0  = pycbc.types.TimeSeries(np.real(waveforms[:,0]), delta_t = 1./2048)
-                y1  = pycbc.types.TimeSeries(np.real(waveforms[:,3]), delta_t = 1./2048)
+                y0  = pycbc.types.TimeSeries(np.real(waveforms[:,11]), delta_t = 1./2048)
                 y2  = pycbc.types.TimeSeries(np.real(rec_wf), delta_t = 1./2048)
                 Y0 = y0.to_frequencyseries()
-                Y1 = y1.to_frequencyseries()
+                Y1 = pycbc.types.FrequencySeries(rec_wf_FD, delta_f=Y0.delta_f)
                 Y2 = y2.to_frequencyseries()
 
-                print sum((abs(Y1)-abs(Y2))**2)/sum(abs(Y1)**2)
+                print 'residual:', sum((abs(Y0)-abs(Y2))**2)/sum(abs(Y0)**2)
 
-                print match_real[w,npcidx]
+                print 'match: ', match_real[w,npcidx]
+
+                input_norm = max(abs(Y0))
+                rec_norm_FD = max(abs(Y1))
+                rec_norm_TD = max(abs(Y2))
+                #input_norm = np.sqrt(sum(Y0**2))
+                #rec_norm_FD = np.sqrt(sum(Y2**2))
 
                 pl.close(f1)
                 pl.close(f2)
                 pl.close(f3)
                 pl.figure()
-                pl.plot(Y0.sample_frequencies, abs(Y1)/max(abs(Y1)), label='injection')
-                pl.plot(Y1.sample_frequencies, abs(Y1)/max(abs(Y1)), label='injection')
-                pl.plot(Y2.sample_frequencies, abs(Y2)/max(abs(Y2)), label='PC reconstruction')
+                pl.semilogy(Y0.sample_frequencies, abs(Y0)/input_norm, label='Input Waveform')
+                pl.semilogy(Y1.sample_frequencies, abs(Y1)/rec_norm_FD, label='PC reconstruction (FD)')
+                pl.semilogy(Y2.sample_frequencies, abs(Y2)/rec_norm_TD, label='PC reconstruction (TD)')
                 pl.legend()
                 pl.xlim(0,200)
+                pl.xlabel('Frequency [Hz]')
+                pl.ylabel('$|H(f)|$ [arb units]')
                 pl.show()
                 sys.exit()
 
@@ -203,18 +225,20 @@ for pc_file, wf_file in zip(PC_files,WF_files):
     waveforms = waveform_dict['MDC_final']
     betas = PC_dict['Betas']
 
+    PCs_fdomain_plus = PC_dict['pcs_plus']
+    PCs_fdomain_cross = PC_dict['pcs_cross']
+
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Calculate the beta values by projecting data onto PCs
     #betas=compute_betas(waveforms,PCs)
 
     # XXX: NEED TO HANDLE COMPLEX MATCH???
 
-
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute match as a function of nPC
 
     minimal_match_real, minimal_match_imag, match_real, match_imag = \
-            minimal_match_by_npc(waveforms,betas,PCs)
+            minimal_match_by_npc(waveforms,betas,PCs,PCs_fdomain_plus)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute cumulative energy content for each eigenvector
