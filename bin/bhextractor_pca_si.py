@@ -361,19 +361,27 @@ PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
 U_fdomain_plus = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
 U_fdomain_cross = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
 for i in xrange(np.shape(U)[1]):
+    #U_fdomain_plus[:,i] = freqseries(np.real(U[:,i]))
     U_fdomain_plus[:,i] = freqseries(np.real(U[:,i]))
     U_fdomain_cross[:,i] = freqseries(np.imag(U[:,i]))
 
-fp = open("%s_plus.dat"%PCA_outname, 'wb')
-fc = open("%s_cross.dat"%PCA_outname, 'wb')
+# Save to TEXT files
+fp = open("%s_plus.dat"%PCA_outname, 'w')
+fc = open("%s_cross.dat"%PCA_outname, 'w')
+
 #U_fdomain_plus.tofile(fp)
 #U_fdomain_cross.tofile(fc)
 
-U_fdomain_plus_ba = bytearray(U_fdomain_plus)
-U_fdomain_cross_ba = bytearray(U_fdomain_plus)
-
-fp.write(U_fdomain_plus_ba )
-fc.write(U_fdomain_cross_ba)
+for i in xrange(np.shape(U_fdomain_plus)[0]):
+    for j in xrange(np.shape(U_fdomain_plus)[1]):
+        fp.write("%.15f %.10f\t"%(
+            np.real(U_fdomain_plus[i,j]), np.imag(U_fdomain_plus[i,j])
+            ))
+        fc.write("%.15f %.10f\t"%(
+            np.real(U_fdomain_cross[i,j]), np.imag(U_fdomain_cross[i,j])
+            ))
+    fp.write("\n")
+    fc.write("\n")
 
 fp.close()
 fc.close()
