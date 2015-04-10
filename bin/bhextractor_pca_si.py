@@ -339,7 +339,9 @@ else:
 
     waveform_catalogue = waveform_catalogue_real - 1j*waveform_catalogue_imag
 
-    U, V, S = pca(waveform_catalogue)
+    #U, V, S = pca(waveform_catalogue)
+    print "WARNING: Only using hlus for PCA"
+    U, V, S = pca(waveform_catalogue_real)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -361,9 +363,10 @@ PCA_outname=PCA_path + '/' + catalogue_name + '_PCs_' + 'theta-%.0f'%theta
 U_fdomain_plus = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
 U_fdomain_cross = np.zeros(shape=(0.5*np.shape(U)[0]+1, np.shape(U)[1]), dtype=complex)
 for i in xrange(np.shape(U)[1]):
-    #U_fdomain_plus[:,i] = freqseries(np.real(U[:,i]))
-    U_fdomain_plus[:,i] = freqseries(np.real(U[:,i]))
-    U_fdomain_cross[:,i] = freqseries(np.imag(U[:,i]))
+    #U_fdomain_plus[:,i]  = freqseries(np.real(U[:,i]))
+    #U_fdomain_cross[:,i] = freqseries(np.imag(U[:,i]))
+    U_fdomain_plus[:,i]  = freqseries(U[:,i])
+    U_fdomain_cross[:,i] = -1*np.imag(U_fdomain_plus[:,i]) + 1j*np.real(U_fdomain_plus[:,i])
 
 # Save to TEXT files
 fp = open("%s_plus.dat"%PCA_outname, 'w')
