@@ -101,17 +101,11 @@ def minimal_match_by_npc(waveforms,betas,PCs,PCs_FD):
 
     w=0
     #for w in range(np.shape(waveforms)[1]):
-    for w in [11]:
+    for w in [12]:
 
         # --- Normalise the test waveform to unit norm
         #target_wf = waveforms[:,w] / np.linalg.norm(waveforms[:,w])
         target_wf = waveforms[:,w]
-
-        betas_test = np.array([
-                0.169297009243-0.227168442698j, 
-                -0.126125348997+0.152986448947j,
-                -0.211089290872-0.186187720424j])
-
 
         npcs = [3]
         for npcidx, npc in enumerate(npcs):
@@ -119,19 +113,21 @@ def minimal_match_by_npc(waveforms,betas,PCs,PCs_FD):
             # --- Reconstruct the wf-th waveform using n PCs
             rec_wf = np.zeros(np.shape(waveforms)[0], dtype=complex)
             rec_wf_FD = np.zeros(np.shape(PCs_FD)[0], dtype=complex)
+
             for n in range(npc):
-                #rec_wf+=betas[w,n] * PCs[:,n]
-                #rec_wf_FD += betas[w,n] * PCs_FD[:,n]
+                print w,n
+                rec_wf+=betas[w,n] * PCs[:,n]
+                rec_wf_FD += betas[w,n] * PCs_FD[:,n]
 
-                rec_wf+=betas_test[n] * PCs[:,n]
-                rec_wf_FD +=betas_test[n] * PCs_FD[:,n]
-                print 'first point', rec_wf_FD[0]
-
-                
-                print '---'
-                print betas_test[n]
-                print betas[w,n]
-
+#               rec_wf+=betas_test[n] * PCs[:,n]
+#               rec_wf_FD +=betas_test[n] * PCs_FD[:,n]
+#               print 'first point', rec_wf_FD[0]
+#
+#               
+#               print '---'
+#               print betas_test[n]
+#               print betas[w,n]
+#
             # --- Normalise the reconstructed waveform to unit norm
             #rec_wf /= np.linalg.norm(rec_wf)
 
