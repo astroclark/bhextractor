@@ -377,10 +377,10 @@ fc = open("%s_cross.dat"%PCA_outname, 'w')
 
 for i in xrange(np.shape(U_fdomain_plus)[0]):
     for j in xrange(np.shape(U_fdomain_plus)[1]):
-        fp.write("%.15f %.10f\t"%(
+        fp.write("%.15f %.15f\t"%(
             np.real(U_fdomain_plus[i,j]), np.imag(U_fdomain_plus[i,j])
             ))
-        fc.write("%.15f %.10f\t"%(
+        fc.write("%.15f %.15f\t"%(
             np.real(U_fdomain_cross[i,j]), np.imag(U_fdomain_cross[i,j])
             ))
     fp.write("\n")
