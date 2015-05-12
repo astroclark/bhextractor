@@ -113,6 +113,18 @@ def pca(catalogue):
     return PCs, V, S**2 #Betas
 
 
+def wrap_zero_ts(ts_data, delta_t = 1/2048):
+
+    ts = pycbc.types.TimeSeries(ts_data, delta_t=delta_t)
+    fs = ts.to_frequencyseries()
+    amp = abs(fs)
+    phase = np.unwrap(np.angle(fs))
+
+    fs_new = pycbc.types.FrequencySeries(amp*np.exp(1j*phase),
+            delta_f=fs.delta_f)
+
+    return fs_new.to_timeseries().data
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # INPUT 
@@ -224,6 +236,8 @@ for w,waveform in enumerate(waveforms):
     # --- Filtering
     hplus = highpass(hplus)
     hcross = highpass(hcross)
+
+    # --- FFT / IFFT to get wrap around zero
 
     # --- Set polarisations to unit norm
     # XXX: might need to be careful with relative +,x amplitudes...
