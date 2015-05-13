@@ -89,6 +89,68 @@ def reconstruct_waveform(pca, betas, npcs, waveform_name, mtotal=250.0):
 
     return reconstruction
 
+def image_matches(match_matrix, waveform_names, title=None, mismatch=False):
+    """
+    Make a Nice plot.
+    """
+
+    # XXX: THIS SHOULD NOT LIVE HERE!!! Move it to a plotting script which
+    # builds the classes in this module!
+
+    from matplotlib import pyplot as pl
+
+    if mismatch:
+        match_matrix = 1-match_matrix
+        text_thresh = 0.1
+        clims = (0,0.2)
+        bar_label = 'mismatch'
+    else:
+        text_thresh = 0.85
+        clims = (0.75,1.0)
+        bar_label = 'match'
+
+    #fig, ax = pl.subplots(figsize=(15,8))
+    #fig, ax = pl.subplots(figsize=(8,4))
+    fig, ax = pl.subplots()
+    nwaves = np.shape(match_matrix)[0]
+    npcs = np.shape(match_matrix)[1]
+
+    im = ax.imshow(match_matrix, interpolation='nearest', origin='lower',
+            aspect='auto')
+
+    for x in xrange(nwaves):
+        for y in xrange(npcs):
+            if match_matrix[x,y]<text_thresh:
+                ax.text(y, x, '%.2f'%(match_matrix[x,y]), \
+                    va='center', ha='center', color='w')
+            else:
+                ax.text(y, x, '%.2f'%(match_matrix[x,y]), \
+                    va='center', ha='center', color='k')
+
+    ax.set_xticks(range(0,npcs))
+    ax.set_yticks(range(0,nwaves))
+
+    xlabels=range(1,npcs+1)
+    ax.set_xticklabels(xlabels)
+
+    ax.set_yticklabels(waveform_names)
+
+    im.set_clim(clims)
+    im.set_cmap('gnuplot2')
+
+    ax.set_xlabel('Number of PCs')
+    ax.set_ylabel('Waveform type')
+
+    if title is not None:
+        ax.set_title(title)
+
+    #c=pl.colorbar(im, ticks=np.arange(clims[0],clims[1]+0.05,0.05),
+    #        orientation='horizontal')
+    #c.set_label(bar_label)
+
+    fig.tight_layout()
+
+    return fig, ax
 
 
 # *****************************************************************************
@@ -358,7 +420,8 @@ def main():
     #
     # Setup and then build the catalogue
     #
-    catalogue = waveform_catalogue(catalogue_name='Q', fs=2048, catalogue_len=4, mtotal_ref=250, Dist=1.)
+    catalogue = waveform_catalogue(catalogue_name=catalogue_name, fs=2048,
+            catalogue_len=4, mtotal_ref=250, Dist=1., theta=theta)
 
     #
     # Do the PCA
