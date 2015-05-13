@@ -44,7 +44,7 @@ def window_wave(input_data):
 
     nonzero=np.argwhere(abs(input_data)>0)
     idx = range(nonzero[0],nonzero[-1])
-    beta = 0.25
+    beta = 0.1
     win = lal.CreateTukeyREAL8Window(len(idx), beta)
     win.data.data[int(0.5*len(idx)):]=1.0
 
@@ -52,7 +52,7 @@ def window_wave(input_data):
 
     return input_data
 
-def highpass(timeseries, delta_t=1./2048, knee=10., order=8, attn=0.1):
+def highpass(timeseries, delta_t=1./2048, knee=5., order=8, attn=0.1):
 
     tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
 
@@ -64,6 +64,8 @@ def perform_pca(aligned_td_catalogue):
     Use the scikits-learn PCA tools to do PCA on a peak-aligned time-domain
     waveform catalogue
     """
+
+    print 'performing PCA'
 
     pca = PCA()
     pca.fit(aligned_td_catalogue)
@@ -89,69 +91,6 @@ def reconstruct_waveform(pca, betas, npcs, waveform_name, mtotal=250.0):
 
     return reconstruction
 
-def image_matches(match_matrix, waveform_names, title=None, mismatch=False):
-    """
-    Make a Nice plot.
-    """
-
-    # XXX: THIS SHOULD NOT LIVE HERE!!! Move it to a plotting script which
-    # builds the classes in this module!
-
-    from matplotlib import pyplot as pl
-
-    if mismatch:
-        match_matrix = 1-match_matrix
-        text_thresh = 0.1
-        clims = (0,0.2)
-        bar_label = 'mismatch'
-    else:
-        text_thresh = 0.85
-        clims = (0.75,1.0)
-        bar_label = 'match'
-
-    #fig, ax = pl.subplots(figsize=(15,8))
-    #fig, ax = pl.subplots(figsize=(8,4))
-    fig, ax = pl.subplots()
-    nwaves = np.shape(match_matrix)[0]
-    npcs = np.shape(match_matrix)[1]
-
-    im = ax.imshow(match_matrix, interpolation='nearest', origin='lower',
-            aspect='auto')
-
-    for x in xrange(nwaves):
-        for y in xrange(npcs):
-            if match_matrix[x,y]<text_thresh:
-                ax.text(y, x, '%.2f'%(match_matrix[x,y]), \
-                    va='center', ha='center', color='w')
-            else:
-                ax.text(y, x, '%.2f'%(match_matrix[x,y]), \
-                    va='center', ha='center', color='k')
-
-    ax.set_xticks(range(0,npcs))
-    ax.set_yticks(range(0,nwaves))
-
-    xlabels=range(1,npcs+1)
-    ax.set_xticklabels(xlabels)
-
-    ax.set_yticklabels(waveform_names)
-
-    im.set_clim(clims)
-    im.set_cmap('gnuplot2')
-
-    ax.set_xlabel('Number of PCs')
-    ax.set_ylabel('Waveform type')
-
-    if title is not None:
-        ax.set_title(title)
-
-    #c=pl.colorbar(im, ticks=np.arange(clims[0],clims[1]+0.05,0.05),
-    #        orientation='horizontal')
-    #c.set_label(bar_label)
-
-    fig.tight_layout()
-
-    return fig, ax
-
 
 # *****************************************************************************
 # Class Definitions 
@@ -167,7 +106,7 @@ class waveform_pca:
         self.catalogue = catalogue
 
         # Do the PCA
-        self.pca = perform_pca(self.catalogue.aligned_catalogue)
+        self.pca = perform_pca(np.real(self.catalogue.aligned_catalogue))
 
         # Project the catalogue onto the new basis
         self.project_catalogue()
@@ -178,7 +117,7 @@ class waveform_pca:
         coefficients for each waveform
         """
 
-        print 'Projecting catalogue onto new basis'
+        print 'Projecting time-domain catalogue onto new basis'
 
         # Store the projection coefficients in a dictionary, keyed by the
         # waveform names
@@ -266,6 +205,60 @@ class waveform_catalogue:
         # Build the catalogue
         #
         self.build_catalogue()
+        self.fft_catalogue()
+
+    def fft_catalogue(self):
+        """
+        Add the amplitude and phase spectra of the waveforms from the TD
+        catalogue.  Might ultimately be useful for F-domain PCA, but for now
+        we'll just use it for plotting and diagnostics
+        """
+
+        print 'FFTing the catalogue'
+
+        # Get dims and add some info
+        example_td = pycbc.types.TimeSeries(
+                np.real(self.aligned_catalogue[0,:]),
+                delta_t=1.0/self.fs)
+
+        self.sample_times = example_td.sample_times - \
+                example_td.sample_times[np.argmax(example_td.data)]
+
+        self.flen = len(example_td.to_frequencyseries())
+
+
+        self.ampSpectraPlus = np.zeros(
+                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+        self.phaseSpectraPlus = np.zeros(
+                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+        self.ampSpectraCross = np.zeros(
+                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+        self.phaseSpectraCross = np.zeros(
+                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+
+        for w in xrange(len(self.waveform_names)):
+
+            tdwavePlus = pycbc.types.TimeSeries(
+                    np.real(self.aligned_catalogue[w,:]),
+                    delta_t=1.0/self.fs)
+
+            tdwaveCross = pycbc.types.TimeSeries(
+                    -1*np.imag(self.aligned_catalogue[w,:]),
+                    delta_t=1.0/self.fs)
+            
+            fdwavePlus  = tdwavePlus.to_frequencyseries()
+            fdwaveCross = tdwaveCross.to_frequencyseries()
+
+            self.ampSpectraPlus[w,:] = abs(fdwavePlus)
+            self.phaseSpectraPlus[w,:] = \
+                    np.unwrap(np.angle(fdwavePlus))
+
+            self.ampSpectraCross[w,:] = abs(fdwaveCross)
+            self.phaseSpectraCross[w,:] = \
+                    np.unwrap(np.angle(fdwaveCross))
+
+        self.sample_frequencies = fdwavePlus.sample_frequencies
+
 
     def build_catalogue(self):
         """
@@ -285,7 +278,7 @@ class waveform_catalogue:
 
         # Samples to discard due to NR noise
         NRD_sampls=500 # keep this many samples after the peak
-        NINSP_sampls=2000 # discard this many samples from the start
+        NINSP_sampls=5000 # discard this many samples from the start
 
         # --- Identify waveforms in catalogue
         catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+self.catalogue_name+'-series'
@@ -350,8 +343,8 @@ class waveform_catalogue:
             hplus[zero_idx:]  = 0.0
             hcross[zero_idx:] = 0.0
 
-            hplus[:peak_idx-NINSP_sampls] = 0.0
-            hcross[:peak_idx-NINSP_sampls] = 0.0
+            #hplus[:peak_idx-NINSP_sampls] = 0.0
+            #hcross[:peak_idx-NINSP_sampls] = 0.0
 
             # --- Windowing / tapering
             hplus=window_wave(hplus)
@@ -385,7 +378,7 @@ class waveform_catalogue:
         align_idx=np.floor(0.5*self.catalogue_len)
 
         for w in xrange(len(waveforms)):
-            print 'aligning %d of %d'%(w, len(waveforms))
+            #print 'aligning %d of %d'%(w, len(waveforms))
 
             non_zero_idx = \
                     np.argwhere(abs(catalogue[w,:])>1e-2*max(abs(catalogue[w,:])))
