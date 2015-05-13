@@ -265,8 +265,8 @@ else
 end
 
 % set the number of active points in the Nested Sampling
-numactive = 50; % ~ 6 min, 350 Msun, no recovery
-% numactive = 500; % ~ 6 hours, 350 Msun, no recovery
+%numactive = 50; % ~ 6 min, 350 Msun, no recovery
+numactive = 100; % ~ 6 hours, 350 Msun, no recovery
 
 % set the number of iterations in the MCMC for finding the next active
 % point
