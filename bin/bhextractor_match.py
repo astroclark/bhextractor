@@ -27,29 +27,26 @@ import scipy.io as sio
 import matplotlib
 from matplotlib import pyplot as pl
 
-#font = {'family' : 'Helvetica',
-#        'weight' : 'bold',
-#        'size'   : 12}
-#
-#matplotlib.rc('font', **font)
+import pycbc.types
+import pycbc.filter
+from pycbc.psd import aLIGOZeroDetHighPower
 
 
-fig_width_pt = 200  # Get this from LaTeX using \showthe\columnwidth
-#fig_height_pt = 300 
+
+fig_width_pt = 800  # Get this from LaTeX using \showthe\columnwidth
 inches_per_pt = 1.0/72.27               # Convert pt to inch
 golden_mean = (2.236-1.0)/2.0         # Aesthetic ratio
 fig_height_pt = fig_width_pt*golden_mean
-#fig_height_pt = fig_width_pt*0.8
 fig_width = fig_width_pt*inches_per_pt  # width in inches
 fig_height = fig_height_pt*inches_per_pt
 fig_size =  [fig_width,fig_height]
 
 matplotlib.rcParams.update(
-        {'axes.labelsize': 8,
-        'text.fontsize':   8,  
-        'legend.fontsize': 8,
-        'xtick.labelsize': 8,
-        'ytick.labelsize': 8,
+        {'axes.labelsize': 12,
+        'text.fontsize':   12,  
+        'legend.fontsize': 12,
+        'xtick.labelsize': 12,
+        'ytick.labelsize': 12,
         'text.usetex': True,
         'figure.figsize': fig_size,
         'font.family': "serif",
@@ -71,44 +68,118 @@ def compute_betas(waveforms, PCs):
     betas=np.array(np.matrix(waveforms).T * PCs)
     return betas
 
-def minimal_match_by_npc(waveforms,betas,PCs):
+
+def comp_match(timeseries1, timeseries2, delta_t=1./2048, flow=10.,
+        weighted=True):
     """
     """
-    match=np.zeros(shape=(np.shape(waveforms)[1],np.shape(waveforms)[1]))
+
+    tmp1 = pycbc.types.TimeSeries(initial_array=timeseries1, delta_t=delta_t)
+    tmp2 = pycbc.types.TimeSeries(initial_array=timeseries2, delta_t=delta_t)
+
+    if weighted:
+
+        # make psd
+        flen = len(tmp1.to_frequencyseries())
+        delta_f = np.diff(tmp1.to_frequencyseries().sample_frequencies)[0]
+        psd = aLIGOZeroDetHighPower(flen, delta_f, low_freq_cutoff=flow)
+
+
+        return pycbc.filter.match(tmp1, tmp2, psd=psd,
+                low_frequency_cutoff=flow)[0]
+
+    else:
+
+        return pycbc.filter.match(tmp1, tmp2, low_frequency_cutoff=flow)[0]
+
+def minimal_match_by_npc(waveforms,betas,PCs,PCs_FD):
+    """
+    """
+    match_real=np.zeros(shape=(np.shape(waveforms)[1],np.shape(waveforms)[1]))
+    match_imag=np.zeros(shape=(np.shape(waveforms)[1],np.shape(waveforms)[1]))
     npcs=np.arange(np.shape(waveforms)[1])+1
 
     w=0
-    for w in range(np.shape(waveforms)[1]):
+    #for w in range(np.shape(waveforms)[1]):
+    for w in [12]:
 
         # --- Normalise the test waveform to unit norm
-        target_wf = waveforms[:,w] / np.linalg.norm(waveforms[:,w])
+        #target_wf = waveforms[:,w] / np.linalg.norm(waveforms[:,w])
+        target_wf = waveforms[:,w]
 
+        npcs = [3]
         for npcidx, npc in enumerate(npcs):
 
             # --- Reconstruct the wf-th waveform using n PCs
-            rec_wf = np.zeros(np.shape(waveforms)[0])
+            rec_wf = np.zeros(np.shape(waveforms)[0], dtype=complex)
+            rec_wf_FD = np.zeros(np.shape(PCs_FD)[0], dtype=complex)
+
             for n in range(npc):
+                print w,n
                 rec_wf+=betas[w,n] * PCs[:,n]
+                rec_wf_FD += betas[w,n] * PCs_FD[:,n]
 
+#               rec_wf+=betas_test[n] * PCs[:,n]
+#               rec_wf_FD +=betas_test[n] * PCs_FD[:,n]
+#               print 'first point', rec_wf_FD[0]
+#
+#               
+#               print '---'
+#               print betas_test[n]
+#               print betas[w,n]
+#
             # --- Normalise the reconstructed waveform to unit norm
-            rec_wf /= np.linalg.norm(rec_wf)
+            #rec_wf /= np.linalg.norm(rec_wf)
 
-            match[w,npcidx] = np.dot(rec_wf,target_wf)
+            match_real[w,npcidx] = comp_match(np.real(rec_wf),np.real(target_wf))
+            match_imag[w,npcidx] = comp_match(np.imag(rec_wf),np.imag(target_wf))
+
+            if npc==3:
+
+                y0  = pycbc.types.TimeSeries(np.real(waveforms[:,11]), delta_t = 1./2048)
+                y2  = pycbc.types.TimeSeries(np.real(rec_wf), delta_t = 1./2048)
+                Y0 = y0.to_frequencyseries()
+                Y1 = pycbc.types.FrequencySeries(rec_wf_FD, delta_f=Y0.delta_f)
+                Y2 = y2.to_frequencyseries()
+
+                print 'residual:', sum((abs(Y0)-abs(Y2))**2)/sum(abs(Y0)**2)
+
+                print 'match: ', match_real[w,npcidx]
+
+                input_norm = max(abs(Y0))
+                rec_norm_FD = max(abs(Y1))
+                rec_norm_TD = max(abs(Y2))
+                #input_norm = np.sqrt(sum(Y0**2))
+                #rec_norm_FD = np.sqrt(sum(Y2**2))
+
+                pl.close(f1)
+                pl.close(f2)
+                pl.close(f3)
+                pl.figure()
+                pl.semilogy(Y0.sample_frequencies, abs(Y0)/input_norm, label='Input Waveform')
+                pl.semilogy(Y1.sample_frequencies, abs(Y1)/rec_norm_FD, label='PC reconstruction (FD)')
+                pl.semilogy(Y2.sample_frequencies, abs(Y2)/rec_norm_TD, label='PC reconstruction (TD)')
+                pl.legend()
+                pl.xlim(0,200)
+                pl.xlabel('Frequency [Hz]')
+                pl.ylabel('$|H(f)|$ [arb units]')
+                pl.show()
+                sys.exit()
 
     # --- Find minimal match as a function of nPC
-    minimal_match = np.zeros(len(npcs))
-    average_match = np.zeros(len(npcs))
-    maximum_match = np.zeros(len(npcs))
-    for npc, _ in enumerate(npcs):
-        minimal_match[npc] = min(match[:,npc])
-        average_match[npc] = np.mean(match[:,npc])
-        maximum_match[npc] = max(match[:,npc])
+    minimal_match_real = np.zeros(len(npcs))
+    minimal_match_imag = np.zeros(len(npcs))
 
-    return minimal_match, average_match, maximum_match, npcs
+    for npc, _ in enumerate(npcs):
+        minimal_match_real[npc] = min(match_real[:,npc])
+        minimal_match_imag[npc] = min(match_imag[:,npc])
+
+    return minimal_match_real, minimal_match_imag, match_real, match_imag
 
 def eigenenergy(eigenvalues):
     """
     """
+    eigenvalues=abs(np.concatenate(eigenvalues))
     # See:
     # http://en.wikipedia.org/wiki/Principal_component_analysis#Compute_the_cumulative_energy_content_for_each_eigenvector
     gp = sum(eigenvalues)
@@ -127,11 +198,19 @@ labels=['Q','HR','RO3']
 cols=['k','gray','k']
 styles=['-','-','--']
 # comma-separated lists of files
-PC_files=sys.argv[1].split(',')
-WF_files=sys.argv[2].split(',')
+#PC_files=sys.argv[1].split(',')
+#WF_files=sys.argv[2].split(',')
+
+import os
+data_path=os.environ['BHEX_PREFIX']+'/data/'
+PC_files = [data_path + '/PCA_data/' + label + '_PCs_theta-0.mat' for label in
+        labels]
+WF_files = [data_path + '/signal_data/' + label + '_catalogue_theta-0.mat' for label in
+        labels]
 
 f1,ax1 = pl.subplots()
 f2,ax2 = pl.subplots()
+f3,ax3 = pl.subplots()
 fcounter=0
 for pc_file, wf_file in zip(PC_files,WF_files):
 
@@ -140,37 +219,43 @@ for pc_file, wf_file in zip(PC_files,WF_files):
 
     PCs = PC_dict['PCs_final']
     waveforms = waveform_dict['MDC_final']
+    betas = PC_dict['Betas']
+
+    PCs_fdomain_plus = PC_dict['pcs_plus']
+    PCs_fdomain_cross = PC_dict['pcs_cross']
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Calculate the beta values by projecting data onto PCs
-    betas=compute_betas(waveforms,PCs)
+    #betas=compute_betas(waveforms,PCs)
+
+    # XXX: NEED TO HANDLE COMPLEX MATCH???
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute match as a function of nPC
-    minimal_match, average_match, maximum_match, npcs =\
-            minimal_match_by_npc(waveforms,betas,PCs)
+
+    minimal_match_real, minimal_match_imag, match_real, match_imag = \
+            minimal_match_by_npc(waveforms,betas,PCs,PCs_fdomain_plus)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Compute cumulative energy content for each eigenvector
     #
-    cum_energy = eigenenergy(np.array(PC_dict['EigVals'])[0])
+    cum_energy = eigenenergy(PC_dict['EigVals'])
+    npcs = range(1,len(cum_energy)+1)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Plot Results
 
     # --- Minimal Match
-    ax1.plot(npcs, minimal_match, color=cols[fcounter],
+    ax1.plot(npcs, minimal_match_real, color=cols[fcounter],
             linestyle=styles[fcounter], marker='o', 
-            label=labels[fcounter]+': min match')
-    #ax1.plot(npcs, average_match, color=cols[fcounter],
-    #        linestyle=styles[fcounter], marker='x',
-    #        label=labels[fcounter]+': mean match')
-    #ax1.plot(npcs, maximum_match, color=cols[fcounter],
-    #        linestyle=styles[fcounter], marker='s',
-    #        label=labels[fcounter]+': max match')
+            label=labels[fcounter]+': min match (real)')
+    
+    ax2.plot(npcs, minimal_match_imag, color=cols[fcounter],
+            linestyle=styles[fcounter], marker='o', 
+            label=labels[fcounter]+': min match (imag)')
 
     # --- Eigenenergy
-    ax2.plot(npcs, cum_energy, color=cols[fcounter], linestyle=styles[fcounter],
+    ax3.plot(npcs, cum_energy, color=cols[fcounter], linestyle=styles[fcounter],
             marker='o', label=labels[fcounter])
 
     fcounter+=1
@@ -184,26 +269,36 @@ ax1.minorticks_on()
 ax1.grid(which='major',color='grey',linestyle='-')
 #ax1.grid(which='minor',color='grey',linestyle=':')
 ax1.set_xlim(0.5,10)
-ax1.set_ylim(0,1)
+#ax1.set_ylim(0,1)
 ax1.legend(loc='lower right')
-
-f1.savefig('match.png')
-pl.close(f1)
+f1.savefig('match_real.png')
+#pl.close(f1)
 
 ax2.set_xlabel('Number of PCs')
-#ax2.set_ylabel('Cumulative Eigenvector Energy')
-#ax2.set_title('Distribution of Energy Among Eigenvectors')
-ax2.set_ylabel('$E(k)$')
+ax2.set_ylabel('Minimal Match')
+#ax1.set_title('Match for worst-reconstruction in catalogue')
 ax2.minorticks_on()
 ax2.grid(which='major',color='grey',linestyle='-')
-#ax2.grid(which='minor',color='grey',linestyle=':')
+#ax1.grid(which='minor',color='grey',linestyle=':')
 ax2.set_xlim(0.5,10)
+#ax2.set_ylim(0,1)
 ax2.legend(loc='lower right')
-f2.tight_layout()
-pl.subplots_adjust(bottom=0.2,top=0.95)
+f2.savefig('match_imag.png')
 
+ax3.set_xlabel('Number of PCs')
+#ax2.set_ylabel('Cumulative Eigenvector Energy')
+#ax2.set_title('Distribution of Energy Among Eigenvectors')
+ax3.set_ylabel('$E(k)$')
+ax3.minorticks_on()
+ax3.grid(which='major',color='grey',linestyle='-')
+#ax2.grid(which='minor',color='grey',linestyle=':')
+ax3.set_xlim(0.5,10)
+ax3.legend(loc='lower right')
+#f2.tight_layout()
+pl.subplots_adjust(bottom=0.1,top=0.95,left=0.1)
 
-#f2.savefig('eigenenergy.png')
-f2.savefig('eigenenergy.pdf')
+f3.tight_layout()
+f3.savefig('eigenenergy.png')
+f3.savefig('eigenenergy.pdf')
 
 #pl.show()
