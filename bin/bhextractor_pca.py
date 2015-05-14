@@ -88,7 +88,8 @@ def perform_pca(aligned_td_catalogue):
 
     return pca
 
-def reconstruct_waveform(pca, betas, npcs, mtotal=250.0):
+def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
+        mtotal_target=250.0, fs=2048, fd_interpolation=False):
     """
     Reconstruct the specified waveform (waveform_name) from the PC basis
     contatined in pca and the projection coefficients betas
@@ -103,12 +104,87 @@ def reconstruct_waveform(pca, betas, npcs, mtotal=250.0):
         reconstruction += betas[b]*pca.components_[b,:]
     reconstruction += pca.mean_
 
-    # Force normalisation so
-    #reconstruction /= np.linalg.norm(reconstruction)
-
     # TODO: mass scaling
 
-    return reconstruction
+    #
+    # Mass Scaling
+    #
+    if mtotal_ref==mtotal_target:
+        return reconstruction
+    else:
+        amp_ratio = mtotal_target / mtotal_ref
+
+        if not fd_interpolation:
+
+            #
+            # TD scaling
+            #
+
+            # Procedure: increasing the mass shortens the waveform; so interpolate
+            # the original to time stamps which are mtotal_target / mtotal_ref x
+            # closer together.  We do this by creating a new time axis which is
+            # denser and shorter and then interpolate the *original* waveform FROM
+            # those new timestamps TO the *original* time stamps.
+
+            time = np.arange(0,len(reconstruction)/float(fs), 1./fs)
+            new_time = np.arange(0, time[-1] / amp_ratio + 1./fs / amp_ratio, 1./fs
+                    / amp_ratio)
+
+            reconstruction = np.interp(new_time, time, reconstruction)*amp_ratio
+
+            # Finally, clean up by moving the waveform back to the center (this
+            # is just handy for plotting)
+            non_zero_idx = \
+                    np.argwhere(abs(reconstruction)>1e-5*max(abs(reconstruction)))
+            trunc_wav = \
+                    reconstruction[non_zero_idx[0]:non_zero_idx[-1]]
+
+            peak_idx=np.argmax(abs(trunc_wav))
+            start_idx = 0.5*len(reconstruction) - peak_idx
+
+            reconstruction_out = np.zeros(len(reconstruction))
+            reconstruction_out[start_idx:start_idx+len(trunc_wav)] = trunc_wav
+
+        elif fd_interpolation:
+
+            print "FD interpolation not yet supported"
+            sys.exit()
+
+            #
+            # FD scaling
+            #
+
+            time = np.arange(0,len(reconstruction)/float(fs), 1./fs)
+            from matplotlib import pyplot as pl
+            pl.figure()
+
+            pl.plot(time,reconstruction)
+
+            recwav = pycbc.types.TimeSeries(reconstruction, delta_t=1./fs)
+            recwav_fd = recwav.to_frequencyseries()
+            recwav_mag = abs(recwav_fd)
+            recwav_phase = np.unwrap(np.angle(recwav_fd))
+
+            recwav_mag = np.interp(recwav_fd.sample_frequencies.data ,
+                    recwav_fd.sample_frequencies.data / amp_ratio, recwav_mag)*amp_ratio
+
+            recwav_phase = np.interp(recwav_fd.sample_frequencies.data,
+                    recwav_fd.sample_frequencies.data / amp_ratio, recwav_phase)/amp_ratio
+
+            recwav_fd = pycbc.types.FrequencySeries(
+                    recwav_mag*np.exp(1j*recwav_phase),
+                    delta_f=recwav_fd.delta_f)
+
+            reconstruction = recwav_fd.to_timeseries()
+
+            reconstruction = pycbc.filter.highpass(reconstruction, frequency=9.,
+                    filter_order=8, attenuation=0.1)
+
+            pl.plot(time, reconstruction)
+            pl.show()
+            sys.exit()
+
+    return reconstruction_out
 
 def compute_projection(waveform, pca_result):
     """
@@ -156,7 +232,7 @@ class waveform_pca:
                     compute_projection(np.real(self.catalogue.aligned_catalogue[w,:]),
                             self.pca)
 
-    def compute_matches(self, mtotal=250.0):
+    def compute_matches(self, mtotal_ref=250.0):
         """
         Compute the match as a function of nPCs, for each waveform in the
         catalogue.  Uses the aLIGO ZDHP noise curve.
@@ -196,7 +272,7 @@ class waveform_pca:
             for n in xrange(len(self.catalogue.waveform_names)):
 
                 reconstructed_waveform = reconstruct_waveform(self.pca, betas,
-                        n+1, mtotal=mtotal)
+                        n+1, mtotal_ref=mtotal_ref)
 
                 recwav = pycbc.types.TimeSeries(np.real(reconstructed_waveform),
                         delta_t=1./self.catalogue.fs)
@@ -341,6 +417,7 @@ class waveform_catalogue:
 
         # Get the length of the NR data
         wflen=maxlengths[self.catalogue_name]
+
 
         # Length to resample to: length of (e.g.) 250 Msun waveform in seconds x desired sample rate
         resamp_len = np.ceil(wflen*SI_deltaT*self.fs)
