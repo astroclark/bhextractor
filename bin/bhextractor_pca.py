@@ -41,19 +41,33 @@ from pycbc.psd import aLIGOZeroDetHighPower
 # *****************************************************************************
 # Function Definitions 
 
+def taper_start(input_data, fs=2048):
+    """  
+    Taper the start of the data
+    """
+
+    timeseries = lal.CreateREAL8TimeSeries('blah', 0.0, 0,
+            1.0/fs, lal.StrainUnit, int(len(input_data)))
+    timeseries.data.data = input_data
+
+    lalsim.SimInspiralREAL8WaveTaper(timeseries.data,
+        lalsim.SIM_INSPIRAL_TAPER_START)
+
+    return timeseries.data.data
+
+
 def window_wave(input_data):
 
     nonzero=np.argwhere(abs(input_data)>0)
     idx = range(nonzero[0],nonzero[-1])
-    beta = 0.25
+    beta = 25
     win = lal.CreateTukeyREAL8Window(len(idx), beta)
     win.data.data[int(0.5*len(idx)):]=1.0
 
-    input_data[idx] *= win.data.data
 
     return input_data
 
-def highpass(timeseries, delta_t=1./2048, knee=5., order=8, attn=0.1):
+def highpass(timeseries, delta_t=1./2048, knee=9., order=8, attn=0.1):
 
     tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
 
@@ -84,18 +98,25 @@ def reconstruct_waveform(pca, betas, npcs, mtotal=250.0):
 
     #betas=projection[waveform_name]
 
-    reconstruction = np.zeros(len(pca.components_[0,:]), dtype=complex)
-    print '---'
-    print 'using %d pcs'%npcs
+    reconstruction = np.zeros(shape=(np.shape(pca.components_[0,:])))
     for b in xrange(npcs):
-        print b
-
-        reconstruction += pca.components_[b,:] * betas[b]
+        reconstruction += betas[b]*pca.components_[b,:]
     reconstruction += pca.mean_
+
+    # Force normalisation so
+    #reconstruction /= np.linalg.norm(reconstruction)
 
     # TODO: mass scaling
 
     return reconstruction
+
+def compute_projection(waveform, pca_result):
+    """
+    Compute the projection coefficients (betas) for the given waveform onto the
+    PCA result
+    """
+
+    return np.concatenate(pca_result.transform(waveform))
 
 
 # *****************************************************************************
@@ -112,7 +133,7 @@ class waveform_pca:
         self.catalogue = catalogue
 
         # Do the PCA
-        self.pca = perform_pca(self.catalogue.aligned_catalogue)
+        self.pca = perform_pca(np.real(self.catalogue.aligned_catalogue))
 
         # Project the catalogue onto the new basis
         self.project_catalogue()
@@ -131,17 +152,16 @@ class waveform_pca:
 
         for w in xrange(np.shape(self.catalogue.aligned_catalogue)[0]):
 
-            # Center data
-            waveform_centered = self.catalogue.aligned_catalogue[w,:] - \
-                    self.pca.mean_
-
             self.projection[self.catalogue.waveform_names[w]] = \
-                    np.concatenate(self.pca.transform(waveform_centered))
+                    compute_projection(np.real(self.catalogue.aligned_catalogue[w,:]),
+                            self.pca)
 
     def compute_matches(self, mtotal=250.0):
         """
         Compute the match as a function of nPCs, for each waveform in the
         catalogue.  Uses the aLIGO ZDHP noise curve.
+
+        Since hx is just a phase shifted copy of h+, we only use h+ here.
         """
 
         if not hasattr(self, 'projection'):
@@ -185,20 +205,25 @@ class waveform_pca:
                 self.matches[w,n] = pycbc.filter.match(recwav, targetwav,
                         psd=psd, low_frequency_cutoff=10.0)[0]
 
+                recnorm = 1#np.linalg.norm(np.real(reconstructed_waveform))
+                targetnorm = 1#np.linalg.norm(np.real(self.catalogue.aligned_catalogue[w,:]))
+
 
                 self.euclidean_distances[w,n] =\
                         euclidean_distance(
-                                reconstructed_waveform,
-                                self.catalogue.aligned_catalogue[w,:])
+                                np.real(reconstructed_waveform)/recnorm,
+                                np.real(self.catalogue.aligned_catalogue[w,:])/targetnorm)
 
-                #print self.euclidean_distances[w,n]
-
-                #from matplotlib import pyplot as pl
-                #pl.figure()
-                #pl.plot(targetwav.sample_times, targetwav, color='k')
-                #pl.plot(recwav.sample_times, recwav, color='r')
-                #pl.show()
-                #sys.exit()
+#               print np.linalg.norm(reconstructed_waveform)
+#               print np.linalg.norm(targetwav.data)
+#               print self.euclidean_distances[w,n]
+#
+#               from matplotlib import pyplot as pl
+#               pl.figure()
+#               pl.plot(targetwav.sample_times, targetwav, color='k')
+#               pl.plot(recwav.sample_times, recwav, color='r')
+#               pl.show()
+#               sys.exit()
 
 
         # TODO:
@@ -368,23 +393,28 @@ class waveform_catalogue:
             hplus[zero_idx:]  = 0.0
             hcross[zero_idx:] = 0.0
 
-            #hplus[:peak_idx-NINSP_sampls] = 0.0
-            #hcross[:peak_idx-NINSP_sampls] = 0.0
+            hplus[:peak_idx-NINSP_sampls] = 0.0
+            hcross[:peak_idx-NINSP_sampls] = 0.0
 
             # --- Windowing / tapering
             #hplus=window_wave(hplus)
             #hcross=window_wave(hcross)
+            hplus = taper_start(hplus)
+            hcross = taper_start(hcross)
+
 
             # --- Resampling 
             hplus  = signal.resample(hplus, resamp_len)
             hcross = signal.resample(hcross, resamp_len)
 
             # --- Filtering
-            #hplus  = highpass(hplus)
-            #hcross = highpass(hcross)
+            hplus  = highpass(hplus)
+            hcross = highpass(hcross)
 
-            # Use complex waveform
+            # Store complex waveform
             catalogue[w,:] = hplus - 1j*hcross
+            #catalogue[w,:] = hcross
+            #catalogue[w,:] = hplus
             
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Catalogue Conditioning
