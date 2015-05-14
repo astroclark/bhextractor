@@ -26,6 +26,7 @@ import numpy as np
 import scipy.signal as signal
 import scipy.io as sio
 import scipy.linalg
+from scipy.spatial.distance import euclidean as euclidean_distance
 
 from sklearn.decomposition import PCA 
 from sklearn.decomposition import TruncatedSVD
@@ -44,7 +45,7 @@ def window_wave(input_data):
 
     nonzero=np.argwhere(abs(input_data)>0)
     idx = range(nonzero[0],nonzero[-1])
-    beta = 0.1
+    beta = 0.25
     win = lal.CreateTukeyREAL8Window(len(idx), beta)
     win.data.data[int(0.5*len(idx)):]=1.0
 
@@ -67,12 +68,13 @@ def perform_pca(aligned_td_catalogue):
 
     print 'performing PCA'
 
-    pca = PCA()
+    #pca = PCA(whiten=True)
+    pca = PCA(whiten=False)
     pca.fit(aligned_td_catalogue)
 
     return pca
 
-def reconstruct_waveform(pca, betas, npcs, waveform_name, mtotal=250.0):
+def reconstruct_waveform(pca, betas, npcs, mtotal=250.0):
     """
     Reconstruct the specified waveform (waveform_name) from the PC basis
     contatined in pca and the projection coefficients betas
@@ -83,7 +85,11 @@ def reconstruct_waveform(pca, betas, npcs, waveform_name, mtotal=250.0):
     #betas=projection[waveform_name]
 
     reconstruction = np.zeros(len(pca.components_[0,:]), dtype=complex)
+    print '---'
+    print 'using %d pcs'%npcs
     for b in xrange(npcs):
+        print b
+
         reconstruction += pca.components_[b,:] * betas[b]
     reconstruction += pca.mean_
 
@@ -106,7 +112,7 @@ class waveform_pca:
         self.catalogue = catalogue
 
         # Do the PCA
-        self.pca = perform_pca(np.real(self.catalogue.aligned_catalogue))
+        self.pca = perform_pca(self.catalogue.aligned_catalogue)
 
         # Project the catalogue onto the new basis
         self.project_catalogue()
@@ -143,6 +149,8 @@ class waveform_pca:
 
         self.matches = np.zeros(shape=(len(self.catalogue.waveform_names),
             len(self.catalogue.waveform_names)))
+        self.euclidean_distances = np.zeros(shape=(len(self.catalogue.waveform_names),
+            len(self.catalogue.waveform_names)))
 
         # build psd for match calculation
         example_td = pycbc.types.TimeSeries(
@@ -160,21 +168,37 @@ class waveform_pca:
 
             # retrieve projection coefficients
             betas = self.projection[self.catalogue.waveform_names[w]]
+            
+            targetwav = pycbc.types.TimeSeries(
+                    np.real(self.catalogue.aligned_catalogue[w,:]),
+                    delta_t=1./self.catalogue.fs)
 
             for n in xrange(len(self.catalogue.waveform_names)):
 
                 reconstructed_waveform = reconstruct_waveform(self.pca, betas,
-                        n, self.catalogue.waveform_names[n], mtotal=mtotal)
+                        n+1, mtotal=mtotal)
 
                 recwav = pycbc.types.TimeSeries(np.real(reconstructed_waveform),
                         delta_t=1./self.catalogue.fs)
 
-                targetwav = pycbc.types.TimeSeries(
-                        np.real(self.catalogue.aligned_catalogue[w,:]),
-                        delta_t=1./self.catalogue.fs)
 
                 self.matches[w,n] = pycbc.filter.match(recwav, targetwav,
                         psd=psd, low_frequency_cutoff=10.0)[0]
+
+
+                self.euclidean_distances[w,n] =\
+                        euclidean_distance(
+                                reconstructed_waveform,
+                                self.catalogue.aligned_catalogue[w,:])
+
+                #print self.euclidean_distances[w,n]
+
+                #from matplotlib import pyplot as pl
+                #pl.figure()
+                #pl.plot(targetwav.sample_times, targetwav, color='k')
+                #pl.plot(recwav.sample_times, recwav, color='r')
+                #pl.show()
+                #sys.exit()
 
 
         # TODO:
@@ -277,7 +301,7 @@ class waveform_catalogue:
         NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 
         # Samples to discard due to NR noise
-        NRD_sampls=500 # keep this many samples after the peak
+        NRD_sampls=1000 # keep this many samples after the peak
         NINSP_sampls=5000 # discard this many samples from the start
 
         # --- Identify waveforms in catalogue
@@ -340,6 +364,7 @@ class waveform_catalogue:
             # Get rid of junk
             peak_idx = np.argmax(abs(hplus))
             zero_idx = min(peak_idx + NRD_sampls, len(hplus))
+
             hplus[zero_idx:]  = 0.0
             hcross[zero_idx:] = 0.0
 
@@ -347,16 +372,16 @@ class waveform_catalogue:
             #hcross[:peak_idx-NINSP_sampls] = 0.0
 
             # --- Windowing / tapering
-            hplus=window_wave(hplus)
-            hcross=window_wave(hcross)
+            #hplus=window_wave(hplus)
+            #hcross=window_wave(hcross)
 
             # --- Resampling 
             hplus  = signal.resample(hplus, resamp_len)
             hcross = signal.resample(hcross, resamp_len)
 
             # --- Filtering
-            hplus  = highpass(hplus)
-            hcross = highpass(hcross)
+            #hplus  = highpass(hplus)
+            #hcross = highpass(hcross)
 
             # Use complex waveform
             catalogue[w,:] = hplus - 1j*hcross
@@ -381,7 +406,7 @@ class waveform_catalogue:
             #print 'aligning %d of %d'%(w, len(waveforms))
 
             non_zero_idx = \
-                    np.argwhere(abs(catalogue[w,:])>1e-2*max(abs(catalogue[w,:])))
+                    np.argwhere(abs(catalogue[w,:])>1e-5*max(abs(catalogue[w,:])))
             trunc_wav = \
                     catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
 

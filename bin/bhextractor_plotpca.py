@@ -91,7 +91,7 @@ def image_matches(match_matrix, waveform_names, title=None, mismatch=False):
 # USER INPUT
 
 catalogue_name='Q'
-theta=90.0
+theta=0.0
 
 # END USER INPUT
 # -------------------------------
@@ -114,6 +114,15 @@ pca = bhex.waveform_pca(catalogue)
 # Compute matches
 #
 pca.compute_matches()
+
+# XXX TEMP
+f, ax = pl.subplots()
+ax.plot(range(1,len(catalogue.waveform_names)+1), pca.euclidean_distances[0,:])
+ax.set_ylim(0,1)
+ax.set_xlim(1,len(catalogue.waveform_names)+1)
+pl.show()
+import sys
+sys.exit()
 
 # -------------------------------
 # PLOTTING
@@ -159,6 +168,13 @@ fig.tight_layout()
 #
 # Explained Variance
 #
+fe, ax = pl.subplots()
+ax.plot(range(1,len(catalogue.waveform_names)+1),
+        1-pca.pca.explained_variance_ratio_)
+ax.set_xlabel('Number of PCs')
+ax.set_ylabel('Explained Variance')
+ax.set_ylim(0,1)
+ax.set_xlim(1,len(catalogue.waveform_names)+1)
 
 #
 # Matches for 250 Msun
