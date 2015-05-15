@@ -15,25 +15,26 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
+bhextractor_pca.py
+
+The main driver module for constructing NR BBH waveform catalogues from
+NINJA-style data and for performing PCA of that catalogue.
 """
 
 from __future__ import division
 
 import os
 import sys 
+import cPickle as pickle
 
 import numpy as np
 import scipy.signal as signal
-import scipy.io as sio
 import scipy.linalg
 from scipy.spatial.distance import euclidean as euclidean_distance
 
 from sklearn.decomposition import PCA 
-from sklearn.decomposition import TruncatedSVD
 
 import lal
-import lalsimulation as lalsim
-
 import pycbc.types
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
@@ -214,6 +215,63 @@ class waveform_pca:
 
         # Project the catalogue onto the new basis
         self.project_catalogue()
+
+    def file_dump(self, identifier=None):
+        """
+        Dump the all the results to a python-friendly pickle and stick the PCs
+        in ascii files; first row of the ascii file is the mean.
+
+        (Pickling is pretty useful here, since I want to retain the object
+        itself)
+        """
+
+        if identifier is None:
+            identifier = "PCAresults"
+
+        # Output path
+        try:
+            pcs_path=os.environ['BHEX_PREFIX']+"/data/PCA_data"
+        except KeyError:
+            print >> sys.stderr, "BHEX_PREFIX environment variable appears to be un-set"
+            sys.exit()
+
+        # Make output directory
+        if not os.path.exists(pcs_path):
+            os.makedirs(pcs_path)
+
+
+        # Build filename
+        filename = pcs_path + '/' +\
+                self.catalogue.catalogue_name + "-" + \
+                str(self.catalogue.theta) + "-" +\
+                str(identifier)
+
+        print "Performing data dump to %s.pickle"%filename
+        
+        # Pickle me!
+        pickle.dump(self, open(filename+".pickle",'wb'))
+
+        #
+        # Ascii Dump
+        #
+        fplus  = filename+"_hplusPCs.asc"
+        fcross = filename+"_hcrossPCs.asc"
+
+        # First row contains the mean waveform
+        dims = np.shape(self.pca_plus.components_)
+        output_array_plus  = np.zeros(shape=(dims[0]+1,dims[1]))
+        output_array_cross = np.zeros(shape=(dims[0]+1,dims[1]))
+
+        output_array_plus[0,:] = self.pca_plus.mean_
+        output_array_plus[1:,:] = self.pca_plus.components_
+        output_array_cross[0,:] = self.pca_cross.mean_
+        output_array_cross[1:,:] = self.pca_cross.components_
+
+        print "Performing data dump to %s"%fplus
+        np.savetxt(fplus, output_array_plus)
+        print "Performing data dump to %s"%fcross
+        np.savetxt(fcross, output_array_cross)
+
 
     def project_catalogue(self):
         """
