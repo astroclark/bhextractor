@@ -257,7 +257,7 @@ class waveform_pca:
         #
         fplus  = filename+"_hplusPCs.asc"
         fcross = filename+"_hcrossPCs.asc"
-        fcomplex = filename+"_hPCs.asc"
+        fcomplex = filename+"_hPCs.dat"
 
         # First row contains the mean waveform
         dims = np.shape(self.pca_plus.components_)
