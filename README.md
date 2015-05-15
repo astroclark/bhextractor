@@ -1,4 +1,5 @@
 bhextractor
 ===========
 
-black hole evidence extractor
+black hole evidence extractor (aka SMEE for BBH)
+
