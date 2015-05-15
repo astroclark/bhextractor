@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Copyright (C) 2014-2015 James Clark <james.clark@ligo.org>
+# Copyright (C) 2015-2016 James Clark <james.clark@ligo.org>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -35,6 +35,7 @@ from scipy.spatial.distance import euclidean as euclidean_distance
 from sklearn.decomposition import PCA 
 
 import lal
+import lalsimulation as lalsim
 import pycbc.types
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
