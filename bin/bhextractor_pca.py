@@ -257,21 +257,39 @@ class waveform_pca:
         #
         fplus  = filename+"_hplusPCs.asc"
         fcross = filename+"_hcrossPCs.asc"
+        fcomplex = filename+"_hPCs.asc"
 
         # First row contains the mean waveform
         dims = np.shape(self.pca_plus.components_)
         output_array_plus  = np.zeros(shape=(dims[0]+1,dims[1]))
         output_array_cross = np.zeros(shape=(dims[0]+1,dims[1]))
 
+        output_array = np.zeros(shape=(dims[0]+1,dims[1]), dtype=complex)
+
         output_array_plus[0,:] = self.pca_plus.mean_
         output_array_plus[1:,:] = self.pca_plus.components_
         output_array_cross[0,:] = self.pca_cross.mean_
         output_array_cross[1:,:] = self.pca_cross.components_
 
+        output_array[0:,:] = self.pca_plus.mean_ - 1j*self.pca_cross.mean_
+        output_array[1:,:] = self.pca_plus.components_ - 1j*self.pca_cross.components_
+
         print "Performing data dump to %s"%fplus
         np.savetxt(fplus, output_array_plus)
         print "Performing data dump to %s"%fcross
         np.savetxt(fcross, output_array_cross)
+
+        print "Performing data dump to %s"%fcomplex
+        #np.savetxt(fcomplex, output_array)
+        fpcomplex = open(fcomplex,'w')
+        for i in xrange(dims[0]):
+            for j in xrange(dims[1]):
+                fpcomplex.write("%.10f %10f\t"%(
+                    np.real(output_array[i,j]),
+                    np.imag(output_array[i,j])
+                    ))
+
+            fpcomplex.write("\n")
 
 
     def project_catalogue(self):
