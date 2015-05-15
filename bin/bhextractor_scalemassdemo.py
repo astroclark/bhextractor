@@ -85,15 +85,42 @@ oriwave350_pycbc = pycbc.types.TimeSeries(np.real(oriwave350), delta_t=1./2048)
 psd = aLIGOZeroDetHighPower(len(recwave350_pycbc.to_frequencyseries()),
         recwave350_pycbc.to_frequencyseries().delta_f, low_freq_cutoff=10.0)
 
-print 'Match between 250 and 350 Msun catalogue waves: ',\
-        pycbc.filter.match(oriwave250_pycbc.to_frequencyseries(),
-                oriwave350_pycbc.to_frequencyseries(), psd=psd,
-                low_frequency_cutoff=10)[0]
+match_cat = pycbc.filter.match(oriwave250_pycbc.to_frequencyseries(),
+                    oriwave350_pycbc.to_frequencyseries(), psd=psd,
+                    low_frequency_cutoff=10)[0]
 
-print 'Match between 350 reconstruction and 350 catalogue wave: ',\
-        pycbc.filter.match(recwave350_pycbc.to_frequencyseries(),
-                oriwave350_pycbc.to_frequencyseries(), psd=psd,
-                low_frequency_cutoff=10)[0]
+match_rec = pycbc.filter.match(recwave350_pycbc.to_frequencyseries(),
+                   oriwave350_pycbc.to_frequencyseries(), psd=psd,
+                   low_frequency_cutoff=10)[0]
 
+print 'Match between 250 and 350 Msun catalogue waves: ', match_cat
+
+print 'Match between 350 reconstruction and 350 catalogue wave: ', match_rec
+
+
+#
+# Make plots
+#
+
+if 1:
+    print "Plotting reconstructions"
+
+    fig, ax = pl.subplots(nrows=2,ncols=1)
+
+    ax[0].plot(times,np.real(oriwave250), 'b', label='250 M$_{\odot}$ catalogue')
+    ax[0].plot(times,np.real(oriwave350), 'g', label='350 M$_{\odot}$ catalogue')
+    ax[0].set_xlim(0,2.5)
+    ax[0].set_title('Match = %f'% match_cat)
+    ax[0].legend(loc='upper left',prop={'size':10})
+
+    ax[1].plot(times,np.real(oriwave350), 'g', label='350 M$_{\odot}$ catalogue')
+    ax[1].plot(times,np.real(recwave350), 'r', label='350 M$_{\odot}$ reconstruction')
+    ax[1].set_xlim(0,2.5)
+    ax[1].set_xlabel('Time (s)')
+    ax[1].set_title('Match = %f'% match_rec)
+    ax[1].legend(loc='upper left',prop={'size':10})
+
+    fig.tight_layout()
+    fig.savefig('plots/scalemassdemo.png')
 
 
