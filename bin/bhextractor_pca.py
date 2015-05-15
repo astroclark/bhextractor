@@ -281,15 +281,18 @@ class waveform_pca:
 
         print "Performing data dump to %s"%fcomplex
         #np.savetxt(fcomplex, output_array)
-        fpcomplex = open(fcomplex,'w')
-        for i in xrange(dims[0]):
-            for j in xrange(dims[1]):
-                fpcomplex.write("%.10f %10f\t"%(
-                    np.real(output_array[i,j]),
-                    np.imag(output_array[i,j])
-                    ))
+        fpcomplex = open(fcomplex,'wb')
+#       for i in xrange(dims[0]):
+#           for j in xrange(dims[1]):
+#               fpcomplex.write("%.10f %.10f\t"%(
+#                   np.real(output_array[i,j]),
+#                   np.imag(output_array[i,j])
+#                   ))
+#
+#           fpcomplex.write("\n")
 
-            fpcomplex.write("\n")
+        # XXX: Experimental binary writing
+        output_array.tofile(fpcomplex)
 
 
     def project_catalogue(self):
