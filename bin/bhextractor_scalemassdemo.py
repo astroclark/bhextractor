@@ -58,11 +58,11 @@ pca = bhex.waveform_pca(catalogue)
 # Build a 350 solar mass waveform from the 250 Msun PCs#
 
 # Just use the first waveform
-betas = pca.projection[catalogue.waveform_names[0]]
+betas = pca.projection_plus[catalogue.waveform_names[0]]
 
 times = np.arange(0,len(catalogue.aligned_catalogue[0,:])/2048.,1./2048)
 
-recwave350 = bhex.reconstruct_waveform(pca.pca, betas, len(catalogue.waveform_names),
+recwave350 = bhex.reconstruct_waveform(pca.pca_plus, betas, len(catalogue.waveform_names),
         mtotal_target=350.0)
 
 

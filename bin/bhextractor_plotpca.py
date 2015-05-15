@@ -217,14 +217,14 @@ print "Plotting PCs"
 fig, ax = pl.subplots(figsize=(10,10),
         nrows=np.shape(catalogue.aligned_catalogue)[0]+1, ncols=1)
 
-ax[0].plot(catalogue.sample_times, pca.pca.mean_, label='Mean')
+ax[0].plot(catalogue.sample_times, pca.pca_plus.mean_, label='Mean')
 ax[0].set_xlim(-1.0,0.1)
 ax[0].legend(loc='upper left')
 
 for w in xrange(len(catalogue.waveform_names)):
 
     ax[w+1].plot(catalogue.sample_times,
-         pca.pca.components_[w,:], label=r'$\beta_{%d}$'%(w+1))
+         pca.pca_plus.components_[w,:], label=r'$\beta_{%d}$'%(w+1))
 
     ax[w+1].legend(loc='upper left')
     ax[w+1].set_xlim(-1.0,0.1)
@@ -238,7 +238,7 @@ fig.tight_layout()
 #
 fe, ax = pl.subplots()
 ax.plot(range(1,len(catalogue.waveform_names)+1),
-        1-pca.pca.explained_variance_ratio_)
+        1-pca.pca_plus.explained_variance_ratio_)
 ax.set_xlabel('Number of PCs')
 ax.set_ylabel('Explained Variance')
 ax.set_ylim(0,1)

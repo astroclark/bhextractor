@@ -209,7 +209,8 @@ class waveform_pca:
         self.catalogue = catalogue
 
         # Do the PCA
-        self.pca = perform_pca(np.real(self.catalogue.aligned_catalogue))
+        self.pca_plus = perform_pca(np.real(self.catalogue.aligned_catalogue))
+        self.pca_cross = perform_pca(-1*np.imag(self.catalogue.aligned_catalogue))
 
         # Project the catalogue onto the new basis
         self.project_catalogue()
@@ -224,13 +225,18 @@ class waveform_pca:
 
         # Store the projection coefficients in a dictionary, keyed by the
         # waveform names
-        self.projection = dict()
+        self.projection_plus  = dict()
+        self.projection_cross = dict()
 
         for w in xrange(np.shape(self.catalogue.aligned_catalogue)[0]):
 
-            self.projection[self.catalogue.waveform_names[w]] = \
+            self.projection_plus[self.catalogue.waveform_names[w]] = \
                     compute_projection(np.real(self.catalogue.aligned_catalogue[w,:]),
-                            self.pca)
+                            self.pca_plus)
+
+            self.projection_cross[self.catalogue.waveform_names[w]] = \
+                    compute_projection(-1*np.imag(self.catalogue.aligned_catalogue[w,:]),
+                            self.pca_cross)
 
     def compute_matches(self, mtotal_ref=250.0):
         """
@@ -263,7 +269,7 @@ class waveform_pca:
         for w in xrange(len(self.catalogue.waveform_names)):
 
             # retrieve projection coefficients
-            betas = self.projection[self.catalogue.waveform_names[w]]
+            betas = self.projection_plus[self.catalogue.waveform_names[w]]
             
             targetwav = pycbc.types.TimeSeries(
                     np.real(self.catalogue.aligned_catalogue[w,:]),
@@ -271,7 +277,7 @@ class waveform_pca:
 
             for n in xrange(len(self.catalogue.waveform_names)):
 
-                reconstructed_waveform = reconstruct_waveform(self.pca, betas,
+                reconstructed_waveform = reconstruct_waveform(self.pca_plus, betas,
                         n+1, mtotal_ref=mtotal_ref)
 
                 recwav = pycbc.types.TimeSeries(np.real(reconstructed_waveform),
