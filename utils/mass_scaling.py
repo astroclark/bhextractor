@@ -41,8 +41,8 @@ import lalsimulation as lalsim
 
 def startFreqHz(startFreq,m1,m2):
 
-    mtotal=(m1+m2)*lal.LAL_MTSUN_SI
-    startFreqHz=startFreq/(lal.LAL_TWOPI*mtotal)
+    mtotal=(m1+m2)*lal.MTSUN_SI
+    startFreqHz=startFreq/(lal.TWOPI*mtotal)
 
     return startFreqHz
 
@@ -56,7 +56,7 @@ deltaT = 1./sample_rate
 
 # Stellar params
 phiC=0.0
-distance=1e9*lal.LAL_PC_SI
+distance=1e9*lal.PC_SI
 mtot=100
 inclination=0.0
 mass_ratio=0.5
@@ -67,11 +67,11 @@ fLow_si = 10.
 
 # we don't use hx right now so just direct it to _
 hlowmass, _ = lalsim.SimIMREOBNRv2AllModes(phiC, deltaT,
-        m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, fLow_si, distance,
+        m1*lal.MSUN_SI, m2*lal.MSUN_SI, fLow_si, distance,
         inclination)
 # Taper start of waveform
 lalsim.SimInspiralREAL8WaveTaper(hlowmass.data,
-        lalsim.LAL_SIM_INSPIRAL_TAPER_STARTEND)
+        lalsim.SIM_INSPIRAL_TAPER_STARTEND)
 time_lowmass = np.arange(0, hlowmass.data.length*deltaT, deltaT)
 
 idx_peak = np.argmax(abs(hlowmass.data.data))
@@ -91,12 +91,12 @@ m1=mtot-m2
 
 # we don't use hx right now so just direct it to _
 hhighmass, _ = lalsim.SimIMREOBNRv2AllModes(phiC, deltaT,
-        m1*lal.LAL_MSUN_SI, m2*lal.LAL_MSUN_SI, fLow_si, distance,
+        m1*lal.MSUN_SI, m2*lal.MSUN_SI, fLow_si, distance,
         inclination)
 
 # Taper start of waveform
 lalsim.SimInspiralREAL8WaveTaper(hhighmass.data,
-        lalsim.LAL_SIM_INSPIRAL_TAPER_STARTEND)
+        lalsim.SIM_INSPIRAL_TAPER_STARTEND)
 lal.ResizeREAL8TimeSeries(hhighmass,0,hlowmass.data.length)
 
 time_highmass = np.arange(0, hhighmass.data.length*deltaT, deltaT)
@@ -120,13 +120,13 @@ time_highmass -= time_highmass[idx_peak]
 Mcurrent = 100
 # we don't use hx right now so just direct it to _
 hnumrel = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0, deltaT,
-        lal.lalStrainUnit, hlowmass.data.length)
+        lal.StrainUnit, hlowmass.data.length)
 
 # Copy 100 Msun waveform and rescale to geometric units
 hnumrel.data.data = distance * np.copy(hlowmass.data.data) / (Mcurrent *
-        lal.LAL_MRSUN_SI)
+        lal.MRSUN_SI)
 
-NRdeltaT = deltaT / (Mcurrent * lal.LAL_MTSUN_SI)
+NRdeltaT = deltaT / (Mcurrent * lal.MTSUN_SI)
 
 time_numrel = np.arange(0, hnumrel.data.length*NRdeltaT, NRdeltaT)
 
@@ -141,15 +141,15 @@ time_numrel -= time_numrel[idx_peak]
 
 Mtarget = 200
 
-deltaT_new = NRdeltaT * (Mtarget * lal.LAL_MTSUN_SI)
+deltaT_new = NRdeltaT * (Mtarget * lal.MTSUN_SI)
 
 # we don't use hx right now so just direct it to _
 hrescaled = lal.CreateREAL8TimeSeries('hoft', lal.LIGOTimeGPS(), 0.0,
-        deltaT_new, lal.lalStrainUnit, hnumrel.data.length)
+        deltaT_new, lal.StrainUnit, hnumrel.data.length)
 
 # Copy 100 Msun waveform and rescale to geometric units
 hrescaled.data.data = np.copy(hnumrel.data.data) \
-        * Mtarget * lal.LAL_MRSUN_SI / distance
+        * Mtarget * lal.MRSUN_SI / distance
 
 time_rescaled = np.arange(0, hrescaled.data.length*deltaT_new, deltaT_new)
 
@@ -164,7 +164,7 @@ hrescaled_tmp = pycbc.types.TimeSeries(\
 hhighmass_tmp = pycbc.types.TimeSeries(\
         initial_array=hhighmass.data.data, delta_t=hhighmass.deltaT)
 hhighmass_tmp.resize(len(hrescaled_tmp.data))
-sys.exit()
+#sys.exit()
 
 #hrescaled_tmp = filter.highpass(hrescaled_tmp,10,filter_order=12,attenuation=0.9)
 hrescaled.data.data = hrescaled_tmp.data
