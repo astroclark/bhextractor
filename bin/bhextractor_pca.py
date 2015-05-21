@@ -102,11 +102,11 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
     #betas=projection[waveform_name]
 
     reconstruction = np.zeros(shape=(np.shape(pca.components_[0,:])))
+
+
     for b in xrange(npcs):
         reconstruction += betas[b]*pca.components_[b,:]
     reconstruction += pca.mean_
-
-    # TODO: mass scaling
 
     #
     # Mass Scaling
@@ -127,12 +127,16 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
             # closer together.  We do this by creating a new time axis which is
             # denser and shorter and then interpolate the *original* waveform FROM
             # those new timestamps TO the *original* time stamps.
+            #from matplotlib import pyplot as pl
 
             time = np.arange(0,len(reconstruction)/float(fs), 1./fs)
             new_time = np.arange(0, time[-1] / amp_ratio + 1./fs / amp_ratio, 1./fs
-                    / amp_ratio)
+                    / amp_ratio)[:len(time)]
+
+            oripy = pycbc.types.TimeSeries(reconstruction, delta_t=1./fs)
 
             reconstruction = np.interp(new_time, time, reconstruction)*amp_ratio
+
 
             # Finally, clean up by moving the waveform back to the center (this
             # is just handy for plotting)
@@ -145,12 +149,73 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
             start_idx = 0.5*len(reconstruction) - peak_idx
 
             reconstruction_out = np.zeros(len(reconstruction))
-            reconstruction_out[start_idx:start_idx+len(trunc_wav)] = trunc_wav
+            #reconstruction_out[start_idx:start_idx+len(trunc_wav)] = trunc_wav
+            # populate right side
+            reconstruction_out[0.5*len(reconstruction):\
+                    0.5*len(reconstruction)+len(trunc_wav[peak_idx:non_zero_idx[-1]])] = \
+                            trunc_wav[peak_idx:]
+
+            # populate left side
+            p = 0.5*len(reconstruction_out)-1
+            q = peak_idx-1
+            while p>=0:
+                reconstruction_out[p] = np.copy(trunc_wav[q])
+                p-=1
+                q-=1
+
+#           from matplotlib import pyplot as pl
+#           pl.figure()
+#           pl.plot(reconstruction_out)
+#           pl.show()
+#           sys.exit()
+#
+
+
+           # recpy = pycbc.types.TimeSeries(reconstruction_out, delta_t=1./fs)
+
+           #f,ax=pl.subplots(nrows=3)
+           #ax[0].plot(oripy.sample_times,oripy)
+           #ax[0].plot(recpy.sample_times,recpy)
+
+           #orifd = oripy.to_frequencyseries()
+           #recfd = recpy.to_frequencyseries()
+
+           #from scipy import interpolate
+           #print 'interpolating'
+           #  
+
+           #synth_phase = np.interp(recfd.sample_frequencies.data,
+           #        recfd.sample_frequencies.data / amp_ratio,
+           #       np.unwrap(np.angle(orifd))) / amp_ratio
+
+
+           #ax[1].plot(orifd.sample_frequencies, abs(orifd))
+           #ax[1].plot(recfd.sample_frequencies, abs(recfd))
+           #ax[1].set_xlim(0,128)
+
+           #ax[2].plot(orifd.sample_frequencies, np.unwrap(np.angle(orifd)))
+           #ax[2].plot(recfd.sample_frequencies, np.unwrap(np.angle(recfd)))
+           #ax[2].plot(recfd.sample_frequencies, synth_phase)
+           #ax[2].set_xlim(0,128)
+
+#          # pl.figure()
+#          # pl.plot(orifd.sample_frequencies, np.unwrap(np.angle(recfd))/np.unwrap(np.angle(orifd))
+
+           #pl.show()
+
+           ##pl.close('all')
+           #pl.figure()
+           #pl.plot( synth_phase[1:] / np.unwrap(np.angle(recfd[1:])) )
+           #pl.xlim(0,128)
+           #pl.ylim(0,2)
+           #pl.axhline(1,color='r')
+           #pl.show()
+           #sys.exit()
 
         elif fd_interpolation:
 
             print "FD interpolation not yet supported"
-            sys.exit()
+            #sys.exit()
 
             #
             # FD scaling
@@ -158,31 +223,51 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
 
             time = np.arange(0,len(reconstruction)/float(fs), 1./fs)
             from matplotlib import pyplot as pl
-            pl.figure()
 
-            pl.plot(time,reconstruction)
+            f,ax = pl.subplots(nrows=3)
+
+            ax[0].plot(time,reconstruction)
 
             recwav = pycbc.types.TimeSeries(reconstruction, delta_t=1./fs)
             recwav_fd = recwav.to_frequencyseries()
             recwav_mag = abs(recwav_fd)
             recwav_phase = np.unwrap(np.angle(recwav_fd))
 
+            ax[1].plot(recwav_fd.sample_frequencies, recwav_mag)
+
             recwav_mag = np.interp(recwav_fd.sample_frequencies.data ,
                     recwav_fd.sample_frequencies.data / amp_ratio, recwav_mag)*amp_ratio
 
+            ax[1].plot(recwav_fd.sample_frequencies, recwav_mag)
+            ax[1].set_xlim(0,128)
+
+            ax[2].plot(recwav_fd.sample_frequencies, recwav_phase)
+            ax[2].set_xlim(0,128)
+
             recwav_phase = np.interp(recwav_fd.sample_frequencies.data,
-                    recwav_fd.sample_frequencies.data / amp_ratio, recwav_phase)/amp_ratio
+                    recwav_fd.sample_frequencies.data / amp_ratio,
+                    recwav_phase)/amp_ratio
+
+            ax[2].plot(recwav_fd.sample_frequencies, recwav_phase)
+            ax[2].set_xlim(0,128)
 
             recwav_fd = pycbc.types.FrequencySeries(
                     recwav_mag*np.exp(1j*recwav_phase),
                     delta_f=recwav_fd.delta_f)
 
             reconstruction = recwav_fd.to_timeseries()
-
+            
             reconstruction = pycbc.filter.highpass(reconstruction, frequency=9.,
                     filter_order=8, attenuation=0.1)
 
-            pl.plot(time, reconstruction)
+            ax[0].plot(time, reconstruction)
+
+            rec = reconstruction.to_frequencyseries()
+            recmag = abs(rec)
+            recphase = np.unwrap(np.angle(rec))
+            ax[1].plot(rec.sample_frequencies, recmag)
+            ax[2].plot(rec.sample_frequencies, recphase)
+
             pl.show()
             sys.exit()
 
@@ -478,7 +563,7 @@ class waveform_catalogue:
 
         # Samples to discard due to NR noise
         NRD_sampls=1000 # keep this many samples after the peak
-        NINSP_sampls=5000 # discard this many samples from the start
+        NINSP_sampls=0 # discard this many samples from the start
 
         # --- Identify waveforms in catalogue
         catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+self.catalogue_name+'-series'
@@ -545,8 +630,12 @@ class waveform_catalogue:
             hplus[zero_idx:]  = 0.0
             hcross[zero_idx:] = 0.0
 
-            hplus[:peak_idx-NINSP_sampls] = 0.0
-            hcross[:peak_idx-NINSP_sampls] = 0.0
+            startidx = np.argwhere(abs(hplus)>0)[0]
+            hplus[startidx:startidx+NINSP_sampls] = 0.0
+            hcross[startidx:startidx+NINSP_sampls] = 0.0
+
+            #hplus[:peak_idx-NINSP_sampls] = 0.0
+            #hcross[:peak_idx-NINSP_sampls] = 0.0
 
             # --- Windowing / tapering
             #hplus=window_wave(hplus)
@@ -560,13 +649,11 @@ class waveform_catalogue:
             hcross = signal.resample(hcross, resamp_len)
 
             # --- Filtering
-            hplus  = highpass(hplus)
-            hcross = highpass(hcross)
+            #hplus  = highpass(hplus)
+            #hcross = highpass(hcross)
 
             # Store complex waveform
             catalogue[w,:] = hplus - 1j*hcross
-            #catalogue[w,:] = hcross
-            #catalogue[w,:] = hplus
             
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Catalogue Conditioning
@@ -627,6 +714,7 @@ def main():
     # Do the PCA
     #
     pca = waveform_pca(catalogue)
+    #pca.file_dump()
 
     return pca
 
@@ -636,6 +724,7 @@ def main():
 #
 if __name__ == "__main__":
     pca_results = main()
+    pca_results.file_dump()
 
     
 
