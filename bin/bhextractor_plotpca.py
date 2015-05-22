@@ -20,6 +20,8 @@ bhextractor_plotpca.py
 Construct waveform catalogues and PCA for plotting and diagnostics
 """
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 from matplotlib import pyplot as pl
 import bhextractor_pca as bhex
 
@@ -143,7 +145,7 @@ def image_euclidean(euclidean_matrix, waveform_names, title=None, clims=None):
 # USER INPUT
 
 catalogue_name='Q'
-theta=90.0
+theta=0.0
 
 # END USER INPUT
 # -------------------------------
@@ -154,7 +156,7 @@ theta=90.0
 #
 # Setup and then build the catalogue
 #
-catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=2048,
+catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=512,
         catalogue_len=4, mtotal_ref=250, Dist=1., theta=theta)
 
 #
@@ -175,10 +177,16 @@ pca.compute_matches()
 # Waveform Catalogue
 #
 
+#pl.figure()
+#pl.plot(catalogue.aligned_catalogue.T)
+#pl.show()
+#import sys
+#sys.exit()
+
 print "Plotting Catalogue"
 
 fig, ax = pl.subplots(figsize=(10,10),
-        nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=3)
+        nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=2, sharex='col')
 
 for w in xrange(len(catalogue.waveform_names)):
 
@@ -198,15 +206,18 @@ for w in xrange(len(catalogue.waveform_names)):
     ax[w][1].axvline(10,color='k',linestyle='--')
     ax[w][1].set_yscale('log')
 
-    ax[w][2].plot(catalogue.sample_frequencies, catalogue.phaseSpectraPlus[w,:],
-            label='+')
-    ax[w][2].plot(catalogue.sample_frequencies, catalogue.phaseSpectraCross[w,:],
-            label='x')
-    ax[w][2].set_xlim(9,128)
-    ax[w][2].set_ylim(-512,512)
-    ax[w][2].axvline(10,color='k',linestyle='--')
+#   ax[w][2].plot(catalogue.sample_frequencies, catalogue.phaseSpectraPlus[w,:],
+#           label='+')
+#   ax[w][2].plot(catalogue.sample_frequencies, catalogue.phaseSpectraCross[w,:],
+#           label='x')
+#   ax[w][2].set_xlim(9,128)
+#   ax[w][2].set_ylim(-512,512)
+#   ax[w][2].axvline(10,color='k',linestyle='--')
 
-fig.tight_layout()
+fig.subplots_adjust(hspace=0)
+fig.savefig('catalogue.png')
+#fig.tight_layout()
+
 
 #
 # Principal Components
@@ -215,7 +226,7 @@ fig.tight_layout()
 print "Plotting PCs"
 
 fig, ax = pl.subplots(figsize=(10,10),
-        nrows=np.shape(catalogue.aligned_catalogue)[0]+1, ncols=1)
+        nrows=np.shape(catalogue.aligned_catalogue)[0]+1, ncols=1, sharex='col')
 
 ax[0].plot(catalogue.sample_times, pca.pca_plus.mean_, label='Mean')
 ax[0].set_xlim(-1.0,0.1)
@@ -230,31 +241,35 @@ for w in xrange(len(catalogue.waveform_names)):
     ax[w+1].set_xlim(-1.0,0.1)
 
 
-fig.tight_layout()
+fig.subplots_adjust(hspace=0)
+fig.savefig('pcs.png')
 
 
 #
 # Explained Variance
 #
 fe, ax = pl.subplots()
-ax.plot(range(1,len(catalogue.waveform_names)+1),
+ax.bar(np.arange(1,len(catalogue.waveform_names)+1)-0.5,
         1-pca.pca_plus.explained_variance_ratio_)
 ax.set_xlabel('Number of PCs')
 ax.set_ylabel('Explained Variance')
 ax.set_ylim(0,1)
 ax.set_xlim(1,len(catalogue.waveform_names)+1)
+fe.savefig('explained_variance.png')
 
 #
 # Matches for 250 Msun
 #
 imfig, imax = image_matches(pca.matches, catalogue.waveform_names)
 imfig.tight_layout()
+imfig.savefig('matches.png')
 
 #
 # Euclidean distances for 250 Msun
 #
 imfig, imax = image_euclidean(pca.euclidean_distances, catalogue.waveform_names)
 imfig.tight_layout()
+imfig.savefig('euclidean_distances.png')
 
 pl.show()
 
