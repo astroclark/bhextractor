@@ -39,7 +39,7 @@ theta=float(sys.argv[2])
 #
 # Setup and then build the catalogue
 #
-catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=2048,
+catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=512,
         catalogue_len=4, mtotal_ref=250, Dist=1., theta=theta)
 
 #

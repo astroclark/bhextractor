@@ -43,7 +43,7 @@ from pycbc.psd import aLIGOZeroDetHighPower
 # *****************************************************************************
 # Function Definitions 
 
-def taper_start(input_data, fs=2048):
+def taper_start(input_data, fs=512):
     """  
     Taper the start of the data
     """
@@ -69,7 +69,7 @@ def window_wave(input_data):
 
     return input_data
 
-def highpass(timeseries, delta_t=1./2048, knee=9., order=8, attn=0.1):
+def highpass(timeseries, delta_t=1./512, knee=9., order=8, attn=0.1):
 
     tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
 
@@ -91,7 +91,7 @@ def perform_pca(aligned_td_catalogue):
     return pca
 
 def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
-        mtotal_target=250.0, fs=2048, fd_interpolation=False):
+        mtotal_target=250.0, fs=512, fd_interpolation=False):
     """
     Reconstruct the specified waveform (waveform_name) from the PC basis
     contatined in pca and the projection coefficients betas
@@ -473,7 +473,7 @@ class waveform_catalogue:
     Object with the full waveform catalogue and all conditioning information
     """
 
-    def __init__(self,catalogue_name='Q', theta=0.0, phi=0.0, fs=2048,
+    def __init__(self,catalogue_name='Q', theta=0.0, phi=0.0, fs=512,
             catalogue_len=4, mtotal_ref=250, Dist=1.):
 
         # ######################################################
@@ -707,7 +707,7 @@ def main():
     #
     # Setup and then build the catalogue
     #
-    catalogue = waveform_catalogue(catalogue_name=catalogue_name, fs=2048,
+    catalogue = waveform_catalogue(catalogue_name=catalogue_name, fs=512,
             catalogue_len=4, mtotal_ref=250, Dist=1., theta=theta)
 
     #
