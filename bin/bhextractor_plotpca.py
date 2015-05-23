@@ -185,26 +185,29 @@ pca.compute_matches()
 
 print "Plotting Catalogue"
 
-fig, ax = pl.subplots(figsize=(10,10),
-        nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=2, sharex='col')
+fig1, ax1 = pl.subplots(figsize=(10,10),
+        nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
+
+fig2, ax2 = pl.subplots(figsize=(10,10),
+        nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
 
 for w in xrange(len(catalogue.waveform_names)):
 
-    ax[w][0].plot(catalogue.sample_times,
+    ax1[w].plot(catalogue.sample_times,
             np.real(catalogue.aligned_catalogue[w,:]), label='+')
-    ax[w][0].plot(catalogue.sample_times,
+    ax1[w].plot(catalogue.sample_times,
             np.imag(catalogue.aligned_catalogue[w,:]), label='x')
 
-    ax[w][0].set_xlim(-1.0,0.1)
+    ax1[w].set_xlim(-1.0,0.1)
 
-    ax[w][1].plot(catalogue.sample_frequencies, catalogue.ampSpectraPlus[w,:],
+    ax2[w].plot(catalogue.sample_frequencies, catalogue.ampSpectraPlus[w,:],
             label='+')
-    ax[w][1].plot(catalogue.sample_frequencies, catalogue.ampSpectraCross[w,:],
+    ax2[w].plot(catalogue.sample_frequencies, catalogue.ampSpectraCross[w,:],
             label='x')
-    ax[w][1].set_xlim(9,128)
-    ax[w][1].set_ylim(1e-5,1e-2)
-    ax[w][1].axvline(10,color='k',linestyle='--')
-    ax[w][1].set_yscale('log')
+    ax2[w].set_xlim(9,128)
+    ax2[w].set_ylim(1e-5,1e-2)
+    ax2[w].axvline(10,color='k',linestyle='--')
+    ax2[w].set_yscale('log')
 
 #   ax[w][2].plot(catalogue.sample_frequencies, catalogue.phaseSpectraPlus[w,:],
 #           label='+')
@@ -214,9 +217,12 @@ for w in xrange(len(catalogue.waveform_names)):
 #   ax[w][2].set_ylim(-512,512)
 #   ax[w][2].axvline(10,color='k',linestyle='--')
 
-fig.subplots_adjust(hspace=0)
-fig.savefig('catalogue.png')
+fig1.subplots_adjust(hspace=0)
+fig1.savefig('catalogue_timeseries.png')
+fig2.subplots_adjust(hspace=0)
+fig2.savefig('catalogue_amplitudespectra.png')
 #fig.tight_layout()
+
 
 
 #
