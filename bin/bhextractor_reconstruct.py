@@ -28,8 +28,8 @@ import os
 import sys 
 
 import numpy as np
-import scipy.io as sio
 from matplotlib import pyplot as pl
+import cPickle as pickle
 
 from optparse import OptionParser
 
@@ -41,17 +41,25 @@ from pylal import bayespputils as bppu
 
 import triangle
 
+import bhextractor_pca as bhex
+
 def parser():
 
     # --- Command line input
     parser = OptionParser()
     #parser.add_option("-p", "--posterior-file", default=None, type=str)
-    parser.add_option("-i", "--injection-file", type=str, default=None)
+    parser.add_option("-i", "--injection-name", type=str, default=None)
+    parser.add_option("-f", "--injection-file", type=str, default=None)
     parser.add_option("-n", "--npcs", type=int, default=1)
-    parser.add_option("-q", "--catalog", type=str, default="Q")
-    parser.add_option("-t", "--true-vals") 
+    parser.add_option("-q", "--catalogue", type=str, default="Q")
+    parser.add_option("-m", "--target-mass", type=float, default=250.0) 
 
     (opts,args) = parser.parse_args()
+
+    if opts.injection_name is None:
+        print >> sys.stderr, "Require an injection name (e.g., D10_a0.0_q1.00_m103_Qs)"
+        sys.exit()
+
 
     if len(args)==0:
         print >> sys.stderr, "Must supply a posterior samples file as a commandline argument"
@@ -63,65 +71,56 @@ def parser():
 
     return opts, args
 
-def reconstructions(posterior, basis_functions, npcs):
 
-    betas = np.zeros(shape=(len(posterior),npcs))
-    for b in xrange(npcs):
-        betas[:,b] = np.concatenate(posterior['beta'+str(b+1)].samples)
+def compute_match(reconstruction, injection, delta_t=1./512):
 
-    mtotal = np.concatenate(posterior['mtotal'].samples)
+    rec_td = pycbc.types.TimeSeries(reconstruction, delta_t=delta_t)
+    inj_td = pycbc.types.TimeSeries(injection, delta_t=delta_t)
 
-    # Compute the weighted sum of basis functions
-    rec_waveforms = np.zeros(shape=(len(posterior),
-        np.shape(basis_functions)[0]), dtype=complex)
-    for p in xrange(len(posterior)):
+    rec_fd = rec_td.to_frequencyseries()
+    inj_fd = inj_td.to_frequencyseries()
 
-        # Sum the PCs
-        pc_wave = np.zeros(np.shape(basis_functions)[0], dtype=complex)
-        for b in xrange(npcs):
-            pc_wave += basis_functions[:,b]*betas[p,b]
-
-
-        # Scale for the mass
-        rec_waveforms[p,:] = scale_for_mass(mtotal[p], pc_wave)
-
-    recon_data = {'betas':betas, 'mtotal':mtotal,
-            'reconstructed_fd_waves':rec_waveforms}
-
-    return recon_data
-
-def scale_for_mass(mtotal, pc_waveform, mtotal_ref=250., delta_t=1./2048,
-        fftlen=4):
-
-    freqs = np.arange(0, len(pc_waveform)/fftlen, 1./fftlen)
-
-    magnitude = abs(pc_waveform)
-    phase = np.unwrap(np.angle(pc_waveform))
-
-    new_magnitude = np.interp(mtotal/mtotal_ref * freqs, freqs, magnitude)*\
-            mtotal/mtotal_ref
-    new_phase = np.interp(mtotal/mtotal_ref * freqs, freqs, magnitude)/\
-            mtotal/mtotal_ref
-
-
-#   pl.figure(figsize=(8,6))
-#   pl.plot(freqs,magnitude)
-#   pl.plot(freqs,new_magnitude)
-#   pl.show()
-#   sys.exit()
-
-    return new_magnitude * np.exp(1j*new_phase)
-
-def compute_match(reconstruction, injection, delta_f=0.25):
-
-    rec_fd = pycbc.types.FrequencySeries(reconstruction, delta_f=delta_f)
-    inj_fd = pycbc.types.FrequencySeries(injection, delta_f=delta_f)
-    psd    = aLIGOZeroDetHighPower(len(rec_fd), delta_f=delta_f,
+    psd    = aLIGOZeroDetHighPower(len(rec_fd), delta_f=inj_fd.delta_f,
             low_freq_cutoff=1)
 
     return pycbc.filter.match(rec_fd, inj_fd, psd=psd,
             low_frequency_cutoff=10)[0]
 
+def reconstructions(posterior, pcaresults, npcs, injwav):
+
+    basis_functions = pcaresults.pca_plus.components_
+
+    betas = np.zeros(shape=(len(posterior),npcs))
+
+    for b in xrange(npcs):
+        betas[:,b] = np.concatenate(posterior['beta'+str(b+1)].samples)
+
+    mtotal = np.concatenate(posterior['mtotal'].samples)
+
+    # Compute th  weighted sum of basis functions
+    rec_waveforms = np.zeros(shape=(len(posterior),
+        np.shape(basis_functions)[1]))
+    matches = np.zeros(shape=(len(posterior)))
+
+    for p in xrange(len(posterior)):
+
+        print '%d of %d'%(p, len(posterior))
+
+        ptest = bhex.reconstruct_waveform(pcaresults.pca_plus,
+                        betas[p,:], npcs=npcs, mtotal_target=mtotal[p])
+
+        rec_waveforms[p,:] = bhex.reconstruct_waveform(pcaresults.pca_plus,
+                betas[p,:], npcs=npcs, mtotal_target=mtotal[p])
+
+        matches[p] = compute_match(rec_waveforms[p,:], injwav)
+
+
+
+    recon_data = {'betas':betas, 'mtotal':mtotal,
+        'reconstructed_waves':rec_waveforms, 'matches':matches,
+        'injected':injwav}
+
+    return recon_data
 
 # --- MAIN
 
@@ -134,15 +133,14 @@ def main():
     #
     try:
         pcs_path=os.environ['BHEX_PREFIX']+"/data/PCA_data"
-        catalog_path=os.environ['BHEX_PREFIX']+"/data/signal_data"
     except KeyError:
         print >> sys.stderr, "BHEX_PREFIX environment variable appears to be un-set"
 
-    print >> sys.stdout, "Reading PCs file"
-    pcdata = sio.loadmat("%s/%s_PCs_theta-0.mat"%(pcs_path, opts.catalog))
-    basis_functions = pcdata['pcs_plus']
-
-    catalog = sio.loadmat("%s/%s_catalogue_theta-0.mat"%(catalog_path, opts.catalog))
+    print >> sys.stdout, "Reading PCA file"
+    pcadata = pickle.load(open("%s/%s-0.0-PCAresults.pickle"%(pcs_path,
+        opts.catalogue),'r'))
+    basis_functions = pcadata.pca_plus.components_
+    catalogue = pcadata.catalogue.aligned_catalogue
 
     
     #
@@ -152,45 +150,42 @@ def main():
     resultsObj = peparser.parse(open(args[0], 'r'))
     posterior = bppu.Posterior(resultsObj)
 
+    #print opts.injection_file
+    #sys.exit()
 
-    #
-    # Reconstruct the waveforms from the samples
-    #
-    reconstruction_results = reconstructions(posterior, basis_functions,
-            opts.npcs)
 
     #
     # Compute matches
     #
+    betas = pcadata.projection_plus[opts.injection_name]
+
     if opts.injection_file is not None:
-        print 'Loading injection file for match calculations'
-        #injdata = np.loadtxt(opts.injection_file)
-        #injfreq = injdata[:,0]
-        #injwav  = injdata[:,1]+1j*injdata[:,2]
-        injwav = \
-                np.array(pycbc.types.TimeSeries(np.real(catalog['MDC_final'][:,12]),
-                    delta_t=1./2048).to_frequencyseries())
-
-        reconstruction_results['matches'] = np.zeros(len(posterior))
-
-        print 'Computing matches: '
-        for p in xrange(len(posterior)):
-            print '%d of %d'%(p, len(posterior))
-            reconstruction_results['matches'][p] = compute_match(\
-                    reconstruction_results['reconstructed_fd_waves'][p,:],
-                    injwav)
-
-        # Get nominal reconstruction for Q1
-        beta_true = [ -0.311405204456, -0.0629567276758, 0.225561207648]
-        pc_wav = np.zeros(np.shape(basis_functions)[0], dtype=complex)
-        for b in xrange(3):
-            pc_wav += beta_true[b]*basis_functions[:,b]
- 
-        nomwav = scale_for_mass(400, pc_wav)
- 
-        print compute_match(nomwav, injwav)
+        print 'Loading injection file for match calculations (from LIB)'
+        injwav = np.loadtxt(opts.injection_file)[:,1]
 
 
+    else:
+        print 'Loading injection file for match calculations (from PCs)'
+        idx = pcadata.catalogue.waveform_names.index(opts.injection_name)
+
+        injwav = bhex.reconstruct_waveform(pcadata.pca_plus, betas,
+                npcs=len(pcadata.catalogue.waveform_names), mtotal_target=opts.target_mass)
+
+
+
+    print 'Computing matches: '
+
+    #
+    # Reconstruct the waveforms from the samples
+    #
+    reconstruction_results = reconstructions(posterior, pcadata, opts.npcs,
+            injwav)
+
+    # Get nominal reconstruction
+    nomwav = bhex.reconstruct_waveform(pcadata.pca_plus, betas, opts.npcs,
+            mtotal_target=opts.target_mass)
+
+    print compute_match(nomwav, injwav, delta_t=1.0/pcadata.catalogue.fs)
 
     #
     # Plots
@@ -214,14 +209,14 @@ def main():
     trifig.savefig('%s'%(args[0].replace('.dat','.png')))
         
 
-    return reconstruction_results
+    return reconstruction_results, posterior
 
 
 #
 # End definitions
 #
 if __name__ == "__main__":
-        reconstruction_results = main()
+        reconstruction_results, posterior = main()
 
 
 

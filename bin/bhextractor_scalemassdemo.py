@@ -40,12 +40,13 @@ theta=90.0
 
 # -------------------------------
 # ANALYSIS
+catlen=4
 
 #
 # Setup and then build the catalogue
 #
 catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=2048,
-        catalogue_len=4, mtotal_ref=250, Dist=1., theta=theta)
+        catalogue_len=catlen, mtotal_ref=250, Dist=1., theta=theta)
 
 oriwave250 = np.copy(catalogue.aligned_catalogue[0,:])
 
@@ -71,7 +72,7 @@ recwave350 = bhex.reconstruct_waveform(pca.pca_plus, betas, len(catalogue.wavefo
 #
 
 catalogue350 = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=2048,
-        catalogue_len=4, mtotal_ref=350, Dist=1., theta=theta)
+        catalogue_len=catlen, mtotal_ref=350, Dist=1., theta=theta)
 
 oriwave350 = np.copy(catalogue350.aligned_catalogue[0,:])
 
@@ -121,6 +122,6 @@ if 1:
     ax[1].legend(loc='upper left',prop={'size':10})
 
     fig.tight_layout()
-    fig.savefig('plots/scalemassdemo.png')
+    fig.savefig('scalemassdemo.png')
 
 
