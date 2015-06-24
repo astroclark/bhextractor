@@ -148,69 +148,22 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
             peak_idx=np.argmax(abs(trunc_wav))
             start_idx = 0.5*len(reconstruction) - peak_idx
 
-            reconstruction_out = np.zeros(len(reconstruction))
-            #reconstruction_out[start_idx:start_idx+len(trunc_wav)] = trunc_wav
-            # populate right side
-            reconstruction_out[0.5*len(reconstruction):\
-                    0.5*len(reconstruction)+len(trunc_wav[peak_idx:non_zero_idx[-1]])] = \
-                            trunc_wav[peak_idx:]
-
-            # populate left side
-            p = 0.5*len(reconstruction_out)-1
-            q = peak_idx-1
-            while p>=0:
-                reconstruction_out[p] = np.copy(trunc_wav[q])
-                p-=1
-                q-=1
-
-#           from matplotlib import pyplot as pl
-#           pl.figure()
-#           pl.plot(reconstruction_out)
-#           pl.show()
-#           sys.exit()
+#           reconstruction_out = np.zeros(len(reconstruction))
+#           #reconstruction_out[start_idx:start_idx+len(trunc_wav)] = trunc_wav
+#           # populate right side
+#           reconstruction_out[0.5*len(reconstruction):\
+#                   0.5*len(reconstruction)+len(trunc_wav[peak_idx:non_zero_idx[-1]])] = \
+#                           trunc_wav[peak_idx:]
 #
+#           # populate left side
+#           p = 0.5*len(reconstruction_out)-1
+#           q = peak_idx-1
+#           while p>=0:
+#               reconstruction_out[p] = np.copy(trunc_wav[q])
+#               p-=1
+#               q-=1
+            reconstruction_out = reconstruction
 
-
-           # recpy = pycbc.types.TimeSeries(reconstruction_out, delta_t=1./fs)
-
-           #f,ax=pl.subplots(nrows=3)
-           #ax[0].plot(oripy.sample_times,oripy)
-           #ax[0].plot(recpy.sample_times,recpy)
-
-           #orifd = oripy.to_frequencyseries()
-           #recfd = recpy.to_frequencyseries()
-
-           #from scipy import interpolate
-           #print 'interpolating'
-           #  
-
-           #synth_phase = np.interp(recfd.sample_frequencies.data,
-           #        recfd.sample_frequencies.data / amp_ratio,
-           #       np.unwrap(np.angle(orifd))) / amp_ratio
-
-
-           #ax[1].plot(orifd.sample_frequencies, abs(orifd))
-           #ax[1].plot(recfd.sample_frequencies, abs(recfd))
-           #ax[1].set_xlim(0,128)
-
-           #ax[2].plot(orifd.sample_frequencies, np.unwrap(np.angle(orifd)))
-           #ax[2].plot(recfd.sample_frequencies, np.unwrap(np.angle(recfd)))
-           #ax[2].plot(recfd.sample_frequencies, synth_phase)
-           #ax[2].set_xlim(0,128)
-
-#          # pl.figure()
-#          # pl.plot(orifd.sample_frequencies, np.unwrap(np.angle(recfd))/np.unwrap(np.angle(orifd))
-
-           #pl.show()
-
-           ##pl.close('all')
-           #pl.figure()
-           #pl.plot( synth_phase[1:] / np.unwrap(np.angle(recfd[1:])) )
-           #pl.xlim(0,128)
-           #pl.ylim(0,2)
-           #pl.axhline(1,color='r')
-           #pl.show()
-           #sys.exit()
 
         elif fd_interpolation:
 
