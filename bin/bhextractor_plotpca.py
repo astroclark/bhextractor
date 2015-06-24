@@ -177,18 +177,18 @@ pca.compute_matches()
 # Waveform Catalogue
 #
 
-#pl.figure()
-#pl.plot(catalogue.aligned_catalogue.T)
-#pl.show()
-#import sys
-#sys.exit()
-
 print "Plotting Catalogue"
 
 fig1, ax1 = pl.subplots(figsize=(10,10),
         nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
 
-fig2, ax2 = pl.subplots(figsize=(10,10),
+#fig2, ax2 = pl.subplots(figsize=(10,10),
+#        nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
+
+fig3, ax3 = pl.subplots(figsize=(10,10),
+        nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
+
+fig4, ax4 = pl.subplots(figsize=(10,10),
         nrows=np.shape(catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
 
 for w in xrange(len(catalogue.waveform_names)):
@@ -200,29 +200,33 @@ for w in xrange(len(catalogue.waveform_names)):
 
     ax1[w].set_xlim(-1.0,0.1)
 
-    ax2[w].plot(catalogue.sample_frequencies, catalogue.ampSpectraPlus[w,:],
-            label='+')
-    ax2[w].plot(catalogue.sample_frequencies, catalogue.ampSpectraCross[w,:],
-            label='x')
-    ax2[w].set_xlim(9,128)
-    ax2[w].set_ylim(1e-5,1e-2)
-    ax2[w].axvline(10,color='k',linestyle='--')
-    ax2[w].set_yscale('log')
-
-#   ax[w][2].plot(catalogue.sample_frequencies, catalogue.phaseSpectraPlus[w,:],
+#   ax2[w].plot(catalogue.sample_frequencies, catalogue.ampSpectraPlus[w,:],
 #           label='+')
-#   ax[w][2].plot(catalogue.sample_frequencies, catalogue.phaseSpectraCross[w,:],
+#   ax2[w].plot(catalogue.sample_frequencies, catalogue.ampSpectraCross[w,:],
 #           label='x')
-#   ax[w][2].set_xlim(9,128)
-#   ax[w][2].set_ylim(-512,512)
-#   ax[w][2].axvline(10,color='k',linestyle='--')
+#   ax2[w].set_xlim(9,128)
+#   ax2[w].set_ylim(1e-5,1e-2)
+#   ax2[w].axvline(10,color='k',linestyle='--')
+#   ax2[w].set_yscale('log')
+
+    ax3[w].plot(catalogue.sample_times_ampalign,
+            catalogue.aligned_amplitudes[w,:], label='|h(t)|')
+    ax3[w].set_xlim(-1.0,0.1)
+
+    ax4[w].plot(catalogue.sample_times_ampalign, catalogue.aligned_phases[w,:],
+            label='arg[h(t)]')
+    ax4[w].set_xlim(-1.0,0.1)
 
 fig1.subplots_adjust(hspace=0)
 fig1.savefig('catalogue_timeseries.png')
-fig2.subplots_adjust(hspace=0)
-fig2.savefig('catalogue_amplitudespectra.png')
-#fig.tight_layout()
+#fig2.subplots_adjust(hspace=0)
+#fig2.savefig('catalogue_amplitudespectra.png')
 
+fig3.subplots_adjust(hspace=0)
+fig3.savefig('catalogue_timeseries_amp.png')
+
+fig4.subplots_adjust(hspace=0)
+fig4.savefig('catalogue_timeseries_phase.png')
 
 
 #
@@ -234,34 +238,94 @@ print "Plotting PCs"
 fig, ax = pl.subplots(figsize=(10,10),
         nrows=np.shape(catalogue.aligned_catalogue)[0]+1, ncols=1, sharex='col')
 
+fig2, ax2 = pl.subplots(figsize=(10,10),
+        nrows=np.shape(catalogue.aligned_catalogue)[0]+1, ncols=1, sharex='col')
+
+fig3, ax3 = pl.subplots(figsize=(10,10),
+        nrows=np.shape(catalogue.aligned_catalogue)[0]+1, ncols=1, sharex='col')
+
 ax[0].plot(catalogue.sample_times, pca.pca_plus.mean_, label='Mean')
 ax[0].set_xlim(-1.0,0.1)
 ax[0].legend(loc='upper left')
+
+ax2[0].plot(catalogue.sample_times_ampalign, pca.pca_amp.mean_, label='Mean')
+ax2[0].set_xlim(-1.0,0.1)
+ax2[0].legend(loc='upper left')
+
+ax3[0].plot(catalogue.sample_times_ampalign, pca.pca_phase.mean_, label='Mean')
+ax3[0].set_xlim(-1.0,0.1)
+ax3[0].legend(loc='upper left')
 
 for w in xrange(len(catalogue.waveform_names)):
 
     ax[w+1].plot(catalogue.sample_times,
          pca.pca_plus.components_[w,:], label=r'$\beta_{%d}$'%(w+1))
 
+    ax2[w+1].plot(catalogue.sample_times_ampalign,
+         pca.pca_amp.components_[w,:], label=r'$\beta_{%d}$'%(w+1))
+
+    ax3[w+1].plot(catalogue.sample_times_ampalign,
+         pca.pca_phase.components_[w,:], label=r'$\beta_{%d}$'%(w+1))
+
     ax[w+1].legend(loc='upper left')
     ax[w+1].set_xlim(-1.0,0.1)
 
+    ax2[w+1].legend(loc='upper left')
+    ax2[w+1].set_xlim(-1.0,0.1)
 
+    ax3[w+1].legend(loc='upper left')
+    ax3[w+1].set_xlim(-1.0,0.1)
+
+fig.suptitle(r'h${_+,\times}$(t)')
 fig.subplots_adjust(hspace=0)
-fig.savefig('pcs.png')
+fig.savefig('hplus_pcs.png')
+
+fig2.suptitle(r'|h(t)|')
+fig2.subplots_adjust(hspace=0)
+fig2.savefig('amplitude_pcs.png')
+
+fig3.suptitle(r'arg[h(t)]')
+fig3.subplots_adjust(hspace=0)
+fig3.savefig('phase_pcs.png')
 
 
 #
 # Explained Variance
 #
 fe, ax = pl.subplots()
-ax.bar(np.arange(1,len(catalogue.waveform_names)+1)-0.5,
-        1-pca.pca_plus.explained_variance_ratio_)
+ax.step(np.arange(1,len(catalogue.waveform_names)+1)-0.5,
+        np.cumsum(pca.pca_plus.explained_variance_ratio_), color='k',
+        label='h$_+$')
+ax.step(np.arange(1,len(catalogue.waveform_names)+1)-0.5,
+        np.cumsum(pca.pca_plus.explained_variance_ratio_), color='grey',
+        label=r'h$_{\times}$', linestyle='--')
 ax.set_xlabel('Number of PCs')
 ax.set_ylabel('Explained Variance')
 ax.set_ylim(0,1)
 ax.set_xlim(1,len(catalogue.waveform_names)+1)
-fe.savefig('explained_variance.png')
+ax.grid()
+ax.minorticks_on()
+ax.legend(loc='lower right')
+fe.savefig('explained_variance_pluscross.png')
+
+#
+# Explained Variance
+#
+fe, ax = pl.subplots()
+ax.step(np.arange(1,len(catalogue.waveform_names)+1)-0.5,
+        np.cumsum(pca.pca_amp.explained_variance_ratio_), color='k',
+        label='|h(t)|')
+ax.step(np.arange(1,len(catalogue.waveform_names)+1)-0.5,
+        np.cumsum(pca.pca_phase.explained_variance_ratio_), color='grey',
+        linestyle='--', label='arg[h(t)]')
+ax.set_xlabel('Number of PCs')
+ax.set_ylabel('Explained Variance')
+ax.set_ylim(0,1)
+ax.set_xlim(1,len(catalogue.waveform_names)+1)
+ax.grid()
+ax.minorticks_on()
+ax.legend(loc='lower right')
+fe.savefig('explained_variance_ampphase.png')
 
 #
 # Matches for 250 Msun

@@ -215,7 +215,7 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
         elif fd_interpolation:
 
             print "FD interpolation not yet supported"
-            #sys.exit()
+            sys.exit()
 
             #
             # FD scaling
@@ -298,6 +298,9 @@ class waveform_pca:
         # Do the PCA
         self.pca_plus = perform_pca(np.real(self.catalogue.aligned_catalogue))
         self.pca_cross = perform_pca(-1*np.imag(self.catalogue.aligned_catalogue))
+
+        self.pca_amp = perform_pca(self.catalogue.aligned_amplitudes)
+        self.pca_phase = perform_pca(self.catalogue.aligned_phases)
 
         # Project the catalogue onto the new basis
         self.project_catalogue()
@@ -509,6 +512,9 @@ class waveform_catalogue:
         self.sample_times = example_td.sample_times - \
                 example_td.sample_times[np.argmax(example_td.data)]
 
+        self.sample_times_ampalign = example_td.sample_times - \
+                example_td.sample_times[np.argmax(self.aligned_amplitudes[0,:])]
+
         self.flen = len(example_td.to_frequencyseries())
 
 
@@ -551,6 +557,8 @@ class waveform_catalogue:
         catalogue
         """
 
+        print >> sys.stderr, "WARNING: Turning off orientation and only using 2,2; orientation will be handled by LIB"
+
         # ######################################################
         # Some catalogue-specific stuff
 
@@ -582,6 +590,8 @@ class waveform_catalogue:
         # Length to resample to: length of (e.g.) 250 Msun waveform in seconds x desired sample rate
         resamp_len = np.ceil(wflen*SI_deltaT*self.fs)
         catalogue=np.zeros(shape=(len(waveforms), resamp_len), dtype=complex)
+        amplitude_catalogue=np.zeros(shape=(len(waveforms), resamp_len))
+        phase_catalogue=np.zeros(shape=(len(waveforms), resamp_len))
 
         self.waveform_names = []
 
@@ -602,22 +612,28 @@ class waveform_catalogue:
             hcross=np.zeros(wflen)
             for mode in modes:
 
-                # Load mode data
-                mode_data = np.loadtxt(waveform_dir+'/'+mode)
 
                 # Extract l,m from filename
                 spharm_degree = int(mode.split('_')[2].replace('l',''))
                 spharm_order  = int(mode.split('_')[3].replace('m',''))
 
-                # Compute spin -2 weighted spherical harmonic
-                sYlm = lal.SpinWeightedSphericalHarmonic(self.theta, self.phi, 
-                        -2, spharm_degree, spharm_order)
+                if spharm_degree==spharm_order==2:
 
-                # Orient Waveforms
-                hplus[0:len(mode_data)]  += mode_data[:,1]*np.real(sYlm) + \
-                        mode_data[:,2]*np.imag(sYlm)
-                hcross[0:len(mode_data)] += mode_data[:,2]*np.real(sYlm) - \
-                        mode_data[:,1]*np.imag(sYlm)
+                    # Load mode data
+                    mode_data = np.loadtxt(waveform_dir+'/'+mode)
+
+                    # Compute spin -2 weighted spherical harmonic
+                    #sYlm = lal.SpinWeightedSphericalHarmonic(self.theta, self.phi, 
+                    #        -2, spharm_degree, spharm_order)
+
+                    # Orient Waveforms
+                    #hplus[0:len(mode_data)]  += mode_data[:,1]*np.real(sYlm) + \
+                    #        mode_data[:,2]*np.imag(sYlm)
+                    #hcross[0:len(mode_data)] += mode_data[:,2]*np.real(sYlm) - \
+                    #        mode_data[:,1]*np.imag(sYlm)
+
+                    hplus[0:len(mode_data)]  += mode_data[:,1]
+                    hcross[0:len(mode_data)] += mode_data[:,2]
 
             #
             # Clean up the waveform
@@ -654,28 +670,31 @@ class waveform_catalogue:
 
             # Store complex waveform
             catalogue[w,:] = hplus - 1j*hcross
+
+            amplitude_catalogue[w,:] = abs(hplus - 1j*hcross)
+            phase_catalogue[w,:] = np.unwrap(np.angle(hplus - 1j*hcross))
             
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # Catalogue Conditioning
+        # Plus/Cross Catalogue Conditioning
 
         # Standardised catalogue (4 seconds long)
         self.aligned_catalogue = \
                 np.zeros(shape=(len(waveforms),self.catalogue_len),
                         dtype=complex)
 
-        print 'aligning peak times'
+        print 'aligning peak times for +,x waves'
 
         # Find peak indices
         peak_idx=np.argmax(abs(catalogue),axis=0)
 
         # Align all waveform peaks to the 0.5 of the way through the final catalogue
-        align_idx=np.floor(0.5*self.catalogue_len)
+        align_idx=np.floor(0.75*self.catalogue_len)
 
         for w in xrange(len(waveforms)):
             #print 'aligning %d of %d'%(w, len(waveforms))
 
             non_zero_idx = \
-                    np.argwhere(abs(catalogue[w,:])>1e-5*max(abs(catalogue[w,:])))
+                    np.argwhere(abs(catalogue[w,:])>1e-3*max(abs(catalogue[w,:])))
             trunc_wav = \
                     catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
 
@@ -687,6 +706,48 @@ class waveform_catalogue:
             # --- Normalisation
             self.aligned_catalogue[w,:] /= \
                     np.linalg.norm(self.aligned_catalogue[w,:])
+
+
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+        # Amplitude / Phase Catalogue Conditioning
+
+        # Standardised catalogue (4 seconds long)
+        self.aligned_amplitudes = \
+                np.zeros(shape=(len(waveforms),self.catalogue_len))
+
+        self.aligned_phases = \
+                np.zeros(shape=(len(waveforms),self.catalogue_len))
+
+        print 'aligning peak times for +,x waves'
+
+        # Find peak indices
+        peak_idx=np.argmax(abs(amplitude_catalogue),axis=0)
+
+        # Align all waveform peaks to the 0.5 of the way through the final catalogue
+        align_idx=np.floor(0.75*self.catalogue_len)
+
+        for w in xrange(len(waveforms)):
+            #print 'aligning %d of %d'%(w, len(waveforms))
+
+            non_zero_idx = \
+                    np.argwhere(abs(amplitude_catalogue[w,:])>1e-3*max(abs(amplitude_catalogue[w,:])))
+            amp_trunc_wav = \
+                    amplitude_catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
+            phase_trunc_wav = \
+                    phase_catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
+
+            peak_idx=np.argmax(abs(amp_trunc_wav))
+            start_idx = align_idx - peak_idx
+
+            self.aligned_amplitudes[w,start_idx:start_idx+len(amp_trunc_wav)] = amp_trunc_wav
+            self.aligned_phases[w,start_idx:start_idx+len(phase_trunc_wav)] = phase_trunc_wav
+
+            # --- Normalisation
+            self.aligned_amplitudes[w,:] /= \
+                    np.linalg.norm(self.aligned_amplitudes[w,:])
+#            self.aligned_phases[w,:] /= \
+#                    np.linalg.norm(self.aligned_amplitudes[w,:])
+
 
 # *******************************************************************************
 def main():
