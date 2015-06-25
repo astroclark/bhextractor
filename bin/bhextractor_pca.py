@@ -269,7 +269,7 @@ class waveform_pca:
         """
 
         if identifier is None:
-            identifier = "PCAresults"
+            identifier = "PCA"
 
         # Output path
         try:
@@ -286,7 +286,6 @@ class waveform_pca:
         # Build filename
         filename = pcs_path + '/' +\
                 self.training_catalogue.catalogue_name + "-" + \
-                str(self.training_catalogue.theta) + "-" +\
                 str(identifier)
 
         print "Performing data dump to %s.pickle"%filename
@@ -466,14 +465,12 @@ class waveform_catalogue:
     Object with the full waveform catalogue and all conditioning information
     """
 
-    def __init__(self,catalogue_name='Q', theta=0.0, phi=0.0, fs=512,
+    def __init__(self,catalogue_name='Q',fs=512,
             catalogue_len=4, mtotal_ref=250, Dist=1.):
 
         # ######################################################
         # Other initialisation
         self.catalogue_name = catalogue_name
-        self.theta = theta
-        self.phi = phi
         self.fs = fs
         self.catalogue_len = catalogue_len * fs # XXX
         self.mtotal_ref = mtotal_ref
@@ -747,8 +744,6 @@ def main():
     # INPUT 
 
     catalogue_name=sys.argv[1]
-    theta=float(sys.argv[2])
-    phi=0.0
 
     # Quick 'n' dirty sanity check (should use option parser really)
     if catalogue_name not in ['Q','HR','RO3']:
@@ -760,7 +755,7 @@ def main():
     # Setup and then build the catalogue
     #
     catalogue = waveform_catalogue(catalogue_name=catalogue_name, fs=512,
-            catalogue_len=4, mtotal_ref=250, Dist=1., theta=theta)
+            catalogue_len=4, mtotal_ref=250, Dist=1.)
 
     #
     # Do the PCA

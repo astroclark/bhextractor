@@ -28,7 +28,6 @@ import bhextractor_pca as bhex
 # USER INPUT
 
 catalogue_name=sys.argv[1]
-theta=float(sys.argv[2])
 
 # END USER INPUT
 # -------------------------------
@@ -40,7 +39,7 @@ theta=float(sys.argv[2])
 # Setup and then build the catalogue
 #
 catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=512,
-        catalogue_len=4, mtotal_ref=250, Dist=1., theta=theta)
+        catalogue_len=4, mtotal_ref=250, Dist=1.)
 
 #
 # Do the PCA
