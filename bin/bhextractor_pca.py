@@ -299,7 +299,8 @@ class waveform_pca:
         #
         fplus  = filename+"_hplusPCs.asc"
         fcross = filename+"_hcrossPCs.asc"
-        fcomplex = filename+"_hPCs.dat"
+        fcomplex_strain = filename+"_hPCs.dat"
+        fcomplex_ampphase = filename+"_ampPhasePCs.dat"
 
         # First row contains the mean waveform
         dims = np.shape(self.pca_plus.components_)
@@ -307,23 +308,33 @@ class waveform_pca:
         output_array_cross = np.zeros(shape=(dims[0]+1,dims[1]))
 
         output_array = np.zeros(shape=(dims[0]+1,dims[1]), dtype=complex)
+        output_array_ampphase = np.zeros(shape=(dims[0]+1,dims[1]), dtype=complex)
 
         output_array_plus[0,:] = self.pca_plus.mean_
         output_array_plus[1:,:] = self.pca_plus.components_
         output_array_cross[0,:] = self.pca_cross.mean_
         output_array_cross[1:,:] = self.pca_cross.components_
 
-        output_array[0:,:] = self.pca_plus.mean_ - 1j*self.pca_cross.mean_
+        output_array[0,:] = self.pca_plus.mean_ - 1j*self.pca_cross.mean_
         output_array[1:,:] = self.pca_plus.components_ - 1j*self.pca_cross.components_
+
+        output_array_ampphase[0,:] = \
+                self.pca_amp.mean_*np.exp(1j*self.pca_phase.mean_)
+        output_array_ampphase[1:,:] = \
+                self.pca_amp.components_*np.exp(1j*self.pca_phase.components_)
 
         print "Performing data dump to %s"%fplus
         np.savetxt(fplus, output_array_plus)
         print "Performing data dump to %s"%fcross
         np.savetxt(fcross, output_array_cross)
 
-        print "Performing data dump to %s"%fcomplex
-        fpcomplex = open(fcomplex,'wb')
-        output_array.tofile(fpcomplex)
+        print "Performing data dump to %s"%fcomplex_strain
+        fpcomplex_strain = open(fcomplex_strain,"wb")
+        output_array.tofile(fpcomplex_strain)
+
+        print "Performing data dump to %s"%fcomplex_ampphase
+        fpcomplex_ampphase = open(fcomplex_ampphase,"wb")
+        output_array.tofile(fpcomplex_ampphase)
 
 
     def project_catalogue(self):

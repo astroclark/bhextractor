@@ -45,7 +45,8 @@ catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=512,
 #
 # Do the PCA
 #
-pca = bhex.waveform_pca(catalogue)
+pca = bhex.waveform_pca(training_catalogue=catalogue,
+        testing_catalogue=catalogue)
 
 #
 # Dump files
