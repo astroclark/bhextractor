@@ -244,16 +244,17 @@ class waveform_pca:
     waveform catalogue object as input.
     """
 
-    def __init__(self, catalogue):
+    def __init__(self, training_catalogue, testing_catalogue):
 
-        self.catalogue = catalogue
+        self.training_catalogue = training_catalogue
+        self.testing_catalogue  = testing_catalogue
 
         # Do the PCA
-        self.pca_plus = perform_pca(np.real(self.catalogue.aligned_catalogue))
-        self.pca_cross = perform_pca(-1*np.imag(self.catalogue.aligned_catalogue))
+        self.pca_plus = perform_pca(np.real(self.training_catalogue.aligned_catalogue))
+        self.pca_cross = perform_pca(-1*np.imag(self.training_catalogue.aligned_catalogue))
 
-        self.pca_amp = perform_pca(self.catalogue.aligned_amplitudes)
-        self.pca_phase = perform_pca(self.catalogue.aligned_phases)
+        self.pca_amp = perform_pca(self.training_catalogue.aligned_amplitudes)
+        self.pca_phase = perform_pca(self.training_catalogue.aligned_phases)
 
         # Project the catalogue onto the new basis
         self.project_catalogue()
@@ -284,8 +285,8 @@ class waveform_pca:
 
         # Build filename
         filename = pcs_path + '/' +\
-                self.catalogue.catalogue_name + "-" + \
-                str(self.catalogue.theta) + "-" +\
+                self.training_catalogue.catalogue_name + "-" + \
+                str(self.training_catalogue.theta) + "-" +\
                 str(identifier)
 
         print "Performing data dump to %s.pickle"%filename
@@ -331,22 +332,32 @@ class waveform_pca:
         coefficients for each waveform
         """
 
-        print 'Projecting time-domain catalogue onto new basis'
+        print 'Projecting time-domain testing catalogue onto new basis'
 
         # Store the projection coefficients in a dictionary, keyed by the
         # waveform names
         self.projection_plus  = dict()
         self.projection_cross = dict()
+        self.projection_amp   = dict()
+        self.projection_phase = dict()
 
-        for w in xrange(np.shape(self.catalogue.aligned_catalogue)[0]):
+        for w in xrange(np.shape(self.testing_catalogue.aligned_catalogue)[0]):
 
-            self.projection_plus[self.catalogue.waveform_names[w]] = \
-                    compute_projection(np.real(self.catalogue.aligned_catalogue[w,:]),
+            self.projection_plus[self.testing_catalogue.waveform_names[w]] = \
+                    compute_projection(np.real(self.testing_catalogue.aligned_catalogue[w,:]),
                             self.pca_plus)
 
-            self.projection_cross[self.catalogue.waveform_names[w]] = \
-                    compute_projection(-1*np.imag(self.catalogue.aligned_catalogue[w,:]),
+            self.projection_cross[self.testing_catalogue.waveform_names[w]] = \
+                    compute_projection(-1*np.imag(self.testing_catalogue.aligned_catalogue[w,:]),
                             self.pca_cross)
+
+            self.projection_amp[self.testing_catalogue.waveform_names[w]] = \
+                    compute_projection(self.testing_catalogue.aligned_amplitudes[w,:],
+                            self.pca_amp)
+
+            self.projection_phase[self.testing_catalogue.waveform_names[w]] = \
+                    compute_projection(self.testing_catalogue.aligned_phases[w,:],
+                            self.pca_phase)
 
     def compute_matches(self, mtotal_ref=250.0):
         """
@@ -359,69 +370,84 @@ class waveform_pca:
         if not hasattr(self, 'projection'):
             self.project_catalogue()
 
-        self.matches = np.zeros(shape=(len(self.catalogue.waveform_names),
-            len(self.catalogue.waveform_names)))
-        self.euclidean_distances = np.zeros(shape=(len(self.catalogue.waveform_names),
-            len(self.catalogue.waveform_names)))
+        self.matches_plus = np.zeros(shape=(self.testing_catalogue.nwaves,
+            self.training_catalogue.nwaves))
+
+        self.euclidean_distances_plus = np.zeros(shape=(self.testing_catalogue.nwaves,
+            self.training_catalogue.nwaves)) 
+
+        self.matches_ampphase = np.zeros(shape=(self.testing_catalogue.nwaves,
+            self.training_catalogue.nwaves))
+
+        self.euclidean_distances_amp = np.zeros(shape=(self.testing_catalogue.nwaves,
+            self.training_catalogue.nwaves)) 
+
+        self.euclidean_distances_phase = np.zeros(shape=(self.testing_catalogue.nwaves,
+            self.training_catalogue.nwaves)) 
 
         # build psd for match calculation
         example_td = pycbc.types.TimeSeries(
-                np.real(self.catalogue.aligned_catalogue[0,:]),
-                delta_t=1.0/self.catalogue.fs)
+                np.real(self.training_catalogue.aligned_catalogue[0,:]),
+                delta_t=1.0/self.training_catalogue.fs)
 
         flen = len(example_td.to_frequencyseries())
 
         psd = aLIGOZeroDetHighPower(flen,
                 example_td.to_frequencyseries().delta_f,
-                low_freq_cutoff=10.0)#self.low_frequency_cutoff)
+                low_freq_cutoff=10.0)
 
         print 'Computing match as a function of nPC for each waveform'
-        for w in xrange(len(self.catalogue.waveform_names)):
+        for w in xrange(self.testing_catalogue.nwaves):
 
             # retrieve projection coefficients
-            betas = self.projection_plus[self.catalogue.waveform_names[w]]
+            hplus_betas  = self.projection_plus[self.testing_catalogue.waveform_names[w]]
+            amp_betas    = self.projection_amp[self.testing_catalogue.waveform_names[w]]
+            phase_betas  = self.projection_phase[self.testing_catalogue.waveform_names[w]]
             
-            targetwav = pycbc.types.TimeSeries(
-                    np.real(self.catalogue.aligned_catalogue[w,:]),
-                    delta_t=1./self.catalogue.fs)
+            target_hplus = pycbc.types.TimeSeries(
+                    np.real(self.testing_catalogue.aligned_catalogue[w,:]),
+                    delta_t=1./self.testing_catalogue.fs)
 
-            for n in xrange(len(self.catalogue.waveform_names)):
+            target_amp   = self.testing_catalogue.aligned_amplitudes[w,:]
+            target_phase = self.testing_catalogue.aligned_phases[w,:]
 
-                reconstructed_waveform = reconstruct_waveform(self.pca_plus, betas,
-                        n+1, mtotal_ref=mtotal_ref)
+            for n in xrange(self.training_catalogue.nwaves):
 
-                recwav = pycbc.types.TimeSeries(np.real(reconstructed_waveform),
-                        delta_t=1./self.catalogue.fs)
+                #
+                # Plus reconstruction
+                #
+                reconstructed_hplus = np.real(reconstruct_waveform(self.pca_plus,
+                        hplus_betas, n+1, mtotal_ref=mtotal_ref))
+                recwav = pycbc.types.TimeSeries(reconstructed_hplus,
+                        delta_t=1./self.training_catalogue.fs)
 
+                self.matches_plus[w,n] = pycbc.filter.match(recwav,
+                        target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
 
-                self.matches[w,n] = pycbc.filter.match(recwav, targetwav,
-                        psd=psd, low_frequency_cutoff=10.0)[0]
+                self.euclidean_distances_plus[w,n] = euclidean_distance(
+                        reconstructed_hplus, target_hplus.data)
+                #
+                # Amp/phase reconstruction
+                #
+                reconstructed_amp = reconstruct_waveform(self.pca_amp,
+                        amp_betas, n+1, mtotal_ref=mtotal_ref)
+                reconstructed_phase = reconstruct_waveform(self.pca_phase,
+                        phase_betas, n+1, mtotal_ref=mtotal_ref)
 
-                recnorm = 1#np.linalg.norm(np.real(reconstructed_waveform))
-                targetnorm = 1#np.linalg.norm(np.real(self.catalogue.aligned_catalogue[w,:]))
+                reconstructed_h = reconstructed_amp * \
+                        np.exp(1j*reconstructed_phase)
 
+                recwav = pycbc.types.TimeSeries(np.real(reconstructed_h),
+                        delta_t=1./self.training_catalogue.fs)
 
-                self.euclidean_distances[w,n] =\
-                        euclidean_distance(
-                                np.real(reconstructed_waveform)/recnorm,
-                                np.real(self.catalogue.aligned_catalogue[w,:])/targetnorm)
+                self.matches_ampphase[w,n] = pycbc.filter.match(recwav,
+                        target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
 
-#               print np.linalg.norm(reconstructed_waveform)
-#               print np.linalg.norm(targetwav.data)
-#               print self.euclidean_distances[w,n]
-#
-#               from matplotlib import pyplot as pl
-#               pl.figure()
-#               pl.plot(targetwav.sample_times, targetwav, color='k')
-#               pl.plot(recwav.sample_times, recwav, color='r')
-#               pl.show()
-#               sys.exit()
+                self.euclidean_distances_amp[w,n] =\
+                        euclidean_distance(reconstructed_amp, target_amp)
 
-
-        # TODO:
-        # Introduce mass scaling
-        # Produce 'standard' explained variance / match plots
-        # Save PCs
+                self.euclidean_distances_phase[w,n] =\
+                        euclidean_distance(reconstructed_amp, target_amp)
 
                      
 class waveform_catalogue:
@@ -447,6 +473,7 @@ class waveform_catalogue:
         #
         self.build_catalogue()
         self.fft_catalogue()
+        self.nwaves = np.shape(self.aligned_catalogue)[0]
 
     def fft_catalogue(self):
         """
