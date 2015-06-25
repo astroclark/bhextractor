@@ -144,8 +144,8 @@ def image_euclidean(euclidean_matrix, waveform_names, title=None, clims=None):
 # -------------------------------
 # USER INPUT
 
-train_catalogue_name='Q'
-test_catalogue_name='Q'
+train_catalogue_name='RO3'
+test_catalogue_name='RO3'
 
 # END USER INPUT
 # -------------------------------
@@ -156,13 +156,10 @@ test_catalogue_name='Q'
 #
 # Setup and then build the catalogue
 #
-train_catalogue1 = bhex.waveform_catalogue(catalogue_name=train_catalogue_name, fs=512,
+train_catalogue = bhex.waveform_catalogue(catalogue_name=train_catalogue_name, fs=512,
         catalogue_len=4, mtotal_ref=250, Dist=1.)
 
-train_catalogue2 = bhex.waveform_catalogue(catalogue_name=train_catalogue_name, fs=512,
-        catalogue_len=4, mtotal_ref=500, Dist=1.)
-
-sys.exit()
+#sys.exit()
 
 test_catalogue = bhex.waveform_catalogue(catalogue_name=test_catalogue_name, fs=512,
         catalogue_len=4, mtotal_ref=250, Dist=1.)
@@ -207,7 +204,7 @@ for w in xrange(len(train_catalogue.waveform_names)):
     ax1[w].plot(train_catalogue.sample_times,
             np.imag(train_catalogue.aligned_catalogue[w,:]), label='x')
 
-    ax1[w].set_xlim(-1.0,0.1)
+    ax1[w].set_xlim(-2.0,0.25)
 
 #   ax2[w].plot(train_catalogue.sample_frequencies, train_catalogue.ampSpectraPlus[w,:],
 #           label='+')
@@ -220,11 +217,13 @@ for w in xrange(len(train_catalogue.waveform_names)):
 
     ax3[w].plot(train_catalogue.sample_times_ampalign,
             train_catalogue.aligned_amplitudes[w,:], label='|h(t)|')
-    ax3[w].set_xlim(-1.0,0.1)
+    #ax3[w].set_xlim(-1.0,0.1)
+    ax3[w].set_xlim(-2.0,0.25)
 
     ax4[w].plot(train_catalogue.sample_times_ampalign, train_catalogue.aligned_phases[w,:],
             label='arg[h(t)]')
-    ax4[w].set_xlim(-1.0,0.1)
+    #ax4[w].set_xlim(-1.0,0.1)
+    ax4[w].set_xlim(-2.0,0.25)
 
 fig1.subplots_adjust(hspace=0)
 fig1.savefig('train_catalogue_timeseries.png')

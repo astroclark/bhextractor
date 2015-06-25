@@ -723,10 +723,10 @@ class waveform_catalogue:
             self.aligned_phases[w,start_idx:start_idx+len(phase_trunc_wav)] = phase_trunc_wav
 
             # --- Normalisation
-            self.aligned_amplitudes[w,:] /= \
-                    np.linalg.norm(self.aligned_amplitudes[w,:])
-#            self.aligned_phases[w,:] /= \
-#                    np.linalg.norm(self.aligned_amplitudes[w,:])
+            #self.aligned_amplitudes[w,:] /= \
+            #        np.linalg.norm(self.aligned_amplitudes[w,:])
+            #self.aligned_phases[w,:] /= \
+            #        np.linalg.norm(self.aligned_phases[w,:])
 
 
 # *******************************************************************************
