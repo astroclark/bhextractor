@@ -333,7 +333,7 @@ class waveform_pca:
 
         print "Performing data dump to %s"%fcomplex_ampphase
         fpcomplex_ampphase = open(fcomplex_ampphase,"wb")
-        output_array.tofile(fpcomplex_ampphase)
+        output_array_ampphase.tofile(fpcomplex_ampphase)
 
 
     def project_catalogue(self):
