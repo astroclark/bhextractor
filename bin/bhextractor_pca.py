@@ -60,14 +60,16 @@ def taper_start(input_data, fs=512):
 
 def window_wave(input_data):
 
-    nonzero=np.argwhere(abs(input_data)>0)
+    nonzero=np.argwhere(abs(input_data)>1e-3*max(abs(input_data)))
     idx = range(nonzero[0],nonzero[-1])
-    beta = 25
+    beta = 0.1
     win = lal.CreateTukeyREAL8Window(len(idx), beta)
     win.data.data[int(0.5*len(idx)):]=1.0
 
+    input_data[idx] *= win.data.data
 
     return input_data
+
 
 def highpass(timeseries, delta_t=1./512, knee=9., order=8, attn=0.1):
 
@@ -566,7 +568,7 @@ class waveform_catalogue:
 
         # Samples to discard due to NR noise
         NRD_sampls=1000 # keep this many samples after the peak
-        NINSP_sampls=0 # discard this many samples from the start
+        NINSP_sampls=5000 # retain this many samples before the peak
 
         # --- Identify waveforms in catalogue
         catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+self.catalogue_name+'-series'
@@ -649,10 +651,10 @@ class waveform_catalogue:
             #hcross[:peak_idx-NINSP_sampls] = 0.0
 
             # --- Windowing / tapering
-            #hplus=window_wave(hplus)
-            #hcross=window_wave(hcross)
-            hplus = taper_start(hplus)
-            hcross = taper_start(hcross)
+            hplus=window_wave(hplus)
+            hcross=window_wave(hcross)
+            #hplus = taper_start(hplus)
+            #hcross = taper_start(hcross)
 
 
             # --- Resampling 
@@ -666,8 +668,8 @@ class waveform_catalogue:
             # Store complex waveform
             catalogue[w,:] = hplus - 1j*hcross
 
-            amplitude_catalogue[w,:] = abs(hplus - 1j*hcross)
-            phase_catalogue[w,:] = np.unwrap(np.angle(hplus - 1j*hcross))
+            amplitude_catalogue[w,:] = abs(catalogue[w,:])
+            phase_catalogue[w,:] = np.unwrap(np.angle(catalogue[w,:]))
             
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Plus/Cross Catalogue Conditioning
