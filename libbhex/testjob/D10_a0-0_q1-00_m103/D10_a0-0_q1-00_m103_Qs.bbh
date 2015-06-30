@@ -1,0 +1,17 @@
+mass-ratio = 1.00
+mass-scale = 300.
+simulation-details = D10_a0.0_q1.00_m103_Qs
+nr-group = GATech
+
+2,-2 = rStrain_FFI_l2_m-2_r75.00.asc
+2,-1 = rStrain_FFI_l2_m-1_r75.00.asc
+2,1 =  rStrain_FFI_l2_m1_r75.00.asc
+2,2 =  rStrain_FFI_l2_m2_r75.00.asc
+3,-2 = rStrain_FFI_l3_m-2_r75.00.asc
+3,2 =  rStrain_FFI_l3_m2_r75.00.asc
+3,-3 = rStrain_FFI_l3_m-3_r75.00.asc
+3,3 =  rStrain_FFI_l3_m3_r75.00.asc
+4,-3 = rStrain_FFI_l4_m-3_r75.00.asc
+4,3 =  rStrain_FFI_l4_m3_r75.00.asc
+4,-4 = rStrain_FFI_l4_m-4_r75.00.asc
+4,4 =  rStrain_FFI_l4_m4_r75.00.asc
