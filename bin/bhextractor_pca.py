@@ -60,14 +60,16 @@ def taper_start(input_data, fs=512):
 
 def window_wave(input_data):
 
-    nonzero=np.argwhere(abs(input_data)>0)
+    nonzero=np.argwhere(abs(input_data)>1e-3*max(abs(input_data)))
     idx = range(nonzero[0],nonzero[-1])
-    beta = 25
+    beta = 0.1
     win = lal.CreateTukeyREAL8Window(len(idx), beta)
     win.data.data[int(0.5*len(idx)):]=1.0
 
+    input_data[idx] *= win.data.data
 
     return input_data
+
 
 def highpass(timeseries, delta_t=1./512, knee=9., order=8, attn=0.1):
 
@@ -299,7 +301,8 @@ class waveform_pca:
         fplus  = filename+"_hplusPCs.asc"
         fcross = filename+"_hcrossPCs.asc"
         fcomplex_strain = filename+"_hPCs.dat"
-        fcomplex_ampphase = filename+"_ampPhasePCs.dat"
+        famp = filename+"_AmpPCs.dat"
+        fphase = filename+"_PhasePCs.dat"
 
         # First row contains the mean waveform
         dims = np.shape(self.pca_plus.components_)
@@ -307,7 +310,8 @@ class waveform_pca:
         output_array_cross = np.zeros(shape=(dims[0]+1,dims[1]))
 
         output_array = np.zeros(shape=(dims[0]+1,dims[1]), dtype=complex)
-        output_array_ampphase = np.zeros(shape=(dims[0]+1,dims[1]), dtype=complex)
+        output_array_amp = np.zeros(shape=(dims[0]+1,dims[1]))
+        output_array_phase = np.zeros(shape=(dims[0]+1,dims[1]))
 
         output_array_plus[0,:] = self.pca_plus.mean_
         output_array_plus[1:,:] = self.pca_plus.components_
@@ -317,10 +321,11 @@ class waveform_pca:
         output_array[0,:] = self.pca_plus.mean_ - 1j*self.pca_cross.mean_
         output_array[1:,:] = self.pca_plus.components_ - 1j*self.pca_cross.components_
 
-        output_array_ampphase[0,:] = \
-                self.pca_amp.mean_*np.exp(1j*self.pca_phase.mean_)
-        output_array_ampphase[1:,:] = \
-                self.pca_amp.components_*np.exp(1j*self.pca_phase.components_)
+        output_array_amp[0,:] = self.pca_amp.mean_
+        output_array_amp[1:,:] = self.pca_amp.components_
+
+        output_array_phase[0,:] = self.pca_phase.mean_
+        output_array_phase[1:,:] = self.pca_phase.components_
 
         print "Performing data dump to %s"%fplus
         np.savetxt(fplus, output_array_plus)
@@ -331,9 +336,13 @@ class waveform_pca:
         fpcomplex_strain = open(fcomplex_strain,"wb")
         output_array.tofile(fpcomplex_strain)
 
-        print "Performing data dump to %s"%fcomplex_ampphase
-        fpcomplex_ampphase = open(fcomplex_ampphase,"wb")
-        output_array.tofile(fpcomplex_ampphase)
+        print "Performing data dump to %s"%famp
+        fpamp = open(famp,"wb")
+        output_array_amp.tofile(fpamp)
+
+        print "Performing data dump to %s"%fphase
+        fpphase = open(fphase,"wb")
+        output_array_phase.tofile(fpphase)
 
 
     def project_catalogue(self):
@@ -559,7 +568,7 @@ class waveform_catalogue:
 
         # Samples to discard due to NR noise
         NRD_sampls=1000 # keep this many samples after the peak
-        NINSP_sampls=0 # discard this many samples from the start
+        NINSP_sampls=5000 # retain this many samples before the peak
 
         # --- Identify waveforms in catalogue
         catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+self.catalogue_name+'-series'
@@ -642,10 +651,10 @@ class waveform_catalogue:
             #hcross[:peak_idx-NINSP_sampls] = 0.0
 
             # --- Windowing / tapering
-            #hplus=window_wave(hplus)
-            #hcross=window_wave(hcross)
-            hplus = taper_start(hplus)
-            hcross = taper_start(hcross)
+            hplus=window_wave(hplus)
+            hcross=window_wave(hcross)
+            #hplus = taper_start(hplus)
+            #hcross = taper_start(hcross)
 
 
             # --- Resampling 
@@ -659,8 +668,8 @@ class waveform_catalogue:
             # Store complex waveform
             catalogue[w,:] = hplus - 1j*hcross
 
-            amplitude_catalogue[w,:] = abs(hplus - 1j*hcross)
-            phase_catalogue[w,:] = np.unwrap(np.angle(hplus - 1j*hcross))
+            amplitude_catalogue[w,:] = abs(catalogue[w,:])
+            phase_catalogue[w,:] = np.unwrap(np.angle(catalogue[w,:]))
             
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Plus/Cross Catalogue Conditioning

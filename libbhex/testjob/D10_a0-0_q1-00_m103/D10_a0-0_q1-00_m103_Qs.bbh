@@ -1,6 +1,6 @@
-mass-ratio = 1.5
-mass-scale = 250.
-simulation-details = D10_a0.0_q1.50_m103_Qs
+mass-ratio = 1.00
+mass-scale = 300.
+simulation-details = D10_a0.0_q1.00_m103_Qs
 nr-group = GATech
 
 2,-2 = rStrain_FFI_l2_m-2_r75.00.asc
