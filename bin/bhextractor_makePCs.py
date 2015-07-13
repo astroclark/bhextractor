@@ -39,7 +39,8 @@ catalogue_name=sys.argv[1]
 # Setup and then build the catalogue
 #
 catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=512,
-        catalogue_len=4, mtotal_ref=250, Dist=1.)
+        catalogue_len=8, mtotal_ref=250, Dist=1.)
+        #catalogue_len=8, mtotal_ref=250, Dist=1.)
 
 #
 # Do the PCA

@@ -644,8 +644,8 @@ class waveform_catalogue:
             hcross[zero_idx:] = 0.0
 
             startidx = np.argwhere(abs(hplus)>0)[0]
-            hplus[startidx:startidx+NINSP_sampls] = 0.0
-            hcross[startidx:startidx+NINSP_sampls] = 0.0
+            #hplus[startidx:startidx+NINSP_sampls] = 0.0
+            #hcross[startidx:startidx+NINSP_sampls] = 0.0
 
             #hplus[:peak_idx-NINSP_sampls] = 0.0
             #hcross[:peak_idx-NINSP_sampls] = 0.0
@@ -685,7 +685,8 @@ class waveform_catalogue:
         peak_idx=np.argmax(abs(catalogue),axis=0)
 
         # Align all waveform peaks to the 0.5 of the way through the final catalogue
-        align_idx=np.floor(0.75*self.catalogue_len)
+        #align_idx=np.floor(0.75*self.catalogue_len)
+        align_idx=np.floor(0.5*self.catalogue_len)
 
         for w in xrange(len(waveforms)):
             #print 'aligning %d of %d'%(w, len(waveforms))
@@ -721,7 +722,8 @@ class waveform_catalogue:
         peak_idx=np.argmax(abs(amplitude_catalogue),axis=0)
 
         # Align all waveform peaks to the 0.5 of the way through the final catalogue
-        align_idx=np.floor(0.75*self.catalogue_len)
+        #align_idx=np.floor(0.75*self.catalogue_len)
+        align_idx=np.floor(0.5*self.catalogue_len)
 
         for w in xrange(len(waveforms)):
             #print 'aligning %d of %d'%(w, len(waveforms))
