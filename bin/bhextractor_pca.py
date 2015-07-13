@@ -60,18 +60,55 @@ def taper_start(input_data, fs=512):
 
 def window_wave(input_data):
 
-    nonzero=np.argwhere(abs(input_data)>1e-3*max(abs(input_data)))
-    idx = range(nonzero[0],nonzero[-1])
-    beta = 0.1
-    win = lal.CreateTukeyREAL8Window(len(idx), beta)
-    win.data.data[int(0.5*len(idx)):]=1.0
+#   nonzero=range(len(input_data))#np.argwhere(abs(input_data)>1e-2*max(abs(input_data)))
+#   idx = range(nonzero[0],nonzero[-1])
+#   beta = 0.5
+#   win = lal.CreateTukeyREAL8Window(len(idx), beta)
+#   win.data.data[int(0.5*len(idx)):]=1.0
 
-    input_data[idx] *= win.data.data
+    win = planckwin(len(input_data), 0.25)
+
+#   from matplotlib import pyplot as pl
+#   pl.figure()
+#   pl.plot(input_data/input_data.max())
+    #input_data[idx] *= win.data.data
+    input_data *= win
+
+#   pl.plot(input_data/input_data.max())
+#   pl.plot(win)
+#   pl.show()
+#   sys.exit()
 
     return input_data
 
+def planckwin(N, epsilon):
 
-def highpass(timeseries, delta_t=1./512, knee=9., order=8, attn=0.1):
+    t1 = -0.5*N
+    t2 = -0.5*N * (1.-2.*epsilon)
+    t3 = 0.5*N * (1.-2.*epsilon)
+    t4 = 0.5*N
+
+    Zp = lambda t: (t2-t1)/(t-t1) + (t2-t1)/(t-t2)
+    Zm = lambda t: (t3-t4)/(t-t3) + (t3-t4)/(t-t4)
+
+    win = np.zeros(N)
+    ts = np.arange(-0.5*N, 0.5*N)
+
+    for n,t in enumerate(ts):
+        if t<=t1:
+            win[n] = 0.0
+        elif t1<t<t2:
+            win[n] = 1./(np.exp(Zp(t))+1)
+        elif t2<=t<=t3:
+            win[n] = 1.0
+        elif t3<t<t4:
+            win[n] = 1./(np.exp(Zm(t))+1)
+
+
+    return win
+
+
+def highpass(timeseries, delta_t=1./512, knee=9., order=12, attn=0.1):
 
     tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
 
@@ -622,6 +659,8 @@ class waveform_catalogue:
                     # Compute spin -2 weighted spherical harmonic
                     #sYlm = lal.SpinWeightedSphericalHarmonic(self.theta, self.phi, 
                     #        -2, spharm_degree, spharm_order)
+                    #sYlm = lal.SpinWeightedSphericalHarmonic(0, 0, 
+                    #        -2, spharm_degree, spharm_order)
 
                     # Orient Waveforms
                     #hplus[0:len(mode_data)]  += mode_data[:,1]*np.real(sYlm) + \
@@ -643,27 +682,35 @@ class waveform_catalogue:
             hplus[zero_idx:]  = 0.0
             hcross[zero_idx:] = 0.0
 
-            startidx = np.argwhere(abs(hplus)>0)[0]
-            hplus[startidx:startidx+NINSP_sampls] = 0.0
-            hcross[startidx:startidx+NINSP_sampls] = 0.0
+            #startidx = np.argwhere(abs(hplus)>0)[0]
+
+            #hplus[startidx:startidx+NINSP_sampls] = 0.0
+            #hcross[startidx:startidx+NINSP_sampls] = 0.0
 
             #hplus[:peak_idx-NINSP_sampls] = 0.0
             #hcross[:peak_idx-NINSP_sampls] = 0.0
-
-            # --- Windowing / tapering
-            hplus=window_wave(hplus)
-            hcross=window_wave(hcross)
-            #hplus = taper_start(hplus)
-            #hcross = taper_start(hcross)
-
 
             # --- Resampling 
             hplus  = signal.resample(hplus, resamp_len)
             hcross = signal.resample(hcross, resamp_len)
 
+#           from matplotlib import pyplot as pl
+#           pl.figure()
+#           pl.plot(hplus)
+
+            # --- Windowing / tapering
+            hplus=window_wave(hplus)
+            hcross=window_wave(hcross)
+            #pl.plot(hplus)
+            #hplus = taper_start(hplus)
+            #hcross = taper_start(hcross)
+
             # --- Filtering
             #hplus  = highpass(hplus)
             #hcross = highpass(hcross)
+            #pl.plot(hplus)
+            #pl.show()
+            #sys.exit()
 
             # Store complex waveform
             catalogue[w,:] = hplus - 1j*hcross
@@ -685,7 +732,8 @@ class waveform_catalogue:
         peak_idx=np.argmax(abs(catalogue),axis=0)
 
         # Align all waveform peaks to the 0.5 of the way through the final catalogue
-        align_idx=np.floor(0.75*self.catalogue_len)
+        align_idx=np.floor(0.5*self.catalogue_len)
+        #align_idx=np.floor(0.5*self.catalogue_len)
 
         for w in xrange(len(waveforms)):
             #print 'aligning %d of %d'%(w, len(waveforms))
@@ -721,7 +769,7 @@ class waveform_catalogue:
         peak_idx=np.argmax(abs(amplitude_catalogue),axis=0)
 
         # Align all waveform peaks to the 0.5 of the way through the final catalogue
-        align_idx=np.floor(0.75*self.catalogue_len)
+        align_idx=np.floor(0.5*self.catalogue_len)
 
         for w in xrange(len(waveforms)):
             #print 'aligning %d of %d'%(w, len(waveforms))
@@ -737,6 +785,19 @@ class waveform_catalogue:
             start_idx = align_idx - peak_idx
 
             self.aligned_amplitudes[w,start_idx:start_idx+len(amp_trunc_wav)] = amp_trunc_wav
+#           try:
+#               self.aligned_amplitudes[w,start_idx:start_idx+len(amp_trunc_wav)] = amp_trunc_wav
+#           except ValueError:
+#               from matplotlib import pyplot as pl
+#               pl.figure()
+#               pl.plot(amplitude_catalogue[w,:])
+#               print len(amplitude_catalogue[w,:])
+#               pl.figure()
+#               pl.plot(amp_trunc_wav)
+#               print len(amp_trunc_wav)
+#               pl.show()
+#               print np.shape(self.aligned_amplitudes)
+#               sys.exit()
             self.aligned_phases[w,start_idx:start_idx+len(phase_trunc_wav)] = phase_trunc_wav
 
             # --- Normalisation
