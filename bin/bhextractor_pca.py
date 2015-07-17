@@ -60,21 +60,20 @@ def taper_start(input_data, fs=512):
 
 def window_wave(input_data):
 
-#   nonzero=range(len(input_data))#np.argwhere(abs(input_data)>1e-2*max(abs(input_data)))
-#   idx = range(nonzero[0],nonzero[-1])
-#   beta = 0.5
-#   win = lal.CreateTukeyREAL8Window(len(idx), beta)
-#   win.data.data[int(0.5*len(idx)):]=1.0
+    nonzero=np.argwhere(abs(input_data)>1e-3*max(abs(input_data)))
+    idx = range(nonzero[0],nonzero[-1])
 
-    win = planckwin(len(input_data), 0.25)
+
+    win = planckwin(len(idx), 0.3)
+    win[0.5*len(win):] = 1.0
 
 #   from matplotlib import pyplot as pl
 #   pl.figure()
-#   pl.plot(input_data/input_data.max())
-    #input_data[idx] *= win.data.data
-    input_data *= win
+#   pl.plot(input_data[idx]/input_data[idx].max())
+    input_data[idx] *= win
+    #input_data *= win
 
-#   pl.plot(input_data/input_data.max())
+#   pl.plot(input_data[idx]/input_data[idx].max())
 #   pl.plot(win)
 #   pl.show()
 #   sys.exit()
@@ -142,7 +141,6 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
 
     reconstruction = np.zeros(shape=(np.shape(pca.components_[0,:])))
 
-
     for b in xrange(npcs):
         reconstruction += betas[b]*pca.components_[b,:]
     reconstruction += pca.mean_
@@ -155,115 +153,28 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
     else:
         amp_ratio = mtotal_target / mtotal_ref
 
-        if not fd_interpolation:
+        #
+        # TD scaling
+        #
 
-            #
-            # TD scaling
-            #
+        # Procedure: increasing the mass shortens the waveform; so interpolate
+        # the original to time stamps which are mtotal_target / mtotal_ref x
+        # closer together.  We do this by creating a new time axis which is
+        # denser and shorter and then interpolate the *original* waveform FROM
+        # those new timestamps TO the *original* time stamps.
+        #from matplotlib import pyplot as pl
 
-            # Procedure: increasing the mass shortens the waveform; so interpolate
-            # the original to time stamps which are mtotal_target / mtotal_ref x
-            # closer together.  We do this by creating a new time axis which is
-            # denser and shorter and then interpolate the *original* waveform FROM
-            # those new timestamps TO the *original* time stamps.
-            #from matplotlib import pyplot as pl
+        delta_t = 1./fs
+        times = np.arange(0,len(reconstruction)/float(fs), delta_t)
 
-            time = np.arange(0,len(reconstruction)/float(fs), 1./fs)
-            new_time = np.arange(0, time[-1] / amp_ratio + 1./fs / amp_ratio, 1./fs
-                    / amp_ratio)[:len(time)]
+        # XXX 
+        peakidx = 0.5*len(times)#np.argmax(abs(reconstruction))
 
-            oripy = pycbc.types.TimeSeries(reconstruction, delta_t=1./fs)
+        interp_times = amp_ratio*times - peakidx*delta_t*(amp_ratio-1.0)
 
-            reconstruction = np.interp(new_time, time, reconstruction)*amp_ratio
+        reconstruction = np.interp(times, interp_times, reconstruction)
 
-
-            # Finally, clean up by moving the waveform back to the center (this
-            # is just handy for plotting)
-            non_zero_idx = \
-                    np.argwhere(abs(reconstruction)>1e-5*max(abs(reconstruction)))
-            trunc_wav = \
-                    reconstruction[non_zero_idx[0]:non_zero_idx[-1]]
-
-            peak_idx=np.argmax(abs(trunc_wav))
-            start_idx = 0.5*len(reconstruction) - peak_idx
-
-#           reconstruction_out = np.zeros(len(reconstruction))
-#           #reconstruction_out[start_idx:start_idx+len(trunc_wav)] = trunc_wav
-#           # populate right side
-#           reconstruction_out[0.5*len(reconstruction):\
-#                   0.5*len(reconstruction)+len(trunc_wav[peak_idx:non_zero_idx[-1]])] = \
-#                           trunc_wav[peak_idx:]
-#
-#           # populate left side
-#           p = 0.5*len(reconstruction_out)-1
-#           q = peak_idx-1
-#           while p>=0:
-#               reconstruction_out[p] = np.copy(trunc_wav[q])
-#               p-=1
-#               q-=1
-            reconstruction_out = reconstruction
-
-
-        elif fd_interpolation:
-
-            print "FD interpolation not yet supported"
-            sys.exit()
-
-            #
-            # FD scaling
-            #
-
-            time = np.arange(0,len(reconstruction)/float(fs), 1./fs)
-            from matplotlib import pyplot as pl
-
-            f,ax = pl.subplots(nrows=3)
-
-            ax[0].plot(time,reconstruction)
-
-            recwav = pycbc.types.TimeSeries(reconstruction, delta_t=1./fs)
-            recwav_fd = recwav.to_frequencyseries()
-            recwav_mag = abs(recwav_fd)
-            recwav_phase = np.unwrap(np.angle(recwav_fd))
-
-            ax[1].plot(recwav_fd.sample_frequencies, recwav_mag)
-
-            recwav_mag = np.interp(recwav_fd.sample_frequencies.data ,
-                    recwav_fd.sample_frequencies.data / amp_ratio, recwav_mag)*amp_ratio
-
-            ax[1].plot(recwav_fd.sample_frequencies, recwav_mag)
-            ax[1].set_xlim(0,128)
-
-            ax[2].plot(recwav_fd.sample_frequencies, recwav_phase)
-            ax[2].set_xlim(0,128)
-
-            recwav_phase = np.interp(recwav_fd.sample_frequencies.data,
-                    recwav_fd.sample_frequencies.data / amp_ratio,
-                    recwav_phase)/amp_ratio
-
-            ax[2].plot(recwav_fd.sample_frequencies, recwav_phase)
-            ax[2].set_xlim(0,128)
-
-            recwav_fd = pycbc.types.FrequencySeries(
-                    recwav_mag*np.exp(1j*recwav_phase),
-                    delta_f=recwav_fd.delta_f)
-
-            reconstruction = recwav_fd.to_timeseries()
-            
-            reconstruction = pycbc.filter.highpass(reconstruction, frequency=9.,
-                    filter_order=8, attenuation=0.1)
-
-            ax[0].plot(time, reconstruction)
-
-            rec = reconstruction.to_frequencyseries()
-            recmag = abs(rec)
-            recphase = np.unwrap(np.angle(rec))
-            ax[1].plot(rec.sample_frequencies, recmag)
-            ax[2].plot(rec.sample_frequencies, recphase)
-
-            pl.show()
-            sys.exit()
-
-    return reconstruction_out
+    return reconstruction
 
 def compute_projection(waveform, pca_result):
     """
@@ -512,7 +423,7 @@ class waveform_catalogue:
     """
 
     def __init__(self,catalogue_name='Q',fs=512,
-            catalogue_len=4, mtotal_ref=250, Dist=1.):
+            catalogue_len=8, mtotal_ref=250, Dist=1.):
 
         # ######################################################
         # Other initialisation
@@ -604,8 +515,10 @@ class waveform_catalogue:
         NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
 
         # Samples to discard due to NR noise
-        NRD_sampls=1000 # keep this many samples after the peak
-        NINSP_sampls=5000 # retain this many samples before the peak
+        NRD_sampls=0.2*self.fs   # keep this many samples after the peak
+        NINSP_sampls=0.75*self.fs   # retain this many samples before the peak
+
+        # XXX: we should compute this from Karan's information..
 
         # --- Identify waveforms in catalogue
         catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+self.catalogue_name+'-series'
@@ -675,41 +588,33 @@ class waveform_catalogue:
             # Clean up the waveform
             #
 
-            # Get rid of junk
-            peak_idx = np.argmax(abs(hplus))
+            # --- Resampling 
+            hplus  = signal.resample(hplus, resamp_len)
+            hcross = signal.resample(hcross, resamp_len)
+
+            # Get rid of junk at end
+            peak_idx = np.argmax(abs(hplus-1j*hcross))
             zero_idx = min(peak_idx + NRD_sampls, len(hplus))
 
             hplus[zero_idx:]  = 0.0
             hcross[zero_idx:] = 0.0
 
-            #startidx = np.argwhere(abs(hplus)>0)[0]
-            #hplus[startidx:startidx+NINSP_sampls] = 0.0
-            #hcross[startidx:startidx+NINSP_sampls] = 0.0
+            # Get rid of junk at start
+            startidx = max(0,np.argmax(abs(hplus-1j*hcross)) - NINSP_sampls)
 
-            #hplus[:peak_idx-NINSP_sampls] = 0.0
-            #hcross[:peak_idx-NINSP_sampls] = 0.0
-
-            # --- Resampling 
-            hplus  = signal.resample(hplus, resamp_len)
-            hcross = signal.resample(hcross, resamp_len)
-
-#           from matplotlib import pyplot as pl
-#           pl.figure()
-#           pl.plot(hplus)
+            hplus[:startidx] = 0.0
+            hcross[:startidx] = 0.0
 
             # --- Windowing / tapering
             hplus=window_wave(hplus)
             hcross=window_wave(hcross)
-            #pl.plot(hplus)
+
             #hplus = taper_start(hplus)
             #hcross = taper_start(hcross)
 
             # --- Filtering
             #hplus  = highpass(hplus)
             #hcross = highpass(hcross)
-            #pl.plot(hplus)
-            #pl.show()
-            #sys.exit()
 
             # Store complex waveform
             catalogue[w,:] = hplus - 1j*hcross
@@ -720,7 +625,7 @@ class waveform_catalogue:
         # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
         # Plus/Cross Catalogue Conditioning
 
-        # Standardised catalogue (4 seconds long)
+        # Standardised catalogue 
         self.aligned_catalogue = \
                 np.zeros(shape=(len(waveforms),self.catalogue_len),
                         dtype=complex)
@@ -784,24 +689,11 @@ class waveform_catalogue:
             start_idx = align_idx - peak_idx
 
             self.aligned_amplitudes[w,start_idx:start_idx+len(amp_trunc_wav)] = amp_trunc_wav
-#           try:
-#               self.aligned_amplitudes[w,start_idx:start_idx+len(amp_trunc_wav)] = amp_trunc_wav
-#           except ValueError:
-#               from matplotlib import pyplot as pl
-#               pl.figure()
-#               pl.plot(amplitude_catalogue[w,:])
-#               print len(amplitude_catalogue[w,:])
-#               pl.figure()
-#               pl.plot(amp_trunc_wav)
-#               print len(amp_trunc_wav)
-#               pl.show()
-#               print np.shape(self.aligned_amplitudes)
-#               sys.exit()
             self.aligned_phases[w,start_idx:start_idx+len(phase_trunc_wav)] = phase_trunc_wav
 
             # --- Normalisation
-            #self.aligned_amplitudes[w,:] /= \
-            #        np.linalg.norm(self.aligned_amplitudes[w,:])
+            self.aligned_amplitudes[w,:] /= \
+                    np.linalg.norm(self.aligned_amplitudes[w,:])
             #self.aligned_phases[w,:] /= \
             #        np.linalg.norm(self.aligned_phases[w,:])
 
@@ -824,7 +716,7 @@ def main():
     # Setup and then build the catalogue
     #
     catalogue = waveform_catalogue(catalogue_name=catalogue_name, fs=512,
-            catalogue_len=4, mtotal_ref=250, Dist=1.)
+            catalogue_len=8, mtotal_ref=250, Dist=1.)
 
     #
     # Do the PCA

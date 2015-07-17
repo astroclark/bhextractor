@@ -53,6 +53,8 @@ def parser():
     parser.add_option("-n", "--npcs", type=int, default=1)
     parser.add_option("-q", "--catalogue", type=str, default="Q")
     parser.add_option("-m", "--target-mass", type=float, default=250.0) 
+    parser.add_option("-r", "--mtotal-ref", type=float, default=250.0)
+    parser.add_option("-t", "--trig-time", type=float, default=0.0)
 
     (opts,args) = parser.parse_args()
 
@@ -88,37 +90,38 @@ def compute_match(reconstruction, injection, delta_t=1./512):
 
 def reconstructions(posterior, pcaresults, npcs, injwav):
 
-    basis_functions = pcaresults.pca_plus.components_
-
-    betas = np.zeros(shape=(len(posterior),npcs))
-
+    # Retrieve samples for intrinsic parameters
+    amp_betas = np.zeros(shape=(len(posterior),npcs))
+    phase_betas = np.zeros(shape=(len(posterior),npcs))
     for b in xrange(npcs):
-        betas[:,b] = np.concatenate(posterior['beta'+str(b+1)].samples)
-
+        amp_betas[:,b] = np.concatenate(posterior['amp_beta'+str(b+1)].samples)
+        phase_betas[:,b] = np.concatenate(posterior['phase_beta'+str(b+1)].samples)
     mtotal = np.concatenate(posterior['mtotal'].samples)
 
-    # Compute th  weighted sum of basis functions
+    # Reconstruct a waveform at each sample
     rec_waveforms = np.zeros(shape=(len(posterior),
-        np.shape(basis_functions)[1]))
+        len(pcaresults.pca_amp.mean_)), dtype=complex)
     matches = np.zeros(shape=(len(posterior)))
-
     for p in xrange(len(posterior)):
+    #for p in xrange(100):
 
         print '%d of %d'%(p, len(posterior))
 
-        ptest = bhex.reconstruct_waveform(pcaresults.pca_plus,
-                        betas[p,:], npcs=npcs, mtotal_target=mtotal[p])
+        reconstructed_amp = bhex.reconstruct_waveform(pcaresults.pca_amp,
+                amp_betas[p,:], npcs=npcs, mtotal_ref=250.0,
+                mtotal_target=mtotal[p])
 
-        rec_waveforms[p,:] = bhex.reconstruct_waveform(pcaresults.pca_plus,
-                betas[p,:], npcs=npcs, mtotal_target=mtotal[p])
+        reconstructed_phase = bhex.reconstruct_waveform(pcaresults.pca_phase,
+                phase_betas[p,:], npcs=npcs, mtotal_ref=250.0,
+                mtotal_target=mtotal[p])
 
-        matches[p] = compute_match(rec_waveforms[p,:], injwav)
+        rec_waveforms[p,:] = reconstructed_amp*np.exp(1j*reconstructed_phase)
 
+        matches[p] = compute_match(np.real(rec_waveforms[p,:]), np.real(injwav))
 
-
-    recon_data = {'betas':betas, 'mtotal':mtotal,
-        'reconstructed_waves':rec_waveforms, 'matches':matches,
-        'injected':injwav}
+    recon_data = {'amp_betas':amp_betas, 'phase_betas':phase_betas,
+            'mtotal':mtotal, 'reconstructed_waves':rec_waveforms,
+            'matches':matches, 'injected':injwav}
 
     return recon_data
 
@@ -137,10 +140,12 @@ def main():
         print >> sys.stderr, "BHEX_PREFIX environment variable appears to be un-set"
 
     print >> sys.stdout, "Reading PCA file"
-    pcadata = pickle.load(open("%s/%s-0.0-PCAresults.pickle"%(pcs_path,
+    pcadata = pickle.load(open("%s/%s-PCA.pickle"%(pcs_path,
         opts.catalogue),'r'))
-    basis_functions = pcadata.pca_plus.components_
-    catalogue = pcadata.catalogue.aligned_catalogue
+
+#    basis_functions = pcadata.pca_plus.components_
+
+    print >> sys.stdout, "Read PCA file"
 
     
     #
@@ -150,14 +155,12 @@ def main():
     resultsObj = peparser.parse(open(args[0], 'r'))
     posterior = bppu.Posterior(resultsObj)
 
-    #print opts.injection_file
-    #sys.exit()
-
 
     #
     # Compute matches
     #
-    betas = pcadata.projection_plus[opts.injection_name]
+    amp_betas = pcadata.projection_amp[opts.injection_name]
+    phase_betas = pcadata.projection_amp[opts.injection_name]
 
     if opts.injection_file is not None:
         print 'Loading injection file for match calculations (from LIB)'
@@ -166,11 +169,15 @@ def main():
 
     else:
         print 'Loading injection file for match calculations (from PCs)'
-        idx = pcadata.catalogue.waveform_names.index(opts.injection_name)
 
-        injwav = bhex.reconstruct_waveform(pcadata.pca_plus, betas,
-                npcs=len(pcadata.catalogue.waveform_names), mtotal_target=opts.target_mass)
+        reconstructed_amp = bhex.reconstruct_waveform(pcadata.pca_amp,
+                amp_betas, len(amp_betas), mtotal_ref=opts.mtotal_ref,
+                mtotal_target=opts.target_mass)
+        reconstructed_phase = bhex.reconstruct_waveform(pcadata.pca_phase,
+                phase_betas, len(phase_betas), mtotal_ref=opts.mtotal_ref,
+                mtotal_target=opts.target_mass)
 
+        injwav = reconstructed_amp * np.exp(1j*reconstructed_phase)
 
 
     print 'Computing matches: '
@@ -181,29 +188,46 @@ def main():
     reconstruction_results = reconstructions(posterior, pcadata, opts.npcs,
             injwav)
 
-    # Get nominal reconstruction
-    nomwav = bhex.reconstruct_waveform(pcadata.pca_plus, betas, opts.npcs,
+    # Get nominal reconstruction for this number of PCs
+    reconstructed_amp = bhex.reconstruct_waveform(pcadata.pca_amp,
+            amp_betas, opts.npcs, mtotal_ref=opts.mtotal_ref,
             mtotal_target=opts.target_mass)
+    reconstructed_phase = bhex.reconstruct_waveform(pcadata.pca_phase,
+            phase_betas, opts.npcs, mtotal_ref=opts.mtotal_ref,
+            mtotal_target=opts.target_mass)
+    nomwav = reconstructed_amp*np.exp(1j*reconstructed_phase)
 
-    print compute_match(nomwav, injwav, delta_t=1.0/pcadata.catalogue.fs)
+    print compute_match(np.real(nomwav), np.real(injwav), delta_t=1.0/512)
 
     #
     # Plots
     #
-    samples = np.zeros(shape=(len(posterior), opts.npcs+2))
+    nother=7
+    samples = np.zeros(shape=(len(posterior), 2*opts.npcs+nother)) #x2 for amp/phase
     samples[:,0] = np.concatenate(posterior['mtotal'].samples)
+    #samples[:,0] = reconstruction_results['matches']
     samples[:,1] = reconstruction_results['matches']
+    samples[:,2] = np.concatenate(posterior['time'].samples) - opts.trig_time
+    samples[:,3] = np.concatenate(posterior['hrss'].samples)
+    samples[:,4] = np.concatenate(posterior['theta_jn'].samples)
+    samples[:,5] = np.concatenate(posterior['phi_orb'].samples)
+    samples[:,6] = np.concatenate(posterior['psi'].samples)
+
     b=1
-    for n in xrange(2,opts.npcs+2):
-        samples[:,n] = np.concatenate(posterior['beta'+str(b)].samples)
+    for n in xrange(nother,opts.npcs+nother):
+        samples[:,n] = np.concatenate(posterior['amp_beta'+str(b)].samples)
         b+=1
 
-    labels=['M$_{\\rm total}$', 'Match', '$\\beta_1$', '$\\beta_2$', '$\\beta_3$',
-            '$\\beta_4$', '$\\beta_5$','$\\beta_6$', '$\\beta_7$', '$\\beta_8$',
-            '$\\beta_9$', '$\\beta_{10}$']
+    b=1
+    for n in xrange(opts.npcs+nother,2*opts.npcs+nother):
+        samples[:,n] = np.concatenate(posterior['phase_beta'+str(b)].samples)
+        b+=1
 
+    labels=['M$_{\\rm total}$', 'Match', 'Time', 'hrss', 'inclination', 'phase',
+            '$\\Psi$', 'A,$\\beta_1$', '$\\Phi$,$\\beta_1$', 'A,$\\beta_2$',
+            '$\\Phi$,$\\beta_2$', 'A,$\\beta_3$', '$\\Phi$,$\\beta_3$']
 
-    trifig = triangle.corner(samples, labels=labels[:opts.npcs+2], 
+    trifig = triangle.corner(samples, labels=labels[:2*opts.npcs+nother], 
             quantiles=[0.25, 0.5, 0.75])
 
     trifig.savefig('%s'%(args[0].replace('.dat','.png')))

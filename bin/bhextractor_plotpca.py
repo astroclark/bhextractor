@@ -144,8 +144,8 @@ def image_euclidean(euclidean_matrix, waveform_names, title=None, clims=None):
 # -------------------------------
 # USER INPUT
 
-train_catalogue_name='RO3'
-test_catalogue_name='RO3'
+train_catalogue_name='Q'
+test_catalogue_name='Q'
 
 # END USER INPUT
 # -------------------------------
@@ -159,7 +159,6 @@ test_catalogue_name='RO3'
 train_catalogue = bhex.waveform_catalogue(catalogue_name=train_catalogue_name, fs=512,
         catalogue_len=4, mtotal_ref=250, Dist=1.)
 
-#sys.exit()
 
 test_catalogue = bhex.waveform_catalogue(catalogue_name=test_catalogue_name, fs=512,
         catalogue_len=4, mtotal_ref=250, Dist=1.)
@@ -188,14 +187,14 @@ print "Plotting Training Catalogue"
 fig1, ax1 = pl.subplots(figsize=(10,10),
         nrows=np.shape(train_catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
 
-#fig2, ax2 = pl.subplots(figsize=(10,10),
-#        nrows=np.shape(train_catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
+fig2, ax2 = pl.subplots(figsize=(10,10),
+        nrows=np.shape(train_catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
 
 fig3, ax3 = pl.subplots(figsize=(10,10),
         nrows=np.shape(train_catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
 
-fig4, ax4 = pl.subplots(figsize=(10,10),
-        nrows=np.shape(train_catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
+#fig4, ax4 = pl.subplots(figsize=(10,10),
+#        nrows=np.shape(train_catalogue.aligned_catalogue)[0], ncols=1, sharex='col')
 
 for w in xrange(len(train_catalogue.waveform_names)):
 
@@ -204,38 +203,46 @@ for w in xrange(len(train_catalogue.waveform_names)):
     ax1[w].plot(train_catalogue.sample_times,
             np.imag(train_catalogue.aligned_catalogue[w,:]), label='x')
 
-    ax1[w].set_xlim(-2.0,0.25)
+    ax1[w].set_xlim(-1.5,0.25)
 
-#   ax2[w].plot(train_catalogue.sample_frequencies, train_catalogue.ampSpectraPlus[w,:],
-#           label='+')
-#   ax2[w].plot(train_catalogue.sample_frequencies, train_catalogue.ampSpectraCross[w,:],
-#           label='x')
-#   ax2[w].set_xlim(9,128)
-#   ax2[w].set_ylim(1e-5,1e-2)
-#   ax2[w].axvline(10,color='k',linestyle='--')
-#   ax2[w].set_yscale('log')
+    ax2[w].plot(train_catalogue.sample_frequencies, train_catalogue.ampSpectraPlus[w,:],
+            label='+')
+    ax2[w].plot(train_catalogue.sample_frequencies, train_catalogue.ampSpectraCross[w,:],
+            label='x')
+    ax2[w].set_xlim(0,128)
+    ax2[w].set_ylim(1e-5,1e-2)
+    ax2[w].axvline(10,color='k',linestyle='--')
+    ax2[w].set_yscale('log')
 
     ax3[w].plot(train_catalogue.sample_times_ampalign,
             train_catalogue.aligned_amplitudes[w,:], label='|h(t)|')
-    #ax3[w].set_xlim(-1.0,0.1)
-    ax3[w].set_xlim(-2.0,0.25)
+    ax3[w].set_xlim(-1.5,0.25)
 
-    ax4[w].plot(train_catalogue.sample_times_ampalign, train_catalogue.aligned_phases[w,:],
-            label='arg[h(t)]')
-    #ax4[w].set_xlim(-1.0,0.1)
-    ax4[w].set_xlim(-2.0,0.25)
+#    ax4[w].plot(train_catalogue.sample_times_ampalign, train_catalogue.aligned_phases[w,:],
+#            label='arg[h(t)]')
+#    ax4[w].set_xlim(-1.5,0.25)
 
+fig1.suptitle('h$_{+,\\times}$(t)')
 fig1.subplots_adjust(hspace=0)
 fig1.savefig('train_catalogue_timeseries.png')
-#fig2.subplots_adjust(hspace=0)
-#fig2.savefig('train_catalogue_amplitudespectra.png')
 
+fig2.suptitle('$|\\tilde{H}_{+,\\times}|$')
+fig2.subplots_adjust(hspace=0)
+fig2.savefig('train_catalogue_amplitudespectra.png')
+
+fig3.suptitle('|h(t)|')
 fig3.subplots_adjust(hspace=0)
 fig3.savefig('train_catalogue_timeseries_amp.png')
 
-fig4.subplots_adjust(hspace=0)
-fig4.savefig('train_catalogue_timeseries_phase.png')
+#   fig4.suptitle('arg[h(t)]')
+#   fig4.subplots_adjust(hspace=0)
+#   fig4.savefig('train_catalogue_timeseries_phase.png')
 
+pl.show()
+
+import sys
+sys.exit()
+sys.exit()
 
 #
 # Principal Components
@@ -253,15 +260,15 @@ fig3, ax3 = pl.subplots(figsize=(10,10),
         nrows=np.shape(train_catalogue.aligned_catalogue)[0]+1, ncols=1, sharex='col')
 
 ax[0].plot(train_catalogue.sample_times, pca.pca_plus.mean_, label='Mean')
-ax[0].set_xlim(-1.0,0.1)
+ax[0].set_xlim(-1.5,0.1)
 ax[0].legend(loc='upper left')
 
 ax2[0].plot(train_catalogue.sample_times_ampalign, pca.pca_amp.mean_, label='Mean')
-ax2[0].set_xlim(-1.0,0.1)
+ax2[0].set_xlim(-1.5,0.1)
 ax2[0].legend(loc='upper left')
 
 ax3[0].plot(train_catalogue.sample_times_ampalign, pca.pca_phase.mean_, label='Mean')
-ax3[0].set_xlim(-1.0,0.1)
+ax3[0].set_xlim(-1.5,0.1)
 ax3[0].legend(loc='upper left')
 
 for w in xrange(len(train_catalogue.waveform_names)):
@@ -276,13 +283,13 @@ for w in xrange(len(train_catalogue.waveform_names)):
          pca.pca_phase.components_[w,:], label=r'$\beta_{%d}$'%(w+1))
 
     ax[w+1].legend(loc='upper left')
-    ax[w+1].set_xlim(-1.0,0.1)
+    ax[w+1].set_xlim(-1.5,0.1)
 
     ax2[w+1].legend(loc='upper left')
-    ax2[w+1].set_xlim(-1.0,0.1)
+    ax2[w+1].set_xlim(-1.5,0.1)
 
     ax3[w+1].legend(loc='upper left')
-    ax3[w+1].set_xlim(-1.0,0.1)
+    ax3[w+1].set_xlim(-1.5,0.1)
 
 fig.suptitle(r'h${_+,\times}$(t)')
 fig.subplots_adjust(hspace=0)
@@ -300,21 +307,21 @@ fig3.savefig('phase_pcs.png')
 #
 # Explained Variance
 #
-fe, ax = pl.subplots()
-ax.step(np.arange(1,len(train_catalogue.waveform_names)+1)-0.5,
-        np.cumsum(pca.pca_plus.explained_variance_ratio_), color='k',
-        label='h$_+$')
-ax.step(np.arange(1,len(train_catalogue.waveform_names)+1)-0.5,
-        np.cumsum(pca.pca_plus.explained_variance_ratio_), color='grey',
-        label=r'h$_{\times}$', linestyle='--')
-ax.set_xlabel('Number of PCs')
-ax.set_ylabel('Explained Variance')
-ax.set_ylim(0,1)
-ax.set_xlim(1,len(train_catalogue.waveform_names)+1)
-ax.grid()
-ax.minorticks_on()
-ax.legend(loc='lower right')
-fe.savefig('explained_variance_pluscross.png')
+#   fe, ax = pl.subplots()
+#   ax.step(np.arange(1,len(train_catalogue.waveform_names)+1)-0.5,
+#           np.cumsum(pca.pca_plus.explained_variance_ratio_), color='k',
+#           label='h$_+$')
+#   ax.step(np.arange(1,len(train_catalogue.waveform_names)+1)-0.5,
+#           np.cumsum(pca.pca_plus.explained_variance_ratio_), color='grey',
+#           label=r'h$_{\times}$', linestyle='--')
+#   ax.set_xlabel('Number of PCs')
+#   ax.set_ylabel('Explained Variance')
+#   ax.set_ylim(0,1)
+#   ax.set_xlim(1,len(train_catalogue.waveform_names)+1)
+#   ax.grid()
+#   ax.minorticks_on()
+#   ax.legend(loc='lower right')
+#   fe.savefig('explained_variance_pluscross.png')
 
 #
 # Explained Variance
@@ -338,11 +345,11 @@ fe.savefig('explained_variance_ampphase.png')
 #
 # Matches for 250 Msun
 #
-imfig, imax = image_matches(pca.matches_plus, test_catalogue.waveform_names)
-imax.set_title(r"Matches for +/$\times$ PCA (%s waveforms trained with %s)"%(\
-        test_catalogue_name, train_catalogue_name))
-imfig.tight_layout()
-imfig.savefig('plus_matches.png')
+#   imfig, imax = image_matches(pca.matches_plus, test_catalogue.waveform_names)
+#   imax.set_title(r"Matches for +/$\times$ PCA (%s waveforms trained with %s)"%(\
+#           test_catalogue_name, train_catalogue_name))
+#   imfig.tight_layout()
+#   imfig.savefig('plus_matches.png')
 
 imfig, imax = image_matches(pca.matches_ampphase, test_catalogue.waveform_names)
 imax.set_title(r"Matches for A,$\phi$ PCA (%s waveforms trained with %s)"%(\
@@ -353,11 +360,11 @@ imfig.savefig('ampphase_matches.png')
 #
 # Euclidean distances for 250 Msun
 #
-imfig, imax = image_euclidean(pca.euclidean_distances_plus, test_catalogue.waveform_names)
-imax.set_title(r"Euclidean Distances for +/$\times$ PCA (%s waveforms trained with%s)"%(\
-        test_catalogue_name, train_catalogue_name))
-imfig.tight_layout()
-imfig.savefig('plus_euclidean_distances.png')
+#   imfig, imax = image_euclidean(pca.euclidean_distances_plus, test_catalogue.waveform_names)
+#   imax.set_title(r"Euclidean Distances for +/$\times$ PCA (%s waveforms trained with%s)"%(\
+#           test_catalogue_name, train_catalogue_name))
+#   imfig.tight_layout()
+#   imfig.savefig('plus_euclidean_distances.png')
 
 pl.show()
 
