@@ -202,7 +202,7 @@ def main():
     #
     # Plots
     #
-    nother=7
+    nother=7 # increase this for new parameters
     samples = np.zeros(shape=(len(posterior), 2*opts.npcs+nother)) #x2 for amp/phase
     samples[:,0] = np.concatenate(posterior['mtotal'].samples)
     #samples[:,0] = reconstruction_results['matches']
@@ -212,6 +212,8 @@ def main():
     samples[:,4] = np.concatenate(posterior['theta_jn'].samples)
     samples[:,5] = np.concatenate(posterior['phi_orb'].samples)
     samples[:,6] = np.concatenate(posterior['psi'].samples)
+    #samples[:,7] = np.concatenate(posterior['ra'].samples)
+    #samples[:,8] = np.concatenate(posterior['dec'].samples)
 
     b=1
     for n in xrange(nother,opts.npcs+nother):
@@ -224,7 +226,7 @@ def main():
         b+=1
 
     labels=['M$_{\\rm total}$', 'Match', 'Time', 'hrss', 'inclination', 'phase',
-            '$\\Psi$', 'A,$\\beta_1$', '$\\Phi$,$\\beta_1$', 'A,$\\beta_2$',
+            '$\\Psi$', 'ra', 'dec', 'A,$\\beta_1$', '$\\Phi$,$\\beta_1$', 'A,$\\beta_2$',
             '$\\Phi$,$\\beta_2$', 'A,$\\beta_3$', '$\\Phi$,$\\beta_3$']
 
     trifig = triangle.corner(samples, labels=labels[:2*opts.npcs+nother], 
