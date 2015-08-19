@@ -7,23 +7,25 @@
 # fr_ninja.sh and xninja.sh, respectively.
 
 gpsstart=1111178318
-#gpsend=1111264718
-gpsend=1111178328
+gpsend=1111178718
+
+mass=${1}
+snr=${2}
 
 waveform="D10_a0-0_q1-00_m103_Q"
-outname=Q_M-300_snr-15
+outname=Q_M-${mass}_snr-${snr}
 
 lalapps_inspinj \
     --i-distr uniform --seed `lalapps_tconvert now` \
     --waveform NumRelNinja2 \
     --gps-start-time ${gpsstart} --gps-end-time ${gpsend} --time-step 128 \
     --time-interval 10 --l-distr random \
-    --min-mtotal 300 --max-mtotal 300 \
+    --min-mtotal ${mass} --max-mtotal ${mass} \
     --m-distr nrwaves --f-lower 10 \
     --real8-ninja2 \
     --nr-file "${waveform}.xml"  \
     --snr-distr volume \
-    --min-snr  15 --max-snr 15 \
+    --min-snr  ${snr} --max-snr ${snr} \
     --ligo-psd aligopsd.txt \
     --ligo-start-freq 10 \
     --virgo-psd advirgopsd.txt \

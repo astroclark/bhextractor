@@ -27,6 +27,9 @@ from __future__ import division
 import os
 import sys 
 
+import matplotlib
+matplotlib.use("Agg")
+
 import numpy as np
 from matplotlib import pyplot as pl
 import cPickle as pickle
@@ -226,8 +229,9 @@ def main():
         b+=1
 
     labels=['M$_{\\rm total}$', 'Match', 'Time', 'hrss', 'inclination', 'phase',
-            '$\\Psi$', 'ra', 'dec', 'A,$\\beta_1$', '$\\Phi$,$\\beta_1$', 'A,$\\beta_2$',
+            '$\\Psi$', 'A,$\\beta_1$', '$\\Phi$,$\\beta_1$', 'A,$\\beta_2$',
             '$\\Phi$,$\\beta_2$', 'A,$\\beta_3$', '$\\Phi$,$\\beta_3$']
+            #'$\\Psi$', 'ra', 'dec', 'A,$\\beta_1$', '$\\Phi$,$\\beta_1$', 'A,$\\beta_2$',
 
     trifig = triangle.corner(samples, labels=labels[:2*opts.npcs+nother], 
             quantiles=[0.25, 0.5, 0.75])
