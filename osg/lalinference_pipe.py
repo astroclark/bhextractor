@@ -53,7 +53,7 @@ cp.optionxform = str
 cp.readfp(open(inifile))
 
 if opts.run_path is not None:
-  cp.set('paths','basedir',os.path.abspath(opts.run_path))
+  cp.set('paths','basedir',os.path.relpath(opts.run_path))
 
 if not cp.has_option('paths','basedir'):
   print 'Error: Must specify a directory with --run-path DIR'
@@ -61,34 +61,34 @@ if not cp.has_option('paths','basedir'):
 
 if not cp.has_option('paths','daglogdir'):
     if opts.daglog_path is not None:
-      cp.set('paths','daglogdir',os.path.abspath(opts.daglog_path))
+      cp.set('paths','daglogdir',os.path.relpath(opts.daglog_path))
     elif opts.run_path is not None:
-      cp.set('paths','daglogdir',os.path.abspath(opts.run_path))
+      cp.set('paths','daglogdir',os.path.relpath(opts.run_path))
     else:
-      cp.set('paths','daglogdir',os.path.abspath(cp.get('paths','basedir')))
+      cp.set('paths','daglogdir',os.path.relpath(cp.get('paths','basedir')))
 
 local_work_dir=cp.get('paths','daglogdir')
 
 if opts.gps_time_file is not None:
-  cp.set('input','gps-time-file',os.path.abspath(opts.gps_time_file))
+  cp.set('input','gps-time-file',os.path.relpath(opts.gps_time_file))
 
 if opts.single_triggers is not None:
-  cp.set('input','sngl-inspiral-file',os.path.abspath(opts.single_triggers))
+  cp.set('input','sngl-inspiral-file',os.path.relpath(opts.single_triggers))
 
 if opts.injections is not None:
-  cp.set('input','injection-file',os.path.abspath(opts.injections))
+  cp.set('input','injection-file',os.path.relpath(opts.injections))
 
 if opts.coinc_triggers is not None:
-  cp.set('input','coinc-inspiral-file',os.path.abspath(opts.coinc_triggers))
+  cp.set('input','coinc-inspiral-file',os.path.relpath(opts.coinc_triggers))
 
 #if opts.lvalert is not None:
-#  cp.set('input','lvalert-file',os.path.abspath(opts.lvalert))
+#  cp.set('input','lvalert-file',os.path.relpath(opts.lvalert))
 
 if opts.gid is not None:
   cp.set('input','gid',opts.gid)
 
 if opts.pipedown_db is not None:
-  cp.set('input','pipedown-db',os.path.abspath(opts.pipedown_db))
+  cp.set('input','pipedown-db',os.path.relpath(opts.pipedown_db))
 
 
 # Create the DAG from the configparser object

@@ -17,7 +17,7 @@
       <Column Name="processgroup:process:ifos" Type="lstring"/>
       <Column Name="processgroup:process:process_id" Type="ilwd:char"/>
       <Stream Name="processgroup:process:table" Type="Local" Delimiter=",">
-         "inspinj","b8db0efe1bfa15230dceed02b5c64c9b3bf2cf61","CLEAN: All modifications committed",1100868592," ",0,"taranis","1000",18052,1121116587,1121116587,0,"lalapps","","process:process_id:0"
+         "inspinj","ba77a3737189829da7c3576f6dc3ea211c8f8228","CLEAN: All modifications committed",1097949682," ",0,"PHYS44237","1000",10191,1122045668,1122045669,0,"lalapps","","process:process_id:0"
       </Stream>
    </Table>
    <Table Name="process_paramsgroup:process_params:table">
@@ -28,10 +28,10 @@
       <Column Name="process_paramsgroup:process_params:value" Type="lstring"/>
       <Stream Name="process_paramsgroup:process_params:table" Type="Local" Delimiter=",">
          "inspinj","process:process_id:0","--i-distr","string","uniform",
-         "inspinj","process:process_id:0","--seed","int","1121116587",
+         "inspinj","process:process_id:0","--seed","int","1122045668",
          "inspinj","process:process_id:0","--waveform","string","NumRelNinja2",
          "inspinj","process:process_id:0","--gps-start-time","int","1111178318",
-         "inspinj","process:process_id:0","--gps-end-time","int","1111178328",
+         "inspinj","process:process_id:0","--gps-end-time","int","1111178718",
          "inspinj","process:process_id:0","--time-step","float","1.280000e+02",
          "inspinj","process:process_id:0","--time-interval","float","1.000000e+01",
          "inspinj","process:process_id:0","--l-distr","string","random",
@@ -111,7 +111,10 @@
       <Column Name="sim_inspiralgroup:sim_inspiral:bandpass" Type="int_4s"/>
       <Column Name="sim_inspiralgroup:sim_inspiral:simulation_id" Type="ilwd:char"/>
       <Stream Name="sim_inspiralgroup:sim_inspiral:table" Type="Local" Delimiter=",">
-         "process:process_id:0","NumRelNinja2",1111178322,852174819,1111178322,848946297,1111178322,840432022,1111178322,857497857,1111178322,870397329,1111178322,856561948,3.5037321139426589e+04,"",1.500000e+02,1.500000e+02,1.305826e+02,2.500000e-01,5.559182e+03,9.959521e-01,-4.119489e-01,6.963471e-01,1.034519e+00,2.911729e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,9.699031e-01,-1.620293e-01,-1.817539e-01,-2.319388e-01,6.606569e-01,7.139586e-01,0.000000e+00,0.000000e+00,1.000000e+01,0.000000e+00,1.406398e+04,1.074980e+04,1.372014e+04,8.302547e+03,3.255513e+04,2,2,"file://localhost/./D10_a0-0_q1-00_m103_Qs.gwf",-1,"TAPER_NONE",0,"sim_inspiral:simulation_id:0"
+         "process:process_id:0","NumRelNinja2",1111178327,144780040,1111178327,149500931,1111178327,140446615,1111178327,153434566,1111178327,164900272,1111178327,151574001,3.5037321452446355e+04,"",1.500000e+02,1.500000e+02,1.305826e+02,2.500000e-01,5.363099e+03,1.187548e+00,-7.585746e-01,6.406977e-01,1.588721e+00,6.221136e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,-3.690670e-01,-2.173648e-01,-9.036272e-01,-3.981446e-01,-5.454202e-01,-7.375619e-01,0.000000e+00,0.000000e+00,1.000000e+01,0.000000e+00,1.272847e+04,1.272232e+04,1.244588e+04,6.946520e+03,1.607446e+04,2,2,"file://localhost/home/jclark308/Projects/bhextractor/libbhex/testjob/D10_a0-0_q1-00_m103/D10_a0-0_q1-00_m103_Qs.gwf",-1,"TAPER_NONE",0,"sim_inspiral:simulation_id:0",
+         "process:process_id:0","NumRelNinja2",1111178454,18059134,1111178454,13665545,1111178454,4646582,1111178454,16513911,1111178454,36410574,1111178454,15464852,3.5037330704192500e+04,"",1.500000e+02,1.500000e+02,1.305826e+02,2.500000e-01,3.147831e+03,1.255424e+00,-1.828281e-01,1.698834e+00,9.822304e-01,2.751096e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,9.269309e-01,2.812883e-01,-2.483466e-01,7.888440e-01,-2.326745e-01,5.688477e-01,0.000000e+00,0.000000e+00,1.000000e+01,0.000000e+00,1.666383e+04,9.827908e+03,2.613046e+04,1.310889e+04,4.563499e+04,2,2,"file://localhost/home/jclark308/Projects/bhextractor/libbhex/testjob/D10_a0-0_q1-00_m103/D10_a0-0_q1-00_m103_Qs.gwf",-1,"TAPER_NONE",0,"sim_inspiral:simulation_id:1",
+         "process:process_id:0","NumRelNinja2",1111178580,495528221,1111178580,482826680,1111178580,479199784,1111178580,503263040,1111178580,503476498,1111178580,504293291,3.5037339927076122e+04,"",1.500000e+02,1.500000e+02,1.305826e+02,2.500000e-01,4.384953e+03,4.192907e-01,-1.042591e-01,1.295701e+00,6.102746e+00,4.008331e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,9.426858e-01,1.756838e-01,2.836878e-01,-3.404619e-01,-2.551256e-01,-9.049844e-01,0.000000e+00,0.000000e+00,1.000000e+01,0.000000e+00,1.343639e+04,1.253072e+04,3.140910e+04,1.745538e+04,1.441033e+04,2,2,"file://localhost/home/jclark308/Projects/bhextractor/libbhex/testjob/D10_a0-0_q1-00_m103/D10_a0-0_q1-00_m103_Qs.gwf",-1,"TAPER_NONE",0,"sim_inspiral:simulation_id:2",
+         "process:process_id:0","NumRelNinja2",1111178703,842873693,1111178703,823243595,1111178703,828171334,1111178703,842564907,1111178703,831718909,1111178703,845639478,3.5037348921708683e+04,"",1.500000e+02,1.500000e+02,1.305826e+02,2.500000e-01,1.464631e+03,6.034770e+00,6.348465e-01,1.433414e+00,1.004935e-01,3.000305e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,0.000000e+00,-3.809055e-01,3.736553e-02,-9.238586e-01,2.751108e-01,6.466992e-01,-7.114030e-01,0.000000e+00,0.000000e+00,1.000000e+01,0.000000e+00,1.146025e+04,1.433489e+04,7.915889e+03,1.307085e+04,1.651947e+04,2,2,"file://localhost/home/jclark308/Projects/bhextractor/libbhex/testjob/D10_a0-0_q1-00_m103/D10_a0-0_q1-00_m103_Qs.gwf",-1,"TAPER_NONE",0,"sim_inspiral:simulation_id:3"
       </Stream>
    </Table>
 </LIGO_LW>
