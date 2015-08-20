@@ -1162,6 +1162,9 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     #self.add_opt('snrpath',snrpath)
     self.set_stdout_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).out'))
     self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
+
+    self.add_condor_cmd('should_transfer_files', 'YES')
+    self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
  
   def set_grid_site(self,site=None):
     """

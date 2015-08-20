@@ -1,0 +1,12 @@
+universe = vanilla
+executable = lalinference_nest
+arguments = " --L1-flow $(macroL1flow) --approx PrincipalCompBBH --psdlength $(macropsdlength) --L1-channel $(macroL1channel) --loghrss-min -53.0 --nlive 512 --inj $(macroinj) --nPhasePCs 1 --srate 512 --event $(macroevent) --loghrss-max -50.0 --seglen $(macroseglen) --ncatcols 2048 --lalinspiralinjection --H1-timeslide $(macroH1timeslide) --trigtime $(macrotrigtime) --psdstart $(macropsdstart) --H1-cache $(macroH1cache) --progress --L1-timeslide $(macroL1timeslide) --H1-channel $(macroH1channel) --AmpPCfile Q-PCA_AmpPCs.dat --pinparams [rightascension,declination] --resume --outfile $(macrooutfile) --L1-cache $(macroL1cache) --dt 0.5 --nAmpPCs 1 --randomseed $(macrorandomseed) --dataseed $(macrodataseed) --ncatrows 14 --PhasePCfile Q-PCA_PhasePCs.dat --H1-flow $(macroH1flow) --use-hrss $(macroargument0) $(macroargument1) $(macroargument2) "
+log = OSGtest_Q_q1-00-300-15/logs/lalinference_pipeline-bed59212-4766-11e5-9bd0-0cc47a145896.log
+error = OSGtest_Q_q1-00-300-15/log/lalinference-$(cluster)-$(process)-$(node).err
+output = OSGtest_Q_q1-00-300-15/log/lalinference-$(cluster)-$(process)-$(node).out
+notification = never
+should_transfer_files = YES
+when_to_transfer_output = ON_EXIT
+transfer_input_files = OSGtest_Q_q1-00-300-15
+transfer_output_files = OSGtest_Q_q1-00-300-15
+queue 1

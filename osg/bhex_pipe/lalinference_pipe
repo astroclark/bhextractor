@@ -1,6 +1,6 @@
 #!/bin/sh
 pypath="/home/jclark308/opt/lscsoft/lalsuite_master/lib/python2.7/site-packages"
-pyscript="./lalinference_pipe.py"
+pyscript="bhex_pipe/lalinference_pipe.py"
 PYTHONPATH=`echo "${PYTHONPATH}" | /bin/sed -e "s|${pypath}:||g;"`
 PYTHONPATH="${pypath}:${PYTHONPATH}"
 PYTHONPATH="${PWD}:${PYTHONPATH}"
