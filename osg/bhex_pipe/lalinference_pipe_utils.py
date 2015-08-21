@@ -1030,7 +1030,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     # XXX
     #out_dir=os.path.join(self.basepath,'engine')
     out_dir='engine'
-    mkdirs(out_dir)
+#    mkdirs(out_dir)
+    mkdirs(os.path.join(self.basepath,'engine'))
     node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
     if self.config.has_option('lalinference','roq'):
       for ifo in ifos:
@@ -1191,7 +1192,7 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.add_condor_cmd('should_transfer_files', 'YES')
     self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
     self.add_condor_cmd('transfer_input_files', 'lalinference_execute.tar.bz2')
-    self.add_condor_cmd('transfer_output_files', '$(macrooutfile)')
+    self.add_condor_cmd('transfer_output_files', 'engine/$(macrooutfile)')
  
   def set_grid_site(self,site=None):
     """
