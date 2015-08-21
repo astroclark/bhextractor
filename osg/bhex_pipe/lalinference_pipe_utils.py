@@ -1027,7 +1027,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       node.set_psdstart(self.config.getfloat('input','psd-start-time'))
     node.set_max_psdlength(self.config.getint('input','max-psd-length'))
     node.set_padding(self.config.getint('input','padding'))
-    out_dir=os.path.join(self.basepath,'engine')
+    # XXX
+    #out_dir=os.path.join(self.basepath,'engine')
+    out_dir='engine'
     mkdirs(out_dir)
     node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
     if self.config.has_option('lalinference','roq'):
@@ -1144,7 +1146,8 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       if site!='local':
         self.set_executable_installed(False)
     # Set the options which are always used
-    self.set_sub_file(os.path.abspath(submitFile))
+    #self.set_sub_file(os.path.abspath(submitFile))
+    self.set_sub_file(os.path.basename(submitFile))
     if self.engine=='lalinferencemcmc' or self.engine=='lalinferencebambimpi':
       #openmpipath=cp.get('condor','openmpi')
       if cp.has_section('mpi'):
@@ -1179,14 +1182,15 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       if ispreengine is False:
         self.add_ini_opts(cp,'engine')
     #self.add_opt('snrpath',snrpath)
-    self.set_stdout_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).out'))
-    self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
+    #self.set_stdout_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).out'))
+    #self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
 
     # XXX
+    self.set_stdout_file(os.path.join('log','lalinference-$(cluster)-$(process)-$(node).out'))
+    self.set_stderr_file(os.path.join('log','lalinference-$(cluster)-$(process)-$(node).err'))
     self.add_condor_cmd('should_transfer_files', 'YES')
     self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
-    self.add_condor_cmd('transfer_input_files',
-            'lalinference_nest,$(macronumrelfile),$(macroinj),$(macroAmpPCfile),$(macroPhasePCfile)')
+    self.add_condor_cmd('transfer_input_files', 'lalinference_execute.tar.bz2')
     self.add_condor_cmd('transfer_output_files', '$(macrooutfile)')
  
   def set_grid_site(self,site=None):
@@ -1640,7 +1644,8 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       exe=cp.get('condor','mergescript')
       pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
       pipeline.AnalysisJob.__init__(self,cp,dax=dax) 
-      self.set_sub_file(os.path.abspath(submitFile))
+      #self.set_sub_file(os.path.abspath(submitFile))
+      self.set_sub_file(os.path.basename(submitFile))
       self.set_stdout_file(os.path.join(logdir,'merge-$(cluster)-$(process).out'))
       self.set_stderr_file(os.path.join(logdir,'merge-$(cluster)-$(process).err'))
       self.add_condor_cmd('getenv','True')
