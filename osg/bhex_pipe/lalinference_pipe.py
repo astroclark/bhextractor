@@ -33,6 +33,8 @@ parser.add_option("-t","--single-triggers",action="store",type="string",default=
 parser.add_option("-C","--coinc-triggers",action="store",type="string",default=None,help="CoinInspiralTable trigger list",metavar="COINC_FILE.xml")
 parser.add_option("--gid",action="store",type="string",default=None,help="GraceDB ID")
 parser.add_option("-I","--injections",action="store",type="string",default=None,help="List of injections to perform and analyse",metavar="INJFILE.xml")
+# XXX
+parser.add_option("-N","--numrel-file",action="store",type="string",default=None,help="NINJA frame file with waveform modes",metavar="NUMRELFILE.xml")
 parser.add_option("-P","--pipedown-db",action="store",type="string",default=None,help="Pipedown database to read and analyse",metavar="pipedown.sqlite")
 parser.add_option("--condor-submit",action="store_true",default=False,help="Automatically submit the condor dag")
 parser.add_option("-x", "--dax",action="store_true",default=False, help="Delete the ligo_data_find jobs and populate frame LFNs in the DAX")
@@ -77,6 +79,9 @@ if opts.single_triggers is not None:
 
 if opts.injections is not None:
   cp.set('input','injection-file',os.path.relpath(opts.injections))
+
+if opts.numrel_file is not None:
+  cp.set('input','numrel-file',os.path.relpath(opts.numrel_file))
 
 if opts.coinc_triggers is not None:
   cp.set('input','coinc-inspiral-file',os.path.relpath(opts.coinc_triggers))

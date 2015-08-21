@@ -2,6 +2,7 @@
 
 ampPCs=Q-PCA_AmpPCs.dat
 phasePCs=Q-PCA_PhasePCs.dat
+numrelfile=D10_a0-0_q1-00_m103_Qs.gwf
 
 mass=${1}
 snr=${2}
@@ -24,10 +25,14 @@ config_file="libbhex.ini"
 bhex_pipe/lalinference_pipe ${config_file}\
     -r OSGtest_Q_q1-00-${mass}-${snr}\
     -p OSGtest_Q_q1-00-${mass}-${snr}/logs \
-    -I ${new_injection_file}
+    -I ${new_injection_file} \
+    -N ${numrelfile}
 
-# Copy executables to run directory
-cp lalinference/* OSGtest_Q_q1-00-${mass}-${snr}
-cp ${ampPCs} OSGtest_Q_q1-00-${mass}-${snr}
-cp ${phasePCs} OSGtest_Q_q1-00-${mass}-${snr}
+
+# Tarball up execution package
+tar -cjf lalinference_execute.tar.bz2  \
+    ${ampPCs} ${phasePCs} ${numrelfile} ${new_injection_file} \
+    lalinference/* \
+    OSGtest_Q_q1-00-${mass}-${snr}
+
 

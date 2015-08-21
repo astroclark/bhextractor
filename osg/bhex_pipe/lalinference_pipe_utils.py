@@ -1005,6 +1005,16 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if self.config.has_option('input','injection-file'):
        node.set_injection(self.config.get('input','injection-file'),event.event_id)
        prenode.set_injection(self.config.get('input','injection-file'),event.event_id)
+
+    # XXX PC files
+    if self.config.has_option('engine','AmpPCfile') and \
+            self.config.has_option('engine','PhasePCfile'):
+       node.set_princomps(self.config.get('engine','AmpPCfile'),
+               self.config.get('engine','PhasePCfile'))
+
+    if self.config.has_option('input','numrel-file'):
+        node.set_numrelfile(self.config.get('input','numrel-file'))
+
     if self.config.has_option('lalinference','seglen'):
       node.set_seglen(self.config.getint('lalinference','seglen'))
     elif  self.config.has_option('engine','seglen'):
@@ -1036,6 +1046,15 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
         return None
     for (opt,arg) in event.engine_opts.items():
         node.add_var_opt(opt,arg)
+
+
+    # XXX: look for PC files
+    if self.config.has_option('engine','AmpPCfile'):
+        node.add_input_file(self.config.get('engine','AmpPCfile'))
+    if self.config.has_option('engine','PhasePCfile'):
+        node.add_input_file(self.config.get('engine','PhasePCfile'))
+
+
     return node
     
   def add_results_page_node(self,resjob=None,outdir=None,parent=None,extra_options=None,gzip_output=None):
@@ -1163,8 +1182,12 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.set_stdout_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).out'))
     self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
 
+    # XXX
     self.add_condor_cmd('should_transfer_files', 'YES')
     self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
+    self.add_condor_cmd('transfer_input_files',
+            'lalinference_nest,$(macronumrelfile),$(macroinj),$(macroAmpPCfile),$(macroPhasePCfile)')
+    self.add_condor_cmd('transfer_output_files', '$(macrooutfile)')
  
   def set_grid_site(self,site=None):
     """
@@ -1221,6 +1244,21 @@ class EngineNode(pipeline.CondorDAGNode):
     self.snrpath=None
     self.fakedata=False
     self.lfns=[] # Local file names (for frame files and pegasus)
+
+    # XXX: PC files
+  def set_princomps(self,amppcfile,phasepcfile):
+    """
+    Set a principal component file
+    """
+    self.add_file_opt('AmpPCfile',amppcfile)
+    self.add_file_opt('PhasePCfile',phasepcfile)
+
+    # XXX: numrel data
+  def set_numrelfile(self,numrelfile):
+    """
+    Set a numrel frame file
+    """
+    self.add_file_opt('numrelfile',numrelfile)
 
   def set_seglen(self,seglen):
     self.seglen=seglen
