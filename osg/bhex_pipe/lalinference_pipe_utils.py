@@ -1645,10 +1645,13 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       exe=cp.get('condor','mergescript')
       pipeline.CondorDAGJob.__init__(self,"vanilla",exe)
       pipeline.AnalysisJob.__init__(self,cp,dax=dax) 
+      # XXX
       #self.set_sub_file(os.path.abspath(submitFile))
+      #self.set_stdout_file(os.path.join(logdir,'merge-$(cluster)-$(process).out'))
+      #self.set_stderr_file(os.path.join(logdir,'merge-$(cluster)-$(process).err'))
       self.set_sub_file(os.path.basename(submitFile))
-      self.set_stdout_file(os.path.join(logdir,'merge-$(cluster)-$(process).out'))
-      self.set_stderr_file(os.path.join(logdir,'merge-$(cluster)-$(process).err'))
+      self.set_stdout_file(os.path.join('log','merge-$(cluster)-$(process).out'))
+      self.set_stderr_file(os.path.join('log','merge-$(cluster)-$(process).err'))
       self.add_condor_cmd('getenv','True')
       if cp.has_option('engine','nlive'):
         self.add_opt('Nlive',cp.get('engine','nlive'))
@@ -1656,6 +1659,15 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
         self.add_opt('Nlive',cp.get('engine','Nlive'))
       if cp.has_option('merge','npos'):
       	self.add_opt('npos',cp.get('merge','npos'))
+
+    # XXX
+    self.add_condor_cmd('should_transfer_files', 'YES')
+    self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
+
+    $ FIXME figure out how to tell the subfile to transfer variable input files
+
+    self.add_condor_cmd('transfer_input_files', 'engine/$(macroargument),engine/$(macroheaders)')
+    self.add_condor_cmd('transfer_output_files', 'posterior_samples/$(macrooutfile)')
 
 
 class MergeNSNode(pipeline.CondorDAGNode):

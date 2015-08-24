@@ -28,6 +28,7 @@ bhex_pipe/lalinference_pipe ${config_file}\
     -I ${new_injection_file} \
     -N ${numrelfile}
 
+exit
 # Tarball up execution package
 tar -cjf lalinference_execute.tar.bz2  \
     ${ampPCs} ${phasePCs} ${numrelfile} ${new_injection_file} \
