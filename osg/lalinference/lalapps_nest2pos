@@ -4,5 +4,7 @@ pyscript="./lalapps_nest2pos.py"
 PYTHONPATH=`echo "${PYTHONPATH}" | /bin/sed -e "s|${pypath}:||g;"`
 PYTHONPATH="${pypath}:${PYTHONPATH}"
 export PYTHONPATH
-exec /usr/bin/python "${pyscript}" "$@"
+# XXX: strip out commas from comma separated list in macronsfiles
+args=`echo ${@} | /bin/sed -e "s|,||g"`
+exec /usr/bin/python "${pyscript}" "${args}"
 exit 1

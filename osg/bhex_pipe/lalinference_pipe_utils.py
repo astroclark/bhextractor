@@ -1660,14 +1660,16 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       if cp.has_option('merge','npos'):
       	self.add_opt('npos',cp.get('merge','npos'))
 
-    # XXX
-    self.add_condor_cmd('should_transfer_files', 'YES')
-    self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
+      # XXX
+      self.add_condor_cmd('should_transfer_files', 'YES')
+      self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
 
-    $ FIXME figure out how to tell the subfile to transfer variable input files
-
-    self.add_condor_cmd('transfer_input_files', 'engine/$(macroargument),engine/$(macroheaders)')
-    self.add_condor_cmd('transfer_output_files', 'posterior_samples/$(macrooutfile)')
+      # Transferring NS files using the comma separated list created at
+      # MergeNSNode.  WARNING: lalapps_nest2pos really expects these to be
+      # separate arguments, not a comma separated list
+      self.add_condor_cmd('transfer_input_files',
+              'engine/$(macroargument),engine/$(macroheaders),$(macronsfiles)')
+      self.add_condor_cmd('transfer_output_files', '$(macropos)')
 
 
 class MergeNSNode(pipeline.CondorDAGNode):
@@ -1680,12 +1682,26 @@ class MergeNSNode(pipeline.CondorDAGNode):
     def __init__(self,merge_job,parents=None):
         pipeline.CondorDAGNode.__init__(self,merge_job)
         if parents is not None:
+          nsfiles=[]
           for parent in parents:
             self.add_engine_parent(parent)
 
+          # XXX
+            nsfiles.append(parent.get_ns_file())
+          nsfilesstr=""
+          for n,nsfile in enumerate(nsfiles):
+              if n==len(nsfiles)-1:
+                  nsfilesstr+="%s"%nsfile
+              else:
+                  nsfilesstr+="%s, "%nsfile
+          self.add_file_arg(nsfilesstr)
+
     def add_engine_parent(self,parent):
         self.add_parent(parent)
-        self.add_file_arg(parent.get_ns_file())
+
+        # XXX
+        #self.add_file_arg(parent.get_ns_file())
+
         self.add_file_opt('headers',parent.get_header_file())
         self.add_input_file(parent.get_B_file())
 
