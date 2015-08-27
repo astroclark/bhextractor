@@ -1187,12 +1187,13 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     #self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
 
     # XXX
-    self.set_stdout_file(os.path.join('log','lalinference-$(cluster)-$(process)-$(node).out'))
-    self.set_stderr_file(os.path.join('log','lalinference-$(cluster)-$(process)-$(node).err'))
+    self.add_condor_cmd('initialdir', 'engine')
+    self.set_stdout_file(os.path.join('../log','lalinference-$(cluster)-$(process)-$(node).out'))
+    self.set_stderr_file(os.path.join('../log','lalinference-$(cluster)-$(process)-$(node).err'))
     self.add_condor_cmd('should_transfer_files', 'YES')
     self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
-    self.add_condor_cmd('transfer_input_files', 'lalinference_execute.tar.bz2')
-    self.add_condor_cmd('transfer_output_files', 'engine/$(macrooutfile)')
+    self.add_condor_cmd('transfer_input_files', '../lalinference_execute.tar.bz2')
+    self.add_condor_cmd('transfer_output_files', '$(macrooutfile)')
  
   def set_grid_site(self,site=None):
     """
@@ -1668,7 +1669,7 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       # MergeNSNode.  WARNING: lalapps_nest2pos really expects these to be
       # separate arguments, not a comma separated list
       self.add_condor_cmd('transfer_input_files',
-              'engine/$(macroargument),engine/$(macroheaders),$(macronsfiles)')
+              'engine/$(macroargument),engine/$(macroheaders),$(macronsfiles),lalapps_nest2pos.py,nest2pos.py')
       self.add_condor_cmd('transfer_output_files', '$(macropos)')
 
 
