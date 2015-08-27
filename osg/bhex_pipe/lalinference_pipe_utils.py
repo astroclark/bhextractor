@@ -1032,7 +1032,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     out_dir='engine'
 #    mkdirs(out_dir)
     mkdirs(os.path.join(self.basepath,'engine'))
-    node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
+    # XXX: adding ../ to out dir so that it's easily picked up by merge jobs
+    node.set_output_file(os.path.join('../'+out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
     if self.config.has_option('lalinference','roq'):
       for ifo in ifos:
         node.add_var_arg('--'+ifo+'-roqweights '+os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
@@ -1665,11 +1666,11 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.add_condor_cmd('should_transfer_files', 'YES')
       self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
 
-      # Transferring NS files using the comma separated list created at
-      # MergeNSNode.  WARNING: lalapps_nest2pos really expects these to be
-      # separate arguments, not a comma separated list
+      self.add_condor_cmd('initialdir', 'posterior_samples')
+      # XXX: This won't work - the ../ won't play nicely with macronsfiles
       self.add_condor_cmd('transfer_input_files',
-              'engine/$(macroargument),engine/$(macroheaders),$(macronsfiles),lalapps_nest2pos.py,nest2pos.py')
+              '../engine/$(macroargument), ../engine/$(macroheaders),\
+ $(macronsfiles), ../lalapps_nest2pos.py, ../nest2pos.py')
       self.add_condor_cmd('transfer_output_files', '$(macropos)')
 
 

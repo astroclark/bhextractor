@@ -1,6 +1,6 @@
 #!/bin/sh
 pypath="${PWD}"
-pyscript="lalinference/lalapps_nest2pos.py"
+pyscript="./lalapps_nest2pos.py"
 PYTHONPATH=`echo "${PYTHONPATH}" | /bin/sed -e "s|${pypath}:||g;"`
 PYTHONPATH="${pypath}:${PYTHONPATH}"
 export PYTHONPATH
