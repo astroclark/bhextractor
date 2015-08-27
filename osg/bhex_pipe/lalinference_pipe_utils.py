@@ -383,7 +383,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     if dax:
         os.chdir(self.basepath)
     self.posteriorpath=os.path.join(self.basepath,'posterior_samples')
-    mkdirs(self.posteriorpath)
+    #mkdirs(self.posteriorpath)
     daglogdir=cp.get('paths','daglogdir')
     mkdirs(daglogdir)
     self.daglogfile=os.path.join(daglogdir,'lalinference_pipeline-'+str(uuid.uuid1())+'.log')
@@ -392,7 +392,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
       self.cachepath=cp.get('paths','cachedir')
     else:
       self.cachepath=os.path.join(self.basepath,'caches')
-    mkdirs(self.cachepath)
+    #mkdirs(self.cachepath)
     if cp.has_option('paths','logdir'):
       self.logpath=cp.get('paths','logdir')
     else:
@@ -1029,11 +1029,9 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     node.set_padding(self.config.getint('input','padding'))
     # XXX
     #out_dir=os.path.join(self.basepath,'engine')
-    out_dir='engine'
-#    mkdirs(out_dir)
-    mkdirs(os.path.join(self.basepath,'engine'))
-    # XXX: adding ../ to out dir so that it's easily picked up by merge jobs
-    node.set_output_file(os.path.join('../'+out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
+#    mkdirs(os.path.join(self.basepath,out_dir))
+    #node.set_output_file(os.path.join(out_dir,node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
+    node.set_output_file(os.path.join(node.engine+'-'+str(event.event_id)+'-'+node.get_ifos()+'-'+str(node.get_trig_time())+'-'+str(node.id)))
     if self.config.has_option('lalinference','roq'):
       for ifo in ifos:
         node.add_var_arg('--'+ifo+'-roqweights '+os.path.join(roqeventpath,'weights_'+ifo+'.dat'))
@@ -1100,11 +1098,13 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     basepath=cp.get('paths','basedir')
     snrpath=os.path.join(basepath,'SNR')
     self.snrpath=snrpath
-    mkdirs(snrpath)
+    # XXX
+    #mkdirs(snrpath)
     if ispreengine is True:
       roqpath=os.path.join(basepath,'ROQdata')
       self.roqpath=roqpath
-      mkdirs(roqpath)
+      # XXX
+      #mkdirs(roqpath)
       self.engine='lalinferencemcmc'
       exe=cp.get('condor',self.engine)
       if cp.has_option('engine','site'):
@@ -1188,13 +1188,13 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     #self.set_stderr_file(os.path.join(logdir,'lalinference-$(cluster)-$(process)-$(node).err'))
 
     # XXX
-    self.add_condor_cmd('initialdir', 'engine')
-    self.set_stdout_file(os.path.join('../log','lalinference-$(cluster)-$(process)-$(node).out'))
-    self.set_stderr_file(os.path.join('../log','lalinference-$(cluster)-$(process)-$(node).err'))
+    self.set_stdout_file(os.path.join('log','lalinference-$(cluster)-$(process)-$(node).out'))
+    self.set_stderr_file(os.path.join('log','lalinference-$(cluster)-$(process)-$(node).err'))
     self.add_condor_cmd('should_transfer_files', 'YES')
     self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
-    self.add_condor_cmd('transfer_input_files', '../lalinference_execute.tar.bz2')
-    self.add_condor_cmd('transfer_output_files', '$(macrooutfile)')
+    self.add_condor_cmd('transfer_input_files', 'lalinference_execute.tar.bz2')
+    self.add_condor_cmd('transfer_output_files',
+            '$(macrooutfile),$(macrooutfile)_B.txt,$(macrooutfile)_B.txt')
  
   def set_grid_site(self,site=None):
     """
@@ -1666,12 +1666,11 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.add_condor_cmd('should_transfer_files', 'YES')
       self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
 
-      self.add_condor_cmd('initialdir', 'posterior_samples')
-      # XXX: This won't work - the ../ won't play nicely with macronsfiles
       self.add_condor_cmd('transfer_input_files',
-              '../engine/$(macroargument), ../engine/$(macroheaders),\
- $(macronsfiles), ../lalapps_nest2pos.py, ../nest2pos.py')
-      self.add_condor_cmd('transfer_output_files', '$(macropos)')
+              '$(macroargument), $(macroheaders), $(macronsfiles),\
+ lalapps_nest2pos.py, nest2pos.py')
+      self.add_condor_cmd('transfer_output_files', '$(macropos),\
+ $(macropos)_B.txt')
 
 
 class MergeNSNode(pipeline.CondorDAGNode):

@@ -30,8 +30,7 @@ bhex_pipe/lalinference_pipe ${config_file}\
 
 # Tarball up execution package
 tar -cjf lalinference_execute.tar.bz2  \
-    ${ampPCs} ${phasePCs} ${numrelfile} ${new_injection_file} \
-    lalinference/* lalinference_nest.sh
+    ${ampPCs} ${phasePCs} ${numrelfile} ${new_injection_file} lalinference/lalinference_nest
 
 # Tarball up the entire submission (since we'll probably need to build the
 # analysis locally and scp)
