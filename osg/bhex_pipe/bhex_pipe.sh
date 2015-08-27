@@ -28,15 +28,15 @@ bhex_pipe/lalinference_pipe ${config_file}\
     -I ${new_injection_file} \
     -N ${numrelfile}
 
-exit
 # Tarball up execution package
 tar -cjf lalinference_execute.tar.bz2  \
     ${ampPCs} ${phasePCs} ${numrelfile} ${new_injection_file} \
-    lalinference/* lalinference_nest.sh
+    lalinference/* lalinference_nest.sh lalapps_nest2pos
 
 # Tarball up the entire submission (since we'll probably need to build the
 # analysis locally and scp)
 cp lalinference_nest.sh OSGtest_Q_q1-00-${mass}-${snr}
+cp lalapps_nest2pos OSGtest_Q_q1-00-${mass}-${snr}
 mv lalinference_execute.tar.bz2 OSGtest_Q_q1-00-${mass}-${snr}
 mv condor-log OSGtest_Q_q1-00-${mass}-${snr}
 tar -cjf OSGtest_Q_q1-00-${mass}-${snr}.tar.bz2 \
