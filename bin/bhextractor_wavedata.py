@@ -131,7 +131,7 @@ class waveform_catalogue:
         #self.fft_catalogue()
         #self.nwaves = np.shape(self.aligned_catalogue)[0]
 
-    def build_catalogue(series_names,
+    def build_catalogue(self,series_names,
             data_path="/data/NR_data/GT_BBH_BURST_CATALOG"):
         """
         'Catalogue' is a list of _simulation objects (dictionaries keyed by the
@@ -139,15 +139,15 @@ class waveform_catalogue:
 
         TODO: add support for selecting waveforms based on physical parameters
         """
-        
+
         data_path = os.path.join(os.environ['BHEX_PREFIX'], data_path)
+        print os.path.join(os.environ['BHEX_PREFIX']
+        print data_path
+        sys.exit()
 
         valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
                 "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
                 "TP-series"]
-
-        print series_names
-        sys.exit()
 
         if type(series_names)!=list:
             series_names = [series_names]
@@ -158,7 +158,8 @@ class waveform_catalogue:
                 print >> sys.stderr, "ERROR: series name (%s)must be in "%(series_name), valid_series
                 sys.exit()
 
-            readme_file = os.path.join(data_path, name, 'README_%s.txt'%name)
+            readme_file = os.path.join(data_path, series_name,
+                    'README_%s.txt'%series_name)
             simulations.append(self._parse_readme(readme_file))
 
         
