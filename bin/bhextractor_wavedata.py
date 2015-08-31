@@ -25,6 +25,7 @@ from __future__ import division
 
 import os
 import sys 
+import glob
 
 import numpy as np
 import scipy.signal as signal
@@ -34,6 +35,11 @@ import lalsimulation as lalsim
 import pycbc.types
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
+
+# *****************************************************************************
+global __param_names__
+__param_names__ = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
+                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz']
 
 # *****************************************************************************
 # Function Definitions 
@@ -105,45 +111,44 @@ def planckwin(N, epsilon):
 # Class Definitions 
 
                      
-class waveform_catalogue:
+class waveform_data:
     """
-    Object with the full waveform catalogue and all conditioning information
+    Object with the full waveform catalogue for the chosen series
     """
 
-    def __init__(self,series_names='RO3-series',fs=512,
-            catalogue_len=8, mtotal_ref=250, Dist=1.):
+    def __init__(self, series_names='RO3-series', Mmin30Hz=100.,
+            param_bounds=None):
 
         # ######################################################
         # Other initialisation
         self.series_names = series_names
-        self.fs = fs
-        self.catalogue_len = catalogue_len * fs # XXX
-        self.mtotal_ref = mtotal_ref
-        self.Dist = Dist
+        self.Mmin30Hz = Mmin30Hz
 
-        print 'initialising'
-        self.catalogue = self.build_catalogue(series_names)
+        print "Finding matching waveforms"
 
-        #
-        # Build the catalogue
-        #
-        #self.build_catalogue()
-        #self.fft_catalogue()
-        #self.nwaves = np.shape(self.aligned_catalogue)[0]
+        # Get all waveforms
+        all_simulations = self.list_simulations(series_names)
 
-    def build_catalogue(self,series_names,
-            data_path="/data/NR_data/GT_BBH_BURST_CATALOG"):
+        # Down-select to those with a desirably small minimum mass
+        self.simulations = self._select_param_values(all_simulations, 'Mmin30Hz',
+                [-np.inf, self.Mmin30Hz])
+
+        # Now down-select on any other parameters
+        if param_bounds is not None:
+            for bound_param in param_bounds.keys():
+                self.simulations = self._select_param_values(self.simulations,
+                        bound_param, param_bounds[bound_param])
+
+
+    def list_simulations(self,series_names,
+            catdir="data/NR_data/GT_BBH_BURST_CATALOG"):
         """
-        'Catalogue' is a list of _simulation objects (dictionaries keyed by the
-        waveform name and physical parameters).
+        Creates a list of simulation diectionaries which contain the locations
+        of the data files and the physical parameters the requested series
 
         TODO: add support for selecting waveforms based on physical parameters
         """
 
-        data_path = os.path.join(os.environ['BHEX_PREFIX'], data_path)
-        print os.path.join(os.environ['BHEX_PREFIX']
-        print data_path
-        sys.exit()
 
         valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
                 "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
@@ -158,43 +163,59 @@ class waveform_catalogue:
                 print >> sys.stderr, "ERROR: series name (%s)must be in "%(series_name), valid_series
                 sys.exit()
 
-            readme_file = os.path.join(data_path, series_name,
-                    'README_%s.txt'%series_name)
-            simulations.append(self._parse_readme(readme_file))
+            datadir = os.path.join(os.environ['BHEX_PREFIX'], catdir,
+                    series_name)
+
+            readme_file = os.path.join(datadir, 'README_%s.txt'%series_name)
+
+            simulations += self._get_series(datadir,readme_file)
 
         
         return simulations
 
-
     @staticmethod
-    def _parse_readme(readme_file):
+    def _select_param_values(simulations, param, bounds):
+        """
+        Return the list of simulations with parameter values in [low_bound,
+        upp_bound]
+        """
+        return [sim for sim in simulations if sim[param] >= min(bounds) and
+                sim[param]<=max(bounds) ]
+
+    @classmethod
+    def _get_series(cls, datadir, readme_file):
         """
         Read the parameters from the readme file and return a list of simulation
         dictionaries
         """
         readme_data = np.loadtxt(readme_file, dtype=str)
+
+        #param_names = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
+        #        'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz']
+
         simulations = []
         for s in xrange(len(readme_data)):
 
-            params = [float(param) for param in readme_data[s,2:]]
-            simulations.append(self._simulation(readme_data[s,1], *params))
+            sim = dict()
+
+            param_vals = [float(param) for param in readme_data[s,2:]]
+            # physical params
+            for p,param_name in enumerate(__param_names__):
+                sim[param_name] = param_vals[p]
+
+            # book-keeping
+            sim['wavename'] = readme_data[s,1]
+            sim['wavefile'] = glob.glob(os.path.join(datadir,sim['wavename'],'*asc'))
+
+            if len(sim['wavefile'])>1:
+                print >> sys.stderr, "Error more than one data file in directory: %s"%(
+                        os.path.join(datadir,sim['wavename']))
+                sys.exit(-1)
+
+            simulations.append(sim)
 
         return simulations
 
-
-    @staticmethod
-    def _simulation(wavedir, D, q, a1, a2, th1L, th2L, ph1, ph2, th12, thSL, thJL,
-            Mmin30Hz, Mmin10Hz):
-        """
-        Return a dictionary with the parameters of the simulation
-        """
-        params = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
-                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz']
-        sim = dict()
-        for param in params:
-            sim[param] = vars()[params]
-
-        return sim
 
 
     def build_waveforms(self):
@@ -456,39 +477,15 @@ class waveform_catalogue:
 # *******************************************************************************
 def main():
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # INPUT 
-
-    catalogue_name=sys.argv[1]
-
-    # Quick 'n' dirty sanity check (should use option parser really)
-    if catalogue_name not in ['Q','HR','RO3']:
-        print >> sys.stderr, \
-                "Error, catalogue '%s' not recognised "\
-                "(must be Q, HR or RO3)"%catalogue_name
-
-    #
-    # Setup and then build the catalogue
-    #
-    catalogue = waveform_catalogue(catalogue_name=catalogue_name, fs=512,
-            catalogue_len=8, mtotal_ref=250, Dist=1.)
-
-    #
-    # Do the PCA
-    #
-    pca = waveform_pca(catalogue)
-    #pca.file_dump()
-
-    return pca
+    print 'No main functionality defined'
 
 
 #
 # End definitions
 #
 if __name__ == "__main__":
-    pca_results = main()
-    pca_results.file_dump()
 
+    print 'No main functionality defined'
     
 
 
