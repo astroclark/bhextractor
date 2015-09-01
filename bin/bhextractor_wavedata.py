@@ -30,11 +30,11 @@ import glob
 import numpy as np
 import scipy.signal as signal
 
-import lal
-import lalsimulation as lalsim
-import pycbc.types
-import pycbc.filter
-from pycbc.psd import aLIGOZeroDetHighPower
+#import lal
+#import lalsimulation as lalsim
+#import pycbc.types
+#import pycbc.filter
+#from pycbc.psd import aLIGOZeroDetHighPower
 
 # *****************************************************************************
 global __param_names__
@@ -124,6 +124,7 @@ class waveform_data:
         self.series_names = series_names
         self.Mmin30Hz = Mmin30Hz
 
+        print "____"
         print "Finding matching waveforms"
 
         # Get all waveforms
@@ -139,9 +140,16 @@ class waveform_data:
                 self.simulations = self._select_param_values(self.simulations,
                         bound_param, param_bounds[bound_param])
 
+        print "----"
+        print "Found %d waveforms matching criteria:"%(len(self.simulations))
+        print "Series: ", series_names
+        print "Mmin30Hz: ", Mmin30Hz
+        print "Bounds: ", param_bounds
+        print "____"
+
 
     def list_simulations(self,series_names,
-            catdir="data/NR_data/GT_BBH_BURST_CATALOG"):
+            catdir="GT_BBH_BURST_CATALOG"):
         """
         Creates a list of simulation diectionaries which contain the locations
         of the data files and the physical parameters the requested series
@@ -163,14 +171,13 @@ class waveform_data:
                 print >> sys.stderr, "ERROR: series name (%s)must be in "%(series_name), valid_series
                 sys.exit()
 
-            datadir = os.path.join(os.environ['BHEX_PREFIX'], catdir,
-                    series_name)
+            datadir = os.path.join(os.environ['BHEX_PREFIX'], 'data/NR_data',
+                    catdir, series_name)
 
             readme_file = os.path.join(datadir, 'README_%s.txt'%series_name)
 
             simulations += self._get_series(datadir,readme_file)
 
-        
         return simulations
 
     @staticmethod
@@ -215,8 +222,6 @@ class waveform_data:
             simulations.append(sim)
 
         return simulations
-
-
 
     def build_waveforms(self):
         """
@@ -477,15 +482,28 @@ class waveform_data:
 # *******************************************************************************
 def main():
 
-    print 'No main functionality defined'
+    print '-----'
+    print 'Generating example waveform list'
+    print 'waveform list is a class with a list of \
+dictionaries where keys are physical parameters and file paths.  The user \
+specifies single or multiple waveform series from the GT catalogue and, \
+optionally, some constraints on the physical parameters.'
 
+    # select waveforms with mass ratio >= 2
+    bounds = dict()
+    bounds['q'] = [2, np.inf]
+
+    waves = waveform_data(series_names='RO3-series', Mmin30Hz=100.,
+                param_bounds=bounds)
+
+    return waves
 
 #
 # End definitions
 #
 if __name__ == "__main__":
 
-    print 'No main functionality defined'
+    waveform_list = main()
     
 
 
