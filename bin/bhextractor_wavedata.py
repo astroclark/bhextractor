@@ -30,7 +30,7 @@ import glob
 import numpy as np
 import scipy.signal as signal
 
-#import lal
+import lal
 #import lalsimulation as lalsim
 #import pycbc.types
 #import pycbc.filter
@@ -113,7 +113,23 @@ def planckwin(N, epsilon):
                      
 class waveform_data:
     """
-    Object with the full waveform catalogue for the chosen series
+    The waveform catalogue for the chosen series (possibly plural) with
+    user-specified parameter bounds.
+    
+    Example Usage:
+
+    In [24]: bounds = dict()
+
+    In [25]: bounds['q'] = [2, np.inf]
+
+    In [26]: simcat = bwave.waveform_data(series_names=['Eq-series',
+    'RO3-series'], param_bounds=bounds, Mmin30Hz=100)
+
+    In [28]: for sim in simcat.simulations: print sim
+    {'a1': 0.6, 'th2L': 90.0, 'D': 7.0, 'thJL': 19.8, 'th1L': 90.0, 'q': 2.5, 'th12': 180.0, 'a2': 0.6,  'wavefile': ['/home/jclark308/Projects/bhextractor/data/NR_data/GT_BBH_BURST_CATALOG/Eq-series/Eq_D7_q2.50_a0.6_ph270_m140/Strain_jinit_l2_m2_r75_Eq_D7_q2.50_a0.6_ph270_m140.asc'], 'wavename': 'Eq_D7_q2.50_a0.6_ph270_m140', 'ph2': 90.0, 'ph1': -90.0, 'Mmin30Hz': 97.3, 'Mmin10Hz': 292.0, 'thSL': 90.0}
+
+    ... and so on ...
+
     """
 
     def __init__(self, series_names='RO3-series', Mmin30Hz=100.,
@@ -124,7 +140,7 @@ class waveform_data:
         self.series_names = series_names
         self.Mmin30Hz = Mmin30Hz
 
-        print "____"
+        print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         print "Finding matching waveforms"
 
         # Get all waveforms
@@ -140,12 +156,14 @@ class waveform_data:
                 self.simulations = self._select_param_values(self.simulations,
                         bound_param, param_bounds[bound_param])
 
+        self.nsimulations = len(self.simulations)
+
         print "----"
-        print "Found %d waveforms matching criteria:"%(len(self.simulations))
+        print "Found %d waveforms matching criteria:"%(self.nsimulations)
         print "Series: ", series_names
         print "Mmin30Hz: ", Mmin30Hz
         print "Bounds: ", param_bounds
-        print "____"
+        print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 
     def list_simulations(self,series_names,
@@ -205,279 +223,291 @@ class waveform_data:
 
             sim = dict()
 
+            wavename = readme_data[s,1]
+            wavefile = glob.glob(os.path.join(datadir, wavename, '*asc'))
+
+            # Check that this waveform exists
+            if len(wavefile)>1:
+                print >> sys.stderr, "Error, more than one data file in directory: %s"%(
+                        os.path.join(datadir,wavename))
+                sys.exit(-1)
+            elif len(wavefile)==0:
+                print >> sys.stderr, "WARNING, No file matching glob pattern: \n%s"%(
+                        os.path.join(datadir,wavename, '*asc'))
+                continue
+            sim['wavename'] = wavename
+            sim['wavefile'] = wavefile[0]
+
             param_vals = [float(param) for param in readme_data[s,2:]]
             # physical params
             for p,param_name in enumerate(__param_names__):
                 sim[param_name] = param_vals[p]
 
-            # book-keeping
-            sim['wavename'] = readme_data[s,1]
-            sim['wavefile'] = glob.glob(os.path.join(datadir,sim['wavename'],'*asc'))
-
-            if len(sim['wavefile'])>1:
-                print >> sys.stderr, "Error more than one data file in directory: %s"%(
-                        os.path.join(datadir,sim['wavename']))
-                sys.exit(-1)
-
             simulations.append(sim)
 
         return simulations
 
-    def build_waveforms(self):
+class waveform_catalogue:
+    """
+    This contains the waveform data (as +,x, Amp and phase time-series and
+    F-domain waveforms) constructed from the catalogue contained in a
+    waveform_data class
+
+    """
+
+    def __init__(self, waveform_data, ref_mass=None, distance=100,
+            sample_rate=512, data_len=4): 
         """
-        Return a complex array with the time-domain waveforms for the requested
-        catalogue
+        Initalise with a waveform_data object and a reference mass ref_mass to
+        which waveforms get scaled.  If ref_mass is None, waveforms are left in
+        code units
         """
 
-        print >> sys.stderr, "WARNING: Turning off orientation and only using 2,2; orientation will be handled by LIB"
+        self.waveform_data = waveform_data
 
-        # ######################################################
-        # Some catalogue-specific stuff
-
-        # Dictionary with the maximum waveform data lengths
-        maxlengths={'Q':10959, 'HR':31238, 'RO3':16493}
-
-        # Dictionary of NR sample rates. XXX Should probably get this from the data,
-        # really
-        NR_deltaT={'Q':0.155, 'HR':0.08, 'RO3':2./15}
-
-        # Samples to discard due to NR noise
-        NRD_sampls=0.2*self.fs   # keep this many samples after the peak
-        NINSP_sampls=0.75*self.fs   # retain this many samples before the peak
-
-        # XXX: we should compute this from Karan's information..
-
-        # --- Identify waveforms in catalogue
-        catalogue_path=os.environ['BHEX_PREFIX']+'/data/NR_data/'+self.catalogue_name+'-series'
-        waveforms = [ f for f in os.listdir(catalogue_path) if
-                os.path.isdir(os.path.join(catalogue_path,f)) ]
-
-        # ---------- MASS-DEPENDENT CALCULATIONS -----------
-        # Determine current sample rate.  XXX: GIVEN A MASS 
-        SI_deltaT = self.mtotal_ref * lal.MTSUN_SI * NR_deltaT[self.catalogue_name]
-        Mscale = self.mtotal_ref * lal.MRSUN_SI / (self.Dist * 1e9 * lal.PC_SI)
-
-        # Get the length of the NR data
-        wflen=maxlengths[self.catalogue_name]
+        # Load in the NR waveform data
+        self.load_wavedata()
 
 
-        # Length to resample to: length of (e.g.) 250 Msun waveform in seconds x desired sample rate
-        resamp_len = np.ceil(wflen*SI_deltaT*self.fs)
-        catalogue=np.zeros(shape=(len(waveforms), resamp_len), dtype=complex)
-        amplitude_catalogue=np.zeros(shape=(len(waveforms), resamp_len))
-        phase_catalogue=np.zeros(shape=(len(waveforms), resamp_len))
+    def load_wavedata(self):
+        """
+        Load the waveform data pointed to by the waveform_data object
+        """
 
-        self.waveform_names = []
+        # Load the waveform data into lists for time, plus and cross.  When all
+        # data is loaded, identify the longest waveform and insert all waveforms
+        # into a numpy array of that length
+
+        time_data  = []
+        plus_data  = []
+        cross_data = []
 
         # Build waveforms in this catalogue
-        for w, waveform in enumerate(waveforms):
-            print 'Building %s waveform'%waveform
+        max_time=-np.inf
+        self.NR_deltaT=np.inf
 
-            self.waveform_names.append(waveform)
+        for w, sim in enumerate(self.waveform_data.simulations):
 
-            # Get files (modes) in this waveform dir
-            waveform_dir = catalogue_path+'/'+waveform
-            modes = [ f for f in os.listdir(waveform_dir) if
-                    os.path.isfile(os.path.join(waveform_dir,f)) ]
+            print 'Loading %s waveform'%sim['wavename']
 
-            # --- Sum modes
-            # See line 95 of NRWaveInject.c
-            hplus=np.zeros(wflen)
-            hcross=np.zeros(wflen)
-            for mode in modes:
+            wavedata = np.loadtxt(sim['wavefile'])
+
+            time_data.append(wavedata[:,0])
+            plus_data.append(wavedata[:,1])
+            cross_data.append(wavedata[:,2])
+
+            # Get characteristics to standardise waveforms
+            if wavedata[-1,0]>max_time:
+                max_time = np.copy(wavedata[-1,0])
+
+            if np.diff(wavedata[:,0])[0]<self.NR_deltaT:
+                self.NR_deltaT = np.diff(wavedata[:,0])[0]
 
 
-                # Extract l,m from filename
-                spharm_degree = int(mode.split('_')[2].replace('l',''))
-                spharm_order  = int(mode.split('_')[3].replace('m',''))
+        # Now resample to a consistent deltaT
+        time_data_resampled  = []
+        plus_data_resampled  = []
+        cross_data_resampled = []
 
-                if spharm_degree==spharm_order==2:
+        print 'Resampling to uniform rate'
+        max_length = -np.inf
+        for w in xrange(self.waveform_data.nsimulations): 
+            deltaT = np.diff(time_data[w])[0]
+            if deltaT > self.NR_deltaT:
+                resamp_len = deltaT / self.NR_deltaT * len(plus_data[w])
+                plus_data_resampled.append(signal.resample(plus_data[w],
+                    resamp_len))
+                cross_data_resampled.append(signal.resample(cross_data[w],
+                    resamp_len))
+            else:
+                plus_data_resampled.append(np.copy(plus_data[w]))
+                cross_data_resampled.append(np.copy(cross_data[w]))
 
-                    # Load mode data
-                    mode_data = np.loadtxt(waveform_dir+'/'+mode)
+            if len(plus_data_resampled[w])>max_length:
+                max_length = len(plus_data_resampled[w])
 
-                    # Compute spin -2 weighted spherical harmonic
-                    #sYlm = lal.SpinWeightedSphericalHarmonic(self.theta, self.phi, 
-                    #        -2, spharm_degree, spharm_order)
-                    #sYlm = lal.SpinWeightedSphericalHarmonic(0, 0, 
-                    #        -2, spharm_degree, spharm_order)
+        self.NRdata_len = 2*max_length
 
-                    # Orient Waveforms
-                    #hplus[0:len(mode_data)]  += mode_data[:,1]*np.real(sYlm) + \
-                    #        mode_data[:,2]*np.imag(sYlm)
-                    #hcross[0:len(mode_data)] += mode_data[:,2]*np.real(sYlm) - \
-                    #        mode_data[:,1]*np.imag(sYlm)
+        #
+        # Insert into a numpy array
+        #
+        self.NRdata = np.zeros(shape=(len(plus_data_resampled), self.NRdata_len),
+                dtype=complex)
 
-                    hplus[0:len(mode_data)]  += mode_data[:,1]
-                    hcross[0:len(mode_data)] += mode_data[:,2]
+        # Alignment
+        align_idx = 0.5*self.NRdata_len
+        for w in xrange(self.waveform_data.nsimulations):
 
-            #
-            # Clean up the waveform
-            #
+            wave = plus_data_resampled[w] - 1j*cross_data_resampled[w]
 
-            # --- Resampling 
-            hplus  = signal.resample(hplus, resamp_len)
-            hcross = signal.resample(hcross, resamp_len)
-
-            # Get rid of junk at end
-            peak_idx = np.argmax(abs(hplus-1j*hcross))
-            zero_idx = min(peak_idx + NRD_sampls, len(hplus))
-
-            hplus[zero_idx:]  = 0.0
-            hcross[zero_idx:] = 0.0
-
-            # Get rid of junk at start
-            startidx = max(0,np.argmax(abs(hplus-1j*hcross)) - NINSP_sampls)
-
-            hplus[:startidx] = 0.0
-            hcross[:startidx] = 0.0
-
-            # --- Windowing / tapering
-            hplus=window_wave(hplus)
-            hcross=window_wave(hcross)
-
-            #hplus = taper_start(hplus)
-            #hcross = taper_start(hcross)
-
-            # --- Filtering
-            #hplus  = highpass(hplus)
-            #hcross = highpass(hcross)
-
-            # Store complex waveform
-            catalogue[w,:] = hplus - 1j*hcross
-
-            amplitude_catalogue[w,:] = abs(catalogue[w,:])
-            phase_catalogue[w,:] = np.unwrap(np.angle(catalogue[w,:]))
-            
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # Plus/Cross Catalogue Conditioning
-
-        # Standardised catalogue 
-        self.aligned_catalogue = \
-                np.zeros(shape=(len(waveforms),self.catalogue_len),
-                        dtype=complex)
-
-        print 'aligning peak times for +,x waves'
-
-        # Find peak indices
-        peak_idx=np.argmax(abs(catalogue),axis=0)
-
-        # Align all waveform peaks to the 0.5 of the way through the final catalogue
-        #align_idx=np.floor(0.75*self.catalogue_len)
-        align_idx=np.floor(0.5*self.catalogue_len)
-
-        for w in xrange(len(waveforms)):
-            #print 'aligning %d of %d'%(w, len(waveforms))
-
-            non_zero_idx = \
-                    np.argwhere(abs(catalogue[w,:])>1e-3*max(abs(catalogue[w,:])))
-            trunc_wav = \
-                    catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
-
-            peak_idx=np.argmax(abs(trunc_wav))
+            peak_idx=np.argmax(abs(wave))
             start_idx = align_idx - peak_idx
 
-            self.aligned_catalogue[w,start_idx:start_idx+len(trunc_wav)] = trunc_wav
+            self.NRdata[w,start_idx:start_idx+len(wave)] = wave
 
-            # --- Normalisation
-            self.aligned_catalogue[w,:] /= \
-                    np.linalg.norm(self.aligned_catalogue[w,:])
+        del time_data, plus_data, cross_data, plus_data_resampled, cross_data_resampled
 
+        return 0
 
-        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-        # Amplitude / Phase Catalogue Conditioning
-
-        # Standardised catalogue (4 seconds long)
-        self.aligned_amplitudes = \
-                np.zeros(shape=(len(waveforms),self.catalogue_len))
-
-        self.aligned_phases = \
-                np.zeros(shape=(len(waveforms),self.catalogue_len))
-
-        print 'aligning peak times for +,x waves'
-
-        # Find peak indices
-        peak_idx=np.argmax(abs(amplitude_catalogue),axis=0)
-
-        # Align all waveform peaks to the 0.5 of the way through the final catalogue
-        align_idx=np.floor(0.5*self.catalogue_len)
-
-        for w in xrange(len(waveforms)):
-            #print 'aligning %d of %d'%(w, len(waveforms))
-
-            non_zero_idx = \
-                    np.argwhere(abs(amplitude_catalogue[w,:])>1e-3*max(abs(amplitude_catalogue[w,:])))
-            amp_trunc_wav = \
-                    amplitude_catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
-            phase_trunc_wav = \
-                    phase_catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
-
-            peak_idx=np.argmax(abs(amp_trunc_wav))
-            start_idx = align_idx - peak_idx
-
-            self.aligned_amplitudes[w,start_idx:start_idx+len(amp_trunc_wav)] = amp_trunc_wav
-            self.aligned_phases[w,start_idx:start_idx+len(phase_trunc_wav)] = phase_trunc_wav
-
-            # --- Normalisation
-            self.aligned_amplitudes[w,:] /= \
-                    np.linalg.norm(self.aligned_amplitudes[w,:])
-            #self.aligned_phases[w,:] /= \
-            #        np.linalg.norm(self.aligned_phases[w,:])
-
-    def fft_catalogue(self):
+    def catalogue_to_SI(self, ref_mass, sample_rate=1024, distance=100.):
         """
-        Add the amplitude and phase spectra of the waveforms from the TD
-        catalogue.  Might ultimately be useful for F-domain PCA, but for now
-        we'll just use it for plotting and diagnostics
+        Convert waveforms in self.NRdata to physical time stamps / amplitudes
+
         """
 
-        print 'FFTing the catalogue'
+        # Add physical attributes
+        self.ref_mass = ref_mass
+        self.sample_rate=sample_rate
+        self.distance=distance
 
-        # Get dims and add some info
-        example_td = pycbc.types.TimeSeries(
-                np.real(self.aligned_catalogue[0,:]),
-                delta_t=1.0/self.fs)
+        # Time steps of NR waveforms at the reference mass: 
+        SI_deltaT = ref_mass * lal.MTSUN_SI * self.NR_deltaT
+        Mscale = ref_mass * lal.MRSUN_SI / (distance * 1e6 * lal.PC_SI)
 
-        self.sample_times = example_td.sample_times - \
-                example_td.sample_times[np.argmax(example_td.data)]
+        # Resample to duration in seconds (=nsamples x deltaT) x samples / second
+        resamp_len = np.ceil(self.NRdata_len*SI_deltaT*self.sample_rate)
 
-        self.sample_times_ampalign = example_td.sample_times - \
-                example_td.sample_times[np.argmax(self.aligned_amplitudes[0,:])]
+        self.SIdata = np.zeros(shape=(self.waveform_data.nsimulations, resamp_len),
+                dtype=complex)
 
-        self.flen = len(example_td.to_frequencyseries())
+        for w in xrange(self.waveform_data.nsimulations):
+            self.SIdata[w,:] = Mscale*signal.resample(self.NRdata[w,:], resamp_len)
 
 
-        self.ampSpectraPlus = np.zeros(
-                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
-        self.phaseSpectraPlus = np.zeros(
-                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
-        self.ampSpectraCross = np.zeros(
-                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
-        self.phaseSpectraCross = np.zeros(
-                shape=(np.shape(self.aligned_catalogue)[0], self.flen))
 
-        for w in xrange(len(self.waveform_names)):
 
-            tdwavePlus = pycbc.types.TimeSeries(
-                    np.real(self.aligned_catalogue[w,:]),
-                    delta_t=1.0/self.fs)
 
-            tdwaveCross = pycbc.types.TimeSeries(
-                    -1*np.imag(self.aligned_catalogue[w,:]),
-                    delta_t=1.0/self.fs)
-            
-            fdwavePlus  = tdwavePlus.to_frequencyseries()
-            fdwaveCross = tdwaveCross.to_frequencyseries()
 
-            self.ampSpectraPlus[w,:] = abs(fdwavePlus)
-            self.phaseSpectraPlus[w,:] = \
-                    np.unwrap(np.angle(fdwavePlus))
-
-            self.ampSpectraCross[w,:] = abs(fdwaveCross)
-            self.phaseSpectraCross[w,:] = \
-                    np.unwrap(np.angle(fdwaveCross))
-
-        self.sample_frequencies = fdwavePlus.sample_frequencies
+#           
+#       # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#       # Plus/Cross Catalogue Conditioning
+#
+#       # Standardised catalogue 
+#       self.aligned_catalogue = \
+#               np.zeros(shape=(len(waveforms),self.catalogue_len),
+#                       dtype=complex)
+#
+#       print 'aligning peak times for +,x waves'
+#
+#       # Find peak indices
+#       peak_idx=np.argmax(abs(catalogue),axis=0)
+#
+#       # Align all waveform peaks to the 0.5 of the way through the final catalogue
+#       #align_idx=np.floor(0.75*self.catalogue_len)
+#       align_idx=np.floor(0.5*self.catalogue_len)
+#
+#       for w in xrange(len(waveforms)):
+#           #print 'aligning %d of %d'%(w, len(waveforms))
+#
+#           non_zero_idx = \
+#                   np.argwhere(abs(catalogue[w,:])>1e-3*max(abs(catalogue[w,:])))
+#           trunc_wav = \
+#                   catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
+#
+#           peak_idx=np.argmax(abs(trunc_wav))
+#           start_idx = align_idx - peak_idx
+#
+#           self.aligned_catalogue[w,start_idx:start_idx+len(trunc_wav)] = trunc_wav
+#
+#           # --- Normalisation
+#           self.aligned_catalogue[w,:] /= \
+#                   np.linalg.norm(self.aligned_catalogue[w,:])
+#
+#
+#       # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#       # Amplitude / Phase Catalogue Conditioning
+#
+#       # Standardised catalogue (4 seconds long)
+#       self.aligned_amplitudes = \
+#               np.zeros(shape=(len(waveforms),self.catalogue_len))
+#
+#       self.aligned_phases = \
+#               np.zeros(shape=(len(waveforms),self.catalogue_len))
+#
+#       print 'aligning peak times for +,x waves'
+#
+#       # Find peak indices
+#       peak_idx=np.argmax(abs(amplitude_catalogue),axis=0)
+#
+#       # Align all waveform peaks to the 0.5 of the way through the final catalogue
+#       align_idx=np.floor(0.5*self.catalogue_len)
+#
+#       for w in xrange(len(waveforms)):
+#           #print 'aligning %d of %d'%(w, len(waveforms))
+#
+#           non_zero_idx = \
+#                   np.argwhere(abs(amplitude_catalogue[w,:])>1e-3*max(abs(amplitude_catalogue[w,:])))
+#           amp_trunc_wav = \
+#                   amplitude_catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
+#           phase_trunc_wav = \
+#                   phase_catalogue[w,non_zero_idx[0]:non_zero_idx[-1]]
+#
+#           peak_idx=np.argmax(abs(amp_trunc_wav))
+#           start_idx = align_idx - peak_idx
+#
+#           self.aligned_amplitudes[w,start_idx:start_idx+len(amp_trunc_wav)] = amp_trunc_wav
+#           self.aligned_phases[w,start_idx:start_idx+len(phase_trunc_wav)] = phase_trunc_wav
+#
+#           # --- Normalisation
+#           self.aligned_amplitudes[w,:] /= \
+#                   np.linalg.norm(self.aligned_amplitudes[w,:])
+#           #self.aligned_phases[w,:] /= \
+#           #        np.linalg.norm(self.aligned_phases[w,:])
+#
+#   def fft_catalogue(self):
+#       """
+#       Add the amplitude and phase spectra of the waveforms from the TD
+#       catalogue.  Might ultimately be useful for F-domain PCA, but for now
+#       we'll just use it for plotting and diagnostics
+#       """
+#
+#       print 'FFTing the catalogue'
+#
+#       # Get dims and add some info
+#       example_td = pycbc.types.TimeSeries(
+#               np.real(self.aligned_catalogue[0,:]),
+#               delta_t=1.0/self.fs)
+#
+#       self.sample_times = example_td.sample_times - \
+#               example_td.sample_times[np.argmax(example_td.data)]
+#
+#       self.sample_times_ampalign = example_td.sample_times - \
+#               example_td.sample_times[np.argmax(self.aligned_amplitudes[0,:])]
+#
+#       self.flen = len(example_td.to_frequencyseries())
+#
+#
+#       self.ampSpectraPlus = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#       self.phaseSpectraPlus = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#       self.ampSpectraCross = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#       self.phaseSpectraCross = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#
+#       for w in xrange(len(self.waveform_names)):
+#
+#           tdwavePlus = pycbc.types.TimeSeries(
+#                   np.real(self.aligned_catalogue[w,:]),
+#                   delta_t=1.0/self.fs)
+#
+#           tdwaveCross = pycbc.types.TimeSeries(
+#                   -1*np.imag(self.aligned_catalogue[w,:]),
+#                   delta_t=1.0/self.fs)
+#           
+#           fdwavePlus  = tdwavePlus.to_frequencyseries()
+#           fdwaveCross = tdwaveCross.to_frequencyseries()
+#
+#           self.ampSpectraPlus[w,:] = abs(fdwavePlus)
+#           self.phaseSpectraPlus[w,:] = \
+#                   np.unwrap(np.angle(fdwavePlus))
+#
+#           self.ampSpectraCross[w,:] = abs(fdwaveCross)
+#           self.phaseSpectraCross[w,:] = \
+#                   np.unwrap(np.angle(fdwaveCross))
+#
+#       self.sample_frequencies = fdwavePlus.sample_frequencies
 
 # *******************************************************************************
 def main():
