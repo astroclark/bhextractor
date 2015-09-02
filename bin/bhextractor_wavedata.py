@@ -106,6 +106,9 @@ def planckwin(N, epsilon):
 
     return win
 
+def phase_of(z):
+    return np.unwrap(np.angle(z))
+
 
 # *****************************************************************************
 # Class Definitions 
@@ -273,10 +276,15 @@ class waveform_catalogue:
             # catalogue_to_SI() adds variables to self
             self.catalogue_to_SI(ref_mass, sample_rate, distance, datalen)
 
-
     def load_wavedata(self):
         """
         Load the waveform data pointed to by the simulation_details object
+
+        NOTE: Currently set up to compute amplitude and phase timeseries from
+        the resampled complex time series.  This is probably the wrong way
+        round; the amp/phase representation is smoother and might be a more
+        sensible thing to resample.  If weirdness is encountered, I recommend
+        investigating that option as a resolution.
         """
 
         # Load the waveform data into lists for time, plus and cross.  When all
@@ -336,8 +344,12 @@ class waveform_catalogue:
         #
         # Insert into a numpy array
         #
-        self.NRdata = np.zeros(shape=(len(plus_data_resampled), self.NRdata_len),
-                dtype=complex)
+        self.NRComplexTimeSeries = np.zeros(shape=(len(plus_data_resampled),
+            self.NRdata_len), dtype=complex)
+        self.NRAmpTimeSeries = np.zeros(shape=(len(plus_data_resampled),
+            self.NRdata_len), dtype=complex)
+        self.NRPhaseTimeSeries = np.zeros(shape=(len(plus_data_resampled),
+            self.NRdata_len), dtype=complex)
 
         # Alignment
         align_idx = 0.5*self.NRdata_len
@@ -348,11 +360,15 @@ class waveform_catalogue:
             peak_idx=np.argmax(abs(wave))
             start_idx = align_idx - peak_idx
 
-            self.NRdata[w,start_idx:start_idx+len(wave)] = wave
+            self.NRComplexTimeSeries[w,start_idx:start_idx+len(wave)] = wave
+            self.NRAmpTimeSeries[w,:] = abs(self.NRComplexTimeSeries[w,:])
+            self.NRPhaseTimeSeries[w,:] = phase_of(self.NRComplexTimeSeries[w,:])
 
         del time_data, plus_data, cross_data, plus_data_resampled, cross_data_resampled
 
         return 0
+
+    # XXX: TRUNCATION HERE?
 
     def catalogue_to_SI(self, ref_mass, sample_rate=1024, distance=100.,
             datalen=4):
@@ -372,21 +388,83 @@ class waveform_catalogue:
         # Resample to duration in seconds (=nsamples x deltaT) x samples / second
         resamp_len = np.ceil(self.NRdata_len*SI_deltaT*self.sample_rate)
 
-        self.SIdata = np.zeros(shape=(self.simulation_details.nsimulations,
+        self.SIComplexTimeSeries = np.zeros(shape=(self.simulation_details.nsimulations,
+            datalen*sample_rate), dtype=complex)
+        self.SIAmpTimeSeries = np.zeros(shape=(self.simulation_details.nsimulations,
+            datalen*sample_rate), dtype=complex)
+        self.SIPhaseTimeSeries = np.zeros(shape=(self.simulation_details.nsimulations,
             datalen*sample_rate), dtype=complex)
 
         for w in xrange(self.simulation_details.nsimulations):
 
-            resampled_re = signal.resample(np.real(self.NRdata[w,:]), resamp_len)
-            resampled_im = signal.resample(np.imag(self.NRdata[w,:]), resamp_len)
+            resampled_re = signal.resample(np.real(self.NRComplexTimeSeries[w,:]), resamp_len)
+            resampled_im = signal.resample(np.imag(self.NRComplexTimeSeries[w,:]), resamp_len)
 
             peakidx = np.argmax(abs(resampled_re + 1j*resampled_im))
             startidx = 0.5*datalen*sample_rate - peakidx
 
-            self.SIdata[w,startidx:startidx+len(resampled_re)] = \
+            self.SIComplexTimeSeries[w,startidx:startidx+len(resampled_re)] = \
                     Mscale*(resampled_re + 1j*resampled_im)
 
+            self.SIAmpTimeSeries[w,:] = abs(self.SIComplexTimeSeries[w,:])
+            self.SIPhaseTimeSeries[w,:] = phase_of(self.SIComplexTimeSeries[w,:])
+
         return 0
+
+#   def fft_catalogue(self):
+#       """
+#       Add the amplitude and phase spectra of the waveforms from the TD
+#       catalogue.  Might ultimately be useful for F-domain PCA, but for now
+#       we'll just use it for plotting and diagnostics
+#       """
+#
+#       print 'FFTing the catalogue'
+#
+#       # Get dims and add some info
+#       example_td = pycbc.types.TimeSeries(
+#               np.real(self.aligned_catalogue[0,:]),
+#               delta_t=1.0/self.fs)
+#
+#       self.sample_times = example_td.sample_times - \
+#               example_td.sample_times[np.argmax(example_td.data)]
+#
+#       self.sample_times_ampalign = example_td.sample_times - \
+#               example_td.sample_times[np.argmax(self.aligned_amplitudes[0,:])]
+#
+#       self.flen = len(example_td.to_frequencyseries())
+#
+#
+#       self.ampSpectraPlus = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#       self.phaseSpectraPlus = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#       self.ampSpectraCross = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#       self.phaseSpectraCross = np.zeros(
+#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
+#
+#       for w in xrange(len(self.waveform_names)):
+#
+#           tdwavePlus = pycbc.types.TimeSeries(
+#                   np.real(self.aligned_catalogue[w,:]),
+#                   delta_t=1.0/self.fs)
+#
+#           tdwaveCross = pycbc.types.TimeSeries(
+#                   -1*np.imag(self.aligned_catalogue[w,:]),
+#                   delta_t=1.0/self.fs)
+#           
+#           fdwavePlus  = tdwavePlus.to_frequencyseries()
+#           fdwaveCross = tdwaveCross.to_frequencyseries()
+#
+#           self.ampSpectraPlus[w,:] = abs(fdwavePlus)
+#           self.phaseSpectraPlus[w,:] = \
+#                   np.unwrap(np.angle(fdwavePlus))
+#
+#           self.ampSpectraCross[w,:] = abs(fdwaveCross)
+#           self.phaseSpectraCross[w,:] = \
+#                   np.unwrap(np.angle(fdwaveCross))
+#
+#       self.sample_frequencies = fdwavePlus.sample_frequencies
 
 # *******************************************************************************
 def main():

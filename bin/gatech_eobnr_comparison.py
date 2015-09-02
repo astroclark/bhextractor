@@ -55,18 +55,19 @@ sample_rate = 1024
 datalen= 4.0
 
 total_mass = 100.
-mass_ratio = 2.
+#mass_ratio = 1.
 
 distance=1.
 
 #series_names = ['Eq-series']#, 'HRq-series']
-series_names = ['HRq-series']
+series_names = ['HR-series']
 
-bounds=None
+#bounds=None
 # Change to e.g.:
 #
-# bounds=dict()
-# bounds['q'] = [-np.inf, 2] 
+bounds=dict()
+#bounds['q'] = [-np.inf, 2] 
+bounds['q'] = [11, np.inf] 
 #
 # to only use simulations with q<=2
 
@@ -121,8 +122,9 @@ for s,simulation in enumerate(simulations_list.simulations):
             delta_t=1.0/sample_rate)
 
     # Get the NR (plus) wave and put it in a pycbc TimeSeries object
-    hplus_NR = pycbc.types.TimeSeries(np.real(NR_catalogue.SIdata[s,:]),
-            delta_t=1./sample_rate)
+    hplus_NR = \
+            pycbc.types.TimeSeries(np.real(NR_catalogue.SIComplexTimeSeries[s,:]),
+                    delta_t=1./sample_rate)
 
     # Make the timeseries consistent lengths
     tlen = max(len(hplus_NR), len(hplus_EOBNR))
