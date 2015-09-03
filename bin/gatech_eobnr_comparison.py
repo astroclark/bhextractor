@@ -92,6 +92,8 @@ print ''
 
 simulations_list = bwave.simulation_details(series_names=series_names,
         param_bounds=bounds, Mmin30Hz=total_mass)
+simulations_list._check_sim_unique(simulations_list.simulations)
+sys.exit()
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
