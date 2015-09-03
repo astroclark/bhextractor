@@ -202,6 +202,36 @@ class simulation_details:
         return simulations
 
     @staticmethod
+    def _check_sim_unique(simulations):
+        """
+        Reduce the list of simulations to those which have unique parameter
+        combinations
+
+        XXX: Note that this (currently) takes the FIRST unique simulation; it
+        doesn't care what the resolution or series was
+        """
+        print "Ensuring uniqueness of simulations"
+
+        physical_params = 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', \
+                'th12', 'thSL', 'thJL'
+
+        params = []
+        for s in xrange(len(simulations)):
+            param_vals = np.zeros(len(physical_params))
+            for p,param_name in enumerate(physical_params):
+                param_vals[p] = simulations[s][param_name]
+            param_vals[np.isnan(param_vals)] = np.inf
+            params.append(tuple(param_vals))
+ 
+        unique_params = list(set(params))
+        for item in unique_params:
+            print params.index(item)
+
+        sys.exit()
+
+        return unique_simulations
+
+    @staticmethod
     def _select_param_values(simulations, param, bounds):
         """
         Return the list of simulations with parameter values in [low_bound,
