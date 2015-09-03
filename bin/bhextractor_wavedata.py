@@ -142,22 +142,13 @@ class simulation_details:
         # Other initialisation
         self.series_names = series_names
         self.Mmin30Hz = Mmin30Hz
+        self.param_bounds = param_bounds
 
         print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         print "Finding matching waveforms"
 
         # Get all waveforms
-        all_simulations = self.list_simulations(series_names)
-
-        # Down-select to those with a desirably small minimum mass
-        self.simulations = self._select_param_values(all_simulations, 'Mmin30Hz',
-                [-np.inf, self.Mmin30Hz])
-
-        # Now down-select on any other parameters
-        if param_bounds is not None:
-            for bound_param in param_bounds.keys():
-                self.simulations = self._select_param_values(self.simulations,
-                        bound_param, param_bounds[bound_param])
+        self.simulations = self.list_simulations(series_names)
 
         self.nsimulations = len(self.simulations)
 
@@ -199,6 +190,18 @@ class simulation_details:
 
             simulations += self._get_series(datadir,readme_file)
 
+        # Down-select to those with a desirably small minimum mass
+        simulations = self._select_param_values(simulations, 'Mmin30Hz',
+                [-np.inf, self.Mmin30Hz])
+
+        # Now down-select on any other parameters
+        if self.param_bounds is not None:
+            for bound_param in self.param_bounds.keys():
+                simulations = self._select_param_values(simulations,
+                        bound_param, self.param_bounds[bound_param])
+
+        simulations = self._check_sim_unique(simulations)
+
         return simulations
 
     @staticmethod
@@ -212,22 +215,30 @@ class simulation_details:
         """
         print "Ensuring uniqueness of simulations"
 
+
+        unique_simulations = list(simulations)
+
         physical_params = 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', \
                 'th12', 'thSL', 'thJL'
 
-        params = []
+        param_sets = []
         for s in xrange(len(simulations)):
             param_vals = np.zeros(len(physical_params))
             for p,param_name in enumerate(physical_params):
                 param_vals[p] = simulations[s][param_name]
             param_vals[np.isnan(param_vals)] = np.inf
-            params.append(tuple(param_vals))
- 
-        unique_params = list(set(params))
-        for item in unique_params:
-            print params.index(item)
+            param_sets.append(tuple(param_vals))
 
-        sys.exit()
+        unique_param_sets = list(set(param_sets))
+
+        for unique_param_set in unique_param_sets:
+
+            indices = [i for i, x in enumerate(param_sets) if [x] ==
+                    [unique_param_set]]
+
+            if len(indices)>1:
+                for index in indices[1:]:
+                    unique_simulations.remove(simulations[index])
 
         return unique_simulations
 

@@ -69,7 +69,7 @@ series_names = ['HR-series']
 # Change to e.g.:
 #
 bounds=dict()
-bounds['q'] = [1, 1] 
+bounds['q'] = [1, 2] 
 bounds['a1'] = [0, 0]
 bounds['a2'] = [0, 0]
 #bounds['q'] = [11, np.inf] 
@@ -92,8 +92,6 @@ print ''
 
 simulations_list = bwave.simulation_details(series_names=series_names,
         param_bounds=bounds, Mmin30Hz=total_mass)
-simulations_list._check_sim_unique(simulations_list.simulations)
-sys.exit()
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
