@@ -210,8 +210,8 @@ class simulation_details:
         return [sim for sim in simulations if sim[param] >= min(bounds) and
                 sim[param]<=max(bounds) ]
 
-    @classmethod
-    def _get_series(cls, datadir, readme_file):
+    @staticmethod
+    def _get_series(datadir, readme_file):
         """
         Read the parameters from the readme file and return a list of simulation
         dictionaries
