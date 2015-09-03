@@ -28,10 +28,13 @@ import sys
 import numpy as np
 import bhextractor_wavedata as bwave
 
+import lal
 import pycbc.types
 from pycbc.waveform import get_td_waveform
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
+
+from matplotlib import pyplot as pl
 
 def component_masses(total_mass, mass_ratio):
     """
@@ -48,10 +51,10 @@ def component_masses(total_mass, mass_ratio):
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User Options (mass configurations, noise curves etc)
 
-f_low = 25. # Min freq for waveform generation
+f_low = 10. # Min freq for waveform generation
 f_min = 30. # Min freq for match calculation
 
-sample_rate = 1024
+sample_rate = 4096
 datalen= 4.0
 
 total_mass = 100.
@@ -66,8 +69,10 @@ series_names = ['HR-series']
 # Change to e.g.:
 #
 bounds=dict()
-#bounds['q'] = [-np.inf, 2] 
-bounds['q'] = [11, np.inf] 
+bounds['q'] = [1, 1] 
+bounds['a1'] = [0, 0]
+bounds['a2'] = [0, 0]
+#bounds['q'] = [11, np.inf] 
 #
 # to only use simulations with q<=2
 
@@ -120,6 +125,9 @@ for s,simulation in enumerate(simulations_list.simulations):
             mass2=mass2,
             f_lower=f_low,
             delta_t=1.0/sample_rate)
+    # divide out the spherical harmonic (2,2) amplitude
+    sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
+    hplus_EOBNR.data /= np.real(sY22)
 
     # Get the NR (plus) wave and put it in a pycbc TimeSeries object
     hplus_NR = \
@@ -131,7 +139,27 @@ for s,simulation in enumerate(simulations_list.simulations):
     hplus_EOBNR.resize(tlen)
     hplus_NR.resize(tlen)
 
-    matches[s] = pycbc.filter.match(hplus_EOBNR, hplus_NR,
-            low_frequency_cutoff=f_min, psd=psd)[0] 
+    m, snr_max_loc = pycbc.filter.match(hplus_EOBNR, hplus_NR,
+            low_frequency_cutoff=f_min, psd=psd)
+    matches[s] = np.copy(m)
     # match() returns the index for peak snr as well as the match
+
+    NR_max_loc = np.argmax(hplus_NR)
+
+    f, ax = pl.subplots()
+    #ax.plot(hplus_EOBNR.sample_times+hplus_EOBNR.sample_times[idx], hplus_EOBNR)
+    ax.plot(hplus_EOBNR.sample_times, hplus_EOBNR)
+    ax.plot(hplus_NR.sample_times - hplus_NR.sample_times[NR_max_loc], -1*hplus_NR)
+    ax.minorticks_on()
+
+    f, ax = pl.subplots()
+    ax.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
+            abs(hplus_EOBNR.to_frequencyseries()))
+    ax.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
+            abs(hplus_NR.to_frequencyseries()))
+    ax.axvline(30, color='k')
+    ax.minorticks_on()
+
+    pl.show()
+    sys.exit()
 
