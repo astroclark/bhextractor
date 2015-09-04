@@ -54,10 +54,10 @@ def component_masses(total_mass, mass_ratio):
 f_low = 10. # Min freq for waveform generation
 f_min = 30. # Min freq for match calculation
 
-sample_rate = 4096
+sample_rate = 1024
 datalen= 4.0
 
-total_mass = 100.
+total_mass = 150.
 #mass_ratio = 1.
 
 distance=1.
@@ -69,17 +69,13 @@ series_names = ['HR-series']
 # Change to e.g.:
 #
 bounds=dict()
-bounds['q'] = [1, 2] 
+#bounds['q'] = [1, 2] 
 bounds['a1'] = [0, 0]
 bounds['a2'] = [0, 0]
 #bounds['q'] = [11, np.inf] 
 #
 # to only use simulations with q<=2
 
-# Generate a noise curve:
-delta_f = 1.0 / datalen
-flen = datalen*sample_rate/2 + 1
-psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Select & Generate NR waveforms
@@ -110,6 +106,8 @@ matches = np.zeros(simulations_list.nsimulations)
 mass_ratios = np.zeros(simulations_list.nsimulations)
 
 # Retrieve the mass ratio:
+f1, ax1 = pl.subplots()
+f2, ax2 = pl.subplots()
 for s,simulation in enumerate(simulations_list.simulations):
     
     print 'Matching waveform %d of %d'%(s, simulations_list.nsimulations)
@@ -129,15 +127,27 @@ for s,simulation in enumerate(simulations_list.simulations):
     sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
     hplus_EOBNR.data /= np.real(sY22)
 
+    hplus_EOBNR.data = bwave.window_wave(hplus_EOBNR.data)
+
     # Get the NR (plus) wave and put it in a pycbc TimeSeries object
     hplus_NR = \
             pycbc.types.TimeSeries(np.real(NR_catalogue.SIComplexTimeSeries[s,:]),
                     delta_t=1./sample_rate)
+    hplus_NR.data = bwave.window_wave(hplus_NR.data)
 
     # Make the timeseries consistent lengths
     tlen = max(len(hplus_NR), len(hplus_EOBNR))
     hplus_EOBNR.resize(tlen)
     hplus_NR.resize(tlen)
+
+    #
+    # Match Calculation
+    #
+    # Generate a noise curve:
+    Hplus_NR = hplus_NR.to_frequencyseries()
+    delta_f = Hplus_NR.delta_f
+    flen = len(Hplus_NR)
+    psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
 
     m, snr_max_loc = pycbc.filter.match(hplus_EOBNR, hplus_NR,
             low_frequency_cutoff=f_min, psd=psd)
@@ -146,20 +156,17 @@ for s,simulation in enumerate(simulations_list.simulations):
 
     NR_max_loc = np.argmax(hplus_NR)
 
-    f, ax = pl.subplots()
-    #ax.plot(hplus_EOBNR.sample_times+hplus_EOBNR.sample_times[idx], hplus_EOBNR)
-    ax.plot(hplus_EOBNR.sample_times, hplus_EOBNR)
-    ax.plot(hplus_NR.sample_times - hplus_NR.sample_times[NR_max_loc], -1*hplus_NR)
-    ax.minorticks_on()
+    ax1.plot(hplus_EOBNR.sample_times, hplus_EOBNR, linestyle='-')
+    ax1.plot(hplus_NR.sample_times - hplus_NR.sample_times[NR_max_loc],
+            -1*hplus_NR, linestyle='--')
+    ax1.minorticks_on()
 
-    f, ax = pl.subplots()
-    ax.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
+    ax2.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
             abs(hplus_EOBNR.to_frequencyseries()))
-    ax.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
+    ax2.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
             abs(hplus_NR.to_frequencyseries()))
-    ax.axvline(30, color='k')
-    ax.minorticks_on()
+    ax2.axvline(30, color='k')
+    ax2.minorticks_on()
 
-    pl.show()
-    sys.exit()
+pl.show()
 

@@ -63,21 +63,9 @@ def window_wave(input_data):
 
     nonzero=np.argwhere(abs(input_data)>1e-3*max(abs(input_data)))
     idx = range(nonzero[0],nonzero[-1])
-
-
     win = planckwin(len(idx), 0.3)
     win[0.5*len(win):] = 1.0
-
-#   from matplotlib import pyplot as pl
-#   pl.figure()
-#   pl.plot(input_data[idx]/input_data[idx].max())
     input_data[idx] *= win
-    #input_data *= win
-
-#   pl.plot(input_data[idx]/input_data[idx].max())
-#   pl.plot(win)
-#   pl.show()
-#   sys.exit()
 
     return input_data
 
