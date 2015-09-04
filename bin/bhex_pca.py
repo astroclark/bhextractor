@@ -36,17 +36,10 @@ import pycbc.types
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
 
+import bhex_wavedata as bwave
+
 # *****************************************************************************
 # Function Definitions 
-
-
-def highpass(timeseries, delta_t=1./512, knee=9., order=12, attn=0.1):
-
-    tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
-
-    return np.array(pycbc.filter.highpass(tmp, frequency=knee, filter_order=order,
-            attenuation=attn).data)
-
 
 
 def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
@@ -111,13 +104,12 @@ def perform_pca(data_matrix):
     waveform catalogue
     """
 
-    print 'performing PCA'
-
     #pca = PCA(whiten=True)
     pca = PCA(whiten=False)
     pca.fit(data_matrix)
 
     return pca
+
 
 
 # *****************************************************************************
@@ -129,52 +121,142 @@ class waveform_pca:
     waveform catalogue object as input.
     """
 
-    def __init__(self, training_catalogue, testing_catalogue):
+    def __init__(self, training_catalogue, test_catalogue=None):
 
-        self.training_catalogue = training_catalogue
-        self.testing_catalogue  = testing_catalogue
+        # XXX: don't need to store these, right?
+#       self.training_catalogue = training_catalogue
+#       if test_catalogue is not None:
+#           self.test_catalogue  = test_catalogue
 
         #
         # PCA of the NR data
         #
-        print "Performing PCA of NR waveforms"
-        self.NRwave_PCA = perform_pca(training_catalogue.NRdata)
+        print "PCA of NR waveforms"
 
-        # Project the testing catalogue onto the new basis formed from the
-        # training catalogue
-        self.project_catalogue(testing_catalogue.NRdata)
+        # XXX: Probably the smart place to truncate the catalogue so we have
+        # equal length waveforms
+
+        self.NRhplusTimeSeriesPCA = \
+                perform_pca(np.real(training_catalogue.NRComplexTimeSeries))
+        self.NRhcrossTimeSeriesPCA = \
+                perform_pca(-1*np.imag(training_catalogue.NRComplexTimeSeries))
+        self.NRAmpTimeSeriesPCA = \
+                perform_pca(training_catalogue.NRAmpTimeSeries)
+        self.NRPhaseTimeSeriesPCA = \
+                perform_pca(training_catalogue.NRPhaseTimeSeries)
+
+
 
         #
         # PCA of the SI data (if any)
         #
-        if hasattr(training_catalogue, 'SIdata'):
-            print "Performing PCA of SI waveforms"
-            self.SIwave_PCA = perform_pca(training_catalogue.SIdata)
+        if hasattr(training_catalogue, 'ref_mass'):
+            print "PCA of SI waveforms"
+            
+            # XXX: Can add any extra conditioning (e.g., filters) here
 
-        if hasattr(training_catalogue, 'SIdata') and hasattr(testing_catalogue, 'SIdata'):
-            self.project_catalogue(testing_catalogue.SIdata)
-        else:
-            print "No SI projections computed; one of training/testing catalogues
-does not have SIdata"
+            self.SIhplusTimeSeriesPCA = \
+                    perform_pca(np.real(training_catalogue.SIComplexTimeSeries))
+            self.SIhcrossTimeSeriesPCA = \
+                    perform_pca(-1*np.imag(training_catalogue.SIComplexTimeSeries))
+            self.SIAmpTimeSeriesPCA = \
+                    perform_pca(training_catalogue.SIAmpTimeSeries)
+            self.SIPhaseTimeSeriesPCA = \
+                    perform_pca(training_catalogue.SIPhaseTimeSeries)
+ 
 
+        # Project the test catalogue onto the new basis formed from the
+        # training catalogue
+        if test_catalogue is not None:
+            print "Evaluating projection of test catalogue onto new basis"
+            self.project_test_catalogue(test_catalogue)
 
-    def add_pca(self, training_data):
+    def project_test_catalogue(self, test_catalogue):
         """
-        Append PCA objects for the plus, cross, amplitude and phase time series
+        Project catalogue waveforms onto the new basis to find the
+        coefficients for each waveform
+        
+        Updates the simulation_details object in the test catalogue with the
+        projection onto this basis
 
         """
-        # TODO: 1) return pca objects for plus, cross, amplitude and phase
 
-        hplus = np.real(training_data)
-        hcross = -1*np.imag(training_data)
-        amplitude = abs(training_data)
-        phase = np.zeros(shape=np.shape(training_data))
-        for idx in xrange(np.shape(training_data)[0]):
-            phase[idx,:] = phase_of(training_data[idx,:])
+        print 'Projecting time-domain test catalogue onto new basis'
+
+        self.test_catalogue_data = \
+                list(test_catalogue.simulation_details.simulations)
+
+        for w in xrange(len(self.test_catalogue_data)):
+
+            self.test_catalogue_data[w]\
+                    ['NRhplusTimeSeriesBetas'] = \
+                    np.concatenate( 
+                            self.NRhplusTimeSeriesPCA.transform(
+                                np.real(test_catalogue.NRComplexTimeSeries[w,:])
+                                ) 
+                            )
+
+            self.test_catalogue_data[w]\
+                    ['NRhcrossTimeSeriesBetas'] = \
+                    np.concatenate( 
+                            self.NRhcrossTimeSeriesPCA.transform(
+                                -1*np.imag(test_catalogue.NRComplexTimeSeries[w,:])
+                                ) 
+                            )
+
+            self.test_catalogue_data[w]\
+                    ['NRAmpTimeSeriesBetas'] = \
+                    np.concatenate( 
+                            self.NRAmpTimeSeriesPCA.transform(
+                                test_catalogue.NRAmpTimeSeries[w,:]
+                                ) 
+                            )
+
+            self.test_catalogue_data[w]\
+                    ['NRPhaseTimeSeriesBetas'] = \
+                    np.concatenate( 
+                            self.NRPhaseTimeSeriesPCA.transform(
+                                test_catalogue.NRPhaseTimeSeries[w,:]
+                                ) 
+                            )
+
+            if hasattr(test_catalogue, 'ref_mass'):
+
+                self.test_catalogue_data[w]\
+                        ['SIhplusTimeSeriesBetas'] = \
+                        np.concatenate( 
+                                self.SIhplusTimeSeriesPCA.transform(
+                                    np.real(test_catalogue.SIComplexTimeSeries[w,:])
+                                    ) 
+                                )
+
+                self.test_catalogue_data[w]\
+                        ['SIhcrossTimeSeriesBetas'] = \
+                        np.concatenate( 
+                                self.SIhcrossTimeSeriesPCA.transform(
+                                    -1*np.imag(test_catalogue.SIComplexTimeSeries[w,:])
+                                    ) 
+                                )
+
+                self.test_catalogue_data[w]\
+                        ['SIAmpTimeSeriesBetas'] = \
+                        np.concatenate( 
+                                self.SIAmpTimeSeriesPCA.transform(
+                                    test_catalogue.SIAmpTimeSeries[w,:]
+                                    ) 
+                                )
+
+                self.test_catalogue_data[w]\
+                        ['SIPhaseTimeSeriesBetas'] = \
+                        np.concatenate( 
+                                self.SIPhaseTimeSeriesPCA.transform(
+                                    test_catalogue.SIPhaseTimeSeries[w,:]
+                                    ) 
+                                )
 
 
+        return 0
 
-        return pca
 
 
     def file_dump(self, identifier=None):
@@ -261,38 +343,7 @@ does not have SIdata"
         output_array_phase.tofile(fpphase)
 
 
-    def project_catalogue(self):
-        """
-        Project catalogue waveforms onto the new basis to find the
-        coefficients for each waveform
-        """
 
-        print 'Projecting time-domain testing catalogue onto new basis'
-
-        # Store the projection coefficients in a dictionary, keyed by the
-        # waveform names
-        self.projection_plus  = dict()
-        self.projection_cross = dict()
-        self.projection_amp   = dict()
-        self.projection_phase = dict()
-
-        for w in xrange(np.shape(self.testing_catalogue.aligned_catalogue)[0]):
-
-            self.projection_plus[self.testing_catalogue.waveform_names[w]] = \
-                    compute_projection(np.real(self.testing_catalogue.aligned_catalogue[w,:]),
-                            self.pca_plus)
-
-            self.projection_cross[self.testing_catalogue.waveform_names[w]] = \
-                    compute_projection(-1*np.imag(self.testing_catalogue.aligned_catalogue[w,:]),
-                            self.pca_cross)
-
-            self.projection_amp[self.testing_catalogue.waveform_names[w]] = \
-                    compute_projection(self.testing_catalogue.aligned_amplitudes[w,:],
-                            self.pca_amp)
-
-            self.projection_phase[self.testing_catalogue.waveform_names[w]] = \
-                    compute_projection(self.testing_catalogue.aligned_phases[w,:],
-                            self.pca_phase)
 
     def compute_matches(self, mtotal_ref=250.0):
         """
@@ -305,19 +356,19 @@ does not have SIdata"
         if not hasattr(self, 'projection'):
             self.project_catalogue()
 
-        self.matches_plus = np.zeros(shape=(self.testing_catalogue.nwaves,
+        self.matches_plus = np.zeros(shape=(self.test_catalogue.nwaves,
             self.training_catalogue.nwaves))
 
-        self.euclidean_distances_plus = np.zeros(shape=(self.testing_catalogue.nwaves,
+        self.euclidean_distances_plus = np.zeros(shape=(self.test_catalogue.nwaves,
             self.training_catalogue.nwaves)) 
 
-        self.matches_ampphase = np.zeros(shape=(self.testing_catalogue.nwaves,
+        self.matches_ampphase = np.zeros(shape=(self.test_catalogue.nwaves,
             self.training_catalogue.nwaves))
 
-        self.euclidean_distances_amp = np.zeros(shape=(self.testing_catalogue.nwaves,
+        self.euclidean_distances_amp = np.zeros(shape=(self.test_catalogue.nwaves,
             self.training_catalogue.nwaves)) 
 
-        self.euclidean_distances_phase = np.zeros(shape=(self.testing_catalogue.nwaves,
+        self.euclidean_distances_phase = np.zeros(shape=(self.test_catalogue.nwaves,
             self.training_catalogue.nwaves)) 
 
         # build psd for match calculation
@@ -332,19 +383,19 @@ does not have SIdata"
                 low_freq_cutoff=10.0)
 
         print 'Computing match as a function of nPC for each waveform'
-        for w in xrange(self.testing_catalogue.nwaves):
+        for w in xrange(self.test_catalogue.nwaves):
 
             # retrieve projection coefficients
-            hplus_betas  = self.projection_plus[self.testing_catalogue.waveform_names[w]]
-            amp_betas    = self.projection_amp[self.testing_catalogue.waveform_names[w]]
-            phase_betas  = self.projection_phase[self.testing_catalogue.waveform_names[w]]
+            hplus_betas  = self.projection_plus[self.test_catalogue.waveform_names[w]]
+            amp_betas    = self.projection_amp[self.test_catalogue.waveform_names[w]]
+            phase_betas  = self.projection_phase[self.test_catalogue.waveform_names[w]]
             
             target_hplus = pycbc.types.TimeSeries(
-                    np.real(self.testing_catalogue.aligned_catalogue[w,:]),
-                    delta_t=1./self.testing_catalogue.fs)
+                    np.real(self.test_catalogue.aligned_catalogue[w,:]),
+                    delta_t=1./self.test_catalogue.fs)
 
-            target_amp   = self.testing_catalogue.aligned_amplitudes[w,:]
-            target_phase = self.testing_catalogue.aligned_phases[w,:]
+            target_amp   = self.test_catalogue.aligned_amplitudes[w,:]
+            target_phase = self.test_catalogue.aligned_phases[w,:]
 
             for n in xrange(self.training_catalogue.nwaves):
 
@@ -391,26 +442,44 @@ does not have SIdata"
 def main():
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # INPUT 
+    # Training data input
+    # XXX: probably going to want a config parser
 
-    catalogue_name=sys.argv[1]
+    sample_rate = 512
+    datalen= 4.0
 
-    # Quick 'n' dirty sanity check (should use option parser really)
-    if catalogue_name not in ['Q','HR','RO3']:
-        print >> sys.stderr, \
-                "Error, catalogue '%s' not recognised "\
-                "(must be Q, HR or RO3)"%catalogue_name
+    total_mass = 150. 
+    distance=1. # Mpc
 
-    #
-    # Setup and then build the catalogue
-    #
-    catalogue = waveform_catalogue(catalogue_name=catalogue_name, fs=512,
-            catalogue_len=8, mtotal_ref=250, Dist=1.)
+    train_series_names = ['HR-series']
+
+    train_bounds=dict()
+    train_bounds['a1'] = [0, 0]
+    train_bounds['a2'] = [0, 0]
+    train_bounds['q'] = [-np.inf, 3] 
+
+    print '~~~~~~~~~~~~~~~~~~~~~'
+    print 'Selecting Simulations'
+    print ''
+    train_simulations = \
+            bwave.simulation_details(series_names=train_series_names,
+                    param_bounds=train_bounds, Mmin30Hz=total_mass)
+
+    print '~~~~~~~~~~~~~~~~~~~~~'
+    print 'Building NR catalogue'
+    print ''
+    train_catalogue = bwave.waveform_catalogue(train_simulations,
+            ref_mass=total_mass, sample_rate=sample_rate, datalen=datalen,
+            distance=distance)
+
 
     #
     # Do the PCA
     #
-    pca = waveform_pca(catalogue)
+    print '~~~~~~~~~~~~~~~~~~~~~'
+    print 'Performing PCA'
+    print ''
+    pca = waveform_pca(train_catalogue, train_catalogue)
     #pca.file_dump()
 
     return pca
@@ -421,7 +490,7 @@ def main():
 #
 if __name__ == "__main__":
     pca_results = main()
-    pca_results.file_dump()
+    #pca_results.file_dump()
 
     
 

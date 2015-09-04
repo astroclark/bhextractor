@@ -59,6 +59,16 @@ def taper_start(input_data, fs=512):
     return timeseries.data.data
 
 
+def highpass(timeseries, delta_t=1./512, knee=9., order=12, attn=0.1):
+    """
+    Trivial interface function to make looping through catalogues neater
+    """
+
+    tmp = pycbc.types.TimeSeries(initial_array=timeseries, delta_t=delta_t)
+
+    return np.array(pycbc.filter.highpass(tmp, frequency=knee, filter_order=order,
+            attenuation=attn).data)
+
 def window_wave(input_data):
 
     nonzero=np.argwhere(abs(input_data)>1e-3*max(abs(input_data)))
@@ -376,9 +386,9 @@ class waveform_catalogue:
         self.NRComplexTimeSeries = np.zeros(shape=(len(plus_data_resampled),
             self.NRdata_len), dtype=complex)
         self.NRAmpTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NRdata_len), dtype=complex)
+            self.NRdata_len))
         self.NRPhaseTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NRdata_len), dtype=complex)
+            self.NRdata_len))
 
         # Alignment
         align_idx = 0.5*self.NRdata_len
@@ -391,7 +401,17 @@ class waveform_catalogue:
 
             self.NRComplexTimeSeries[w,start_idx:start_idx+len(wave)] = wave
             self.NRAmpTimeSeries[w,:] = abs(self.NRComplexTimeSeries[w,:])
-            self.NRPhaseTimeSeries[w,:] = phase_of(self.NRComplexTimeSeries[w,:])
+
+            # Only compute phase at non-negligible amplitudes.  Otherwise, the
+            # phase series is dominated by numerical artefacts
+
+            # XXX FIXME XXX
+            # really need a smooth transition here!
+
+            idx = self.NRAmpTimeSeries[w,:] > \
+                    1e-3*max(self.NRAmpTimeSeries[w,:])
+            self.NRPhaseTimeSeries[w,idx] = \
+                    phase_of(self.NRComplexTimeSeries[w,idx])
 
         del time_data, plus_data, cross_data, plus_data_resampled, cross_data_resampled
 
@@ -417,12 +437,15 @@ class waveform_catalogue:
         # Resample to duration in seconds (=nsamples x deltaT) x samples / second
         resamp_len = np.ceil(self.NRdata_len*SI_deltaT*self.sample_rate)
 
-        self.SIComplexTimeSeries = np.zeros(shape=(self.simulation_details.nsimulations,
-            datalen*sample_rate), dtype=complex)
-        self.SIAmpTimeSeries = np.zeros(shape=(self.simulation_details.nsimulations,
-            datalen*sample_rate), dtype=complex)
-        self.SIPhaseTimeSeries = np.zeros(shape=(self.simulation_details.nsimulations,
-            datalen*sample_rate), dtype=complex)
+        self.SIComplexTimeSeries = \
+                np.zeros(shape=(self.simulation_details.nsimulations,
+                    datalen*sample_rate), dtype=complex)
+        self.SIAmpTimeSeries = \
+                np.zeros(shape=(self.simulation_details.nsimulations,
+                    datalen*sample_rate))
+        self.SIPhaseTimeSeries = \
+                np.zeros(shape=(self.simulation_details.nsimulations,
+                    datalen*sample_rate))
 
         for w in xrange(self.simulation_details.nsimulations):
 
@@ -505,21 +528,65 @@ dictionaries where keys are physical parameters and file paths.  The user \
 specifies single or multiple waveform series from the GT catalogue and, \
 optionally, some constraints on the physical parameters.'
 
-    # select waveforms with mass ratio >= 2
-    bounds = dict()
-    bounds['q'] = [2, np.inf]
+    # Some Example Inputs
+    sample_rate = 1024
+    datalen= 4.0
 
-    waves = simulation_details(series_names='RO3-series', Mmin30Hz=100.,
-                param_bounds=bounds)
+    total_mass = 150. 
+    distance=1. # Mpc
 
-    return waves
+    #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # Select and build NR waveforms from GT Burst Catalogue
+
+    #
+    # As an example, use only the non-spinning waveforms in the HR-series with
+    # mass ratio < 3:
+    #
+
+    series_names = ['HR-series']
+
+    bounds=dict()
+    bounds['a1'] = [0, 0]
+    bounds['a2'] = [0, 0]
+    bounds['q'] = [-np.inf, 3] 
+
+    print '~~~~~~~~~~~~~~~~~~~~~'
+    print 'Selecting Simulations'
+    print ''
+    simulations_list = simulation_details(series_names=series_names,
+            param_bounds=bounds, Mmin30Hz=total_mass)
+
+    print '~~~~~~~~~~~~~~~~~~~~~'
+    print 'Building NR catalogue'
+    print ''
+    NR_catalogue = waveform_catalogue(simulations_list, ref_mass=total_mass,
+            sample_rate=sample_rate, datalen=datalen, distance=distance)
+
+
+    print '~~~~~~~~~~~~~~~~~~~~~'
+    print 'Plotting'
+    print ''
+    from matplotlib import pyplot as pl
+    f, ax = pl.subplots(nrows=2, figsize=(8,6))
+    ax[0].plot(NR_catalogue.NRAmpTimeSeries.T)
+    ax[0].set_xlabel('Time Sample #')
+    ax[0].set_ylabel(r'Amplitude')
+
+    ax[1].plot(NR_catalogue.NRPhaseTimeSeries.T)
+    ax[1].set_xlabel('Time Sample #')
+    ax[1].set_ylabel('Phase')
+
+    pl.show()
+
+
+    return simulations_list, NR_catalogue
 
 #
 # End definitions
 #
 if __name__ == "__main__":
 
-    waveform_list = main()
+    simulations_list, NR_catalogue = main()
     
 
 

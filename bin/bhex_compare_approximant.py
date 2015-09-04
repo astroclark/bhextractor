@@ -26,7 +26,7 @@ matches with approximants (particularly EOBNR) available to pycbc.
 
 import sys
 import numpy as np
-import bhextractor_wavedata as bwave
+import bhex_wavedata as bwave
 
 import lal
 import pycbc.types
