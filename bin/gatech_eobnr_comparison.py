@@ -72,7 +72,7 @@ bounds=dict()
 #bounds['q'] = [1, 2] 
 bounds['a1'] = [0, 0]
 bounds['a2'] = [0, 0]
-#bounds['q'] = [11, np.inf] 
+bounds['q'] = [15, np.inf] 
 #
 # to only use simulations with q<=2
 
@@ -112,22 +112,9 @@ for s,simulation in enumerate(simulations_list.simulations):
     
     print 'Matching waveform %d of %d'%(s, simulations_list.nsimulations)
 
-    mass_ratios[s] = simulation['q']
-
-    mass1, mass2 = component_masses(total_mass, mass_ratios[s])
-
-    # Generate EOBNRv2
-    hplus_EOBNR, _ = get_td_waveform(approximant="EOBNRv2",
-            distance=distance,
-            mass1=mass1,
-            mass2=mass2,
-            f_lower=f_low,
-            delta_t=1.0/sample_rate)
-    # divide out the spherical harmonic (2,2) amplitude
-    sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
-    hplus_EOBNR.data /= np.real(sY22)
-
-    hplus_EOBNR.data = bwave.window_wave(hplus_EOBNR.data)
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #
+    # --- Condition the NR waveform ---
 
     # Get the NR (plus) wave and put it in a pycbc TimeSeries object
     hplus_NR = \
@@ -135,14 +122,39 @@ for s,simulation in enumerate(simulations_list.simulations):
                     delta_t=1./sample_rate)
     hplus_NR.data = bwave.window_wave(hplus_NR.data)
 
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #
+    # --- Generate Approximant ---
+    #
+    mass_ratios[s] = simulation['q']
+
+    mass1, mass2 = component_masses(total_mass, mass_ratios[s])
+
+    hplus_EOBNR, _ = get_td_waveform(approximant="EOBNRv2",
+            distance=distance,
+            mass1=mass1,
+            mass2=mass2,
+            f_lower=f_low,
+            delta_t=1.0/sample_rate)
+            #f_lower=fpeak_NR,
+    # divide out the spherical harmonic (2,2) amplitude (this is just for nice
+    # plots / sanity - it does not affect match)
+    sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
+    hplus_EOBNR.data /= np.real(sY22)
+
+    # (1-sided) Planck window for smooth FFT
+    hplus_EOBNR.data = bwave.window_wave(hplus_EOBNR.data)
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    #
+    # Match Calculation
+    #
+
     # Make the timeseries consistent lengths
     tlen = max(len(hplus_NR), len(hplus_EOBNR))
     hplus_EOBNR.resize(tlen)
     hplus_NR.resize(tlen)
 
-    #
-    # Match Calculation
-    #
     # Generate a noise curve:
     Hplus_NR = hplus_NR.to_frequencyseries()
     delta_f = Hplus_NR.delta_f
@@ -164,9 +176,10 @@ for s,simulation in enumerate(simulations_list.simulations):
     ax2.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
             abs(hplus_EOBNR.to_frequencyseries()))
     ax2.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
-            abs(hplus_NR.to_frequencyseries()))
+            abs(hplus_NR.to_frequencyseries()), linestyle='--')
     ax2.axvline(30, color='k')
     ax2.minorticks_on()
 
-pl.show()
+    pl.show()
+#    sys.exit()
 
