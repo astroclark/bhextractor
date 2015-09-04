@@ -19,35 +19,80 @@ bhextractor_makePCs.py
 
 Construct catalogues and principal component analysis for NR BBH waveforms; save
 the PCA results to file using the file dump method on the PCA result object
+
+This is a pretty simple script but it might be preferable to set up the
+configuration in a config parser & ini file.
 """
 
 import sys
-import bhextractor_pca as bhex
+import bhex_wavedata as bwave
+import bhex_pca as bpca
 
-# -------------------------------
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# 
+# Some useful info:
+#
+
+#valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
+#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
+#        "TP-series"]
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-catalogue_name=sys.argv[1]
+sample_rate = 512
+datalen= 4.0
 
-# END USER INPUT
-# -------------------------------
+total_mass = 150.  # Generate SI waveforms at this mass
+distance=1. # Mpc
 
-# -------------------------------
-# ANALYSIS
+train_series_names = ['HRq-series'] # (see above for valid choices)
 
 #
-# Setup and then build the catalogue
+# Modify for imposing parameter bounds on the catalogue:
 #
-catalogue = bhex.waveform_catalogue(catalogue_name=catalogue_name, fs=512,
-        catalogue_len=4, mtotal_ref=250, Dist=1.)
+train_bounds=None
+#train_bounds=dict()
+#train_bounds['a1'] = [0, 0]
+#train_bounds['a2'] = [0, 0]
+#train_bounds['q'] = [-np.inf, 3] 
+
+catalogue_name = 'HRq'
+
+save_pcs = ['NRhplusTimeSeriesPCA', 'NRhcrossTimeSeriesPCA',
+'NRAmpTimeSeriesPCA', 'NRPhaseTimeSeriesPCA',  'SIhplusTimeSeriesPCA',
+'SIhcrossTimeSeriesPCA', 'SIAmpTimeSeriesPCA', 'SIPhaseTimeSeriesPCA']
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Do the work:
+
+print '~~~~~~~~~~~~~~~~~~~~~'
+print 'Selecting Simulations'
+print ''
+train_simulations = \
+        bwave.simulation_details(series_names=train_series_names,
+                param_bounds=train_bounds, Mmin30Hz=total_mass)
+
+print '~~~~~~~~~~~~~~~~~~~~~'
+print 'Building NR catalogue'
+print ''
+train_catalogue = bwave.waveform_catalogue(train_simulations,
+        ref_mass=total_mass, sample_rate=sample_rate, datalen=datalen,
+        distance=distance)
+
+# Dump catalogue to pickle
+train_catalogue.file_dump(catalogue_name=catalogue_name)
 
 #
 # Do the PCA
 #
-pca = bhex.waveform_pca(training_catalogue=catalogue,
-        testing_catalogue=catalogue)
+print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+print 'Performing PCA (training only)'
+print ''
+pca = bpca.waveform_pca(train_catalogue)
+pca.file_dump(pca_attrs=save_pcs, pcs_filename=catalogue_name)
 
-#
-# Dump files
-#
-pca.file_dump()
+print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+print 'DONE.'
+
+
+

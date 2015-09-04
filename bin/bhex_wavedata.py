@@ -26,6 +26,7 @@ from __future__ import division
 import os
 import sys 
 import glob
+import cPickle as pickle
 
 import numpy as np
 import scipy.signal as signal
@@ -166,7 +167,6 @@ class simulation_details:
 
         TODO: add support for selecting waveforms based on physical parameters
         """
-
 
         valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
                 "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
@@ -463,60 +463,40 @@ class waveform_catalogue:
 
         return 0
 
-#   def fft_catalogue(self):
-#       """
-#       Add the amplitude and phase spectra of the waveforms from the TD
-#       catalogue.  Might ultimately be useful for F-domain PCA, but for now
-#       we'll just use it for plotting and diagnostics
-#       """
-#
-#       print 'FFTing the catalogue'
-#
-#       # Get dims and add some info
-#       example_td = pycbc.types.TimeSeries(
-#               np.real(self.aligned_catalogue[0,:]),
-#               delta_t=1.0/self.fs)
-#
-#       self.sample_times = example_td.sample_times - \
-#               example_td.sample_times[np.argmax(example_td.data)]
-#
-#       self.sample_times_ampalign = example_td.sample_times - \
-#               example_td.sample_times[np.argmax(self.aligned_amplitudes[0,:])]
-#
-#       self.flen = len(example_td.to_frequencyseries())
-#
-#
-#       self.ampSpectraPlus = np.zeros(
-#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
-#       self.phaseSpectraPlus = np.zeros(
-#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
-#       self.ampSpectraCross = np.zeros(
-#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
-#       self.phaseSpectraCross = np.zeros(
-#               shape=(np.shape(self.aligned_catalogue)[0], self.flen))
-#
-#       for w in xrange(len(self.waveform_names)):
-#
-#           tdwavePlus = pycbc.types.TimeSeries(
-#                   np.real(self.aligned_catalogue[w,:]),
-#                   delta_t=1.0/self.fs)
-#
-#           tdwaveCross = pycbc.types.TimeSeries(
-#                   -1*np.imag(self.aligned_catalogue[w,:]),
-#                   delta_t=1.0/self.fs)
-#           
-#           fdwavePlus  = tdwavePlus.to_frequencyseries()
-#           fdwaveCross = tdwaveCross.to_frequencyseries()
-#
-#           self.ampSpectraPlus[w,:] = abs(fdwavePlus)
-#           self.phaseSpectraPlus[w,:] = \
-#                   np.unwrap(np.angle(fdwavePlus))
-#
-#           self.ampSpectraCross[w,:] = abs(fdwaveCross)
-#           self.phaseSpectraCross[w,:] = \
-#                   np.unwrap(np.angle(fdwaveCross))
-#
-#       self.sample_frequencies = fdwavePlus.sample_frequencies
+    def file_dump(self, catalogue_name=None):
+        """
+        Dump the catalogue data to pickle.  This will be useful for reproducing
+        PCA results later with consistent catalogues.
+        """
+
+        # Need to call it something but make the user do it rather than parsing
+        # all the parameters
+        if catalogue_name is None:
+            print >> sys.stderr, "ERROR: you must provide a name for catalogue \
+file dumps"
+            sys.exit(-1)
+
+
+        # Output path
+        try:
+            data_path=os.path.join(os.environ['BHEX_PREFIX'],"data/NR_data")
+        except KeyError:
+            print >> sys.stderr, "BHEX_PREFIX environment variable appears to be un-set"
+            sys.exit(-1)
+
+        # Make output directory
+        if not os.path.exists(data_path):
+            os.makedirs(data_path)
+
+
+        # Build filename
+        filename = os.path.join(data_path, catalogue_name)
+
+        print "Performing data dump to %s.pickle"%filename
+        
+        # Pickle me!
+        pickle.dump(self, open(filename+".pickle",'wb'))
+
 
 # *******************************************************************************
 def main():
@@ -578,6 +558,9 @@ optionally, some constraints on the physical parameters.'
 
     pl.show()
 
+
+    NR_catalogue.file_dump('test')
+    
 
     return simulations_list, NR_catalogue
 

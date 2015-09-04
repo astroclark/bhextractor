@@ -90,14 +90,6 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
 
     return reconstruction
 
-def compute_projection(waveform, pca_result):
-    """
-    Compute the projection coefficients (betas) for the given waveform onto the
-    PCA result
-    """
-
-    return np.concatenate(pca_result.transform(waveform))
-
 def perform_pca(data_matrix):
     """
     Use the scikits-learn PCA tools to do PCA on a peak-aligned time-domain
@@ -111,6 +103,97 @@ def perform_pca(data_matrix):
     return pca
 
 
+
+
+#   def compute_matches(self, mtotal_ref=250.0):
+#       """
+#       Compute the match as a function of nPCs, for each waveform in the
+#       catalogue.  Uses the aLIGO ZDHP noise curve.
+#
+#       Since hx is just a phase shifted copy of h+, we only use h+ here.
+#       """
+#
+#       if not hasattr(self, 'projection'):
+#           self.project_catalogue()
+#
+#       self.matches_plus = np.zeros(shape=(self.test_catalogue.nwaves,
+#           self.training_catalogue.nwaves))
+#
+#       self.euclidean_distances_plus = np.zeros(shape=(self.test_catalogue.nwaves,
+#           self.training_catalogue.nwaves)) 
+#
+#       self.matches_ampphase = np.zeros(shape=(self.test_catalogue.nwaves,
+#           self.training_catalogue.nwaves))
+#
+#       self.euclidean_distances_amp = np.zeros(shape=(self.test_catalogue.nwaves,
+#           self.training_catalogue.nwaves)) 
+#
+#       self.euclidean_distances_phase = np.zeros(shape=(self.test_catalogue.nwaves,
+#           self.training_catalogue.nwaves)) 
+#
+#       # build psd for match calculation
+#       example_td = pycbc.types.TimeSeries(
+#               np.real(self.training_catalogue.aligned_catalogue[0,:]),
+#               delta_t=1.0/self.training_catalogue.fs)
+#
+#       flen = len(example_td.to_frequencyseries())
+#
+#       psd = aLIGOZeroDetHighPower(flen,
+#               example_td.to_frequencyseries().delta_f,
+#               low_freq_cutoff=10.0)
+#
+#       print 'Computing match as a function of nPC for each waveform'
+#       for w in xrange(self.test_catalogue.nwaves):
+#
+#           # retrieve projection coefficients
+#           hplus_betas  = self.projection_plus[self.test_catalogue.waveform_names[w]]
+#           amp_betas    = self.projection_amp[self.test_catalogue.waveform_names[w]]
+#           phase_betas  = self.projection_phase[self.test_catalogue.waveform_names[w]]
+#           
+#           target_hplus = pycbc.types.TimeSeries(
+#                   np.real(self.test_catalogue.aligned_catalogue[w,:]),
+#                   delta_t=1./self.test_catalogue.fs)
+#
+#           target_amp   = self.test_catalogue.aligned_amplitudes[w,:]
+#           target_phase = self.test_catalogue.aligned_phases[w,:]
+#
+#           for n in xrange(self.training_catalogue.nwaves):
+#
+#               #
+#               # Plus reconstruction
+#               #
+#               reconstructed_hplus = np.real(reconstruct_waveform(self.pca_plus,
+#                       hplus_betas, n+1, mtotal_ref=mtotal_ref))
+#               recwav = pycbc.types.TimeSeries(reconstructed_hplus,
+#                       delta_t=1./self.training_catalogue.fs)
+#
+#               self.matches_plus[w,n] = pycbc.filter.match(recwav,
+#                       target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
+#
+#               self.euclidean_distances_plus[w,n] = euclidean_distance(
+#                       reconstructed_hplus, target_hplus.data)
+#               #
+#               # Amp/phase reconstruction
+#               #
+#               reconstructed_amp = reconstruct_waveform(self.pca_amp,
+#                       amp_betas, n+1, mtotal_ref=mtotal_ref)
+#               reconstructed_phase = reconstruct_waveform(self.pca_phase,
+#                       phase_betas, n+1, mtotal_ref=mtotal_ref)
+#
+#               reconstructed_h = reconstructed_amp * \
+#                       np.exp(1j*reconstructed_phase)
+#
+#               recwav = pycbc.types.TimeSeries(np.real(reconstructed_h),
+#                       delta_t=1./self.training_catalogue.fs)
+#
+#               self.matches_ampphase[w,n] = pycbc.filter.match(recwav,
+#                       target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
+#
+#               self.euclidean_distances_amp[w,n] =\
+#                       euclidean_distance(reconstructed_amp, target_amp)
+#
+#               self.euclidean_distances_phase[w,n] =\
+#                       euclidean_distance(reconstructed_amp, target_amp)
 
 # *****************************************************************************
 # Class Definitions 
@@ -144,6 +227,7 @@ class waveform_pca:
                 perform_pca(training_catalogue.NRAmpTimeSeries)
         self.NRPhaseTimeSeriesPCA = \
                 perform_pca(training_catalogue.NRPhaseTimeSeries)
+
 
 
 
@@ -258,22 +342,25 @@ class waveform_pca:
         return 0
 
 
-
-    def file_dump(self, identifier=None):
+    def file_dump(self, pca_attrs=['NRhplusTimeSeriesPCA'] , pcs_filename=None):
         """
         Dump the all the results to a python-friendly pickle and stick the PCs
         in ascii files; first row of the ascii file is the mean.
 
         (Pickling is pretty useful here, since I want to retain the object
         itself)
+
+        pca_attr is a list of the PCA attributes you wish to dump
         """
 
-        if identifier is None:
-            identifier = "PCA"
+        if pcs_filename is None:
+            print >> sys.stderr, "ERROR: you must provide a name for catalogue \
+file dumps"
+            sys.exit(-1)
 
         # Output path
         try:
-            pcs_path=os.environ['BHEX_PREFIX']+"/data/PCA_data"
+            pcs_path=os.path.join(os.environ['BHEX_PREFIX'],"data/PCA_data")
         except KeyError:
             print >> sys.stderr, "BHEX_PREFIX environment variable appears to be un-set"
             sys.exit()
@@ -282,158 +369,36 @@ class waveform_pca:
         if not os.path.exists(pcs_path):
             os.makedirs(pcs_path)
 
+        # Build filename for pickle with everything
+        pcs_filename = os.path.join(pcs_path, pcs_filename)
 
-        # Build filename
-        filename = pcs_path + '/' +\
-                self.training_catalogue.catalogue_name + "-" + \
-                str(identifier)
-
-        print "Performing data dump to %s.pickle"%filename
+        print "Performing data dump to %s.pickle"%pcs_filename
         
         # Pickle me!
-        pickle.dump(self, open(filename+".pickle",'wb'))
+        pickle.dump(self, open(pcs_filename+".pickle",'wb'))
 
         #
         # Ascii Dump
         #
-        fplus  = filename+"_hplusPCs.asc"
-        fcross = filename+"_hcrossPCs.asc"
-        fcomplex_strain = filename+"_hPCs.dat"
-        famp = filename+"_AmpPCs.dat"
-        fphase = filename+"_PhasePCs.dat"
+        for pca_attr in pca_attrs:
 
-        # First row contains the mean waveform
-        dims = np.shape(self.pca_plus.components_)
-        output_array_plus  = np.zeros(shape=(dims[0]+1,dims[1]))
-        output_array_cross = np.zeros(shape=(dims[0]+1,dims[1]))
-
-        output_array = np.zeros(shape=(dims[0]+1,dims[1]), dtype=complex)
-        output_array_amp = np.zeros(shape=(dims[0]+1,dims[1]))
-        output_array_phase = np.zeros(shape=(dims[0]+1,dims[1]))
-
-        output_array_plus[0,:] = self.pca_plus.mean_
-        output_array_plus[1:,:] = self.pca_plus.components_
-        output_array_cross[0,:] = self.pca_cross.mean_
-        output_array_cross[1:,:] = self.pca_cross.components_
-
-        output_array[0,:] = self.pca_plus.mean_ - 1j*self.pca_cross.mean_
-        output_array[1:,:] = self.pca_plus.components_ - 1j*self.pca_cross.components_
-
-        output_array_amp[0,:] = self.pca_amp.mean_
-        output_array_amp[1:,:] = self.pca_amp.components_
-
-        output_array_phase[0,:] = self.pca_phase.mean_
-        output_array_phase[1:,:] = self.pca_phase.components_
-
-        print "Performing data dump to %s"%fplus
-        np.savetxt(fplus, output_array_plus)
-        print "Performing data dump to %s"%fcross
-        np.savetxt(fcross, output_array_cross)
-
-        print "Performing data dump to %s"%fcomplex_strain
-        fpcomplex_strain = open(fcomplex_strain,"wb")
-        output_array.tofile(fpcomplex_strain)
-
-        print "Performing data dump to %s"%famp
-        fpamp = open(famp,"wb")
-        output_array_amp.tofile(fpamp)
-
-        print "Performing data dump to %s"%fphase
-        fpphase = open(fphase,"wb")
-        output_array_phase.tofile(fpphase)
-
-
-
-
-    def compute_matches(self, mtotal_ref=250.0):
-        """
-        Compute the match as a function of nPCs, for each waveform in the
-        catalogue.  Uses the aLIGO ZDHP noise curve.
-
-        Since hx is just a phase shifted copy of h+, we only use h+ here.
-        """
-
-        if not hasattr(self, 'projection'):
-            self.project_catalogue()
-
-        self.matches_plus = np.zeros(shape=(self.test_catalogue.nwaves,
-            self.training_catalogue.nwaves))
-
-        self.euclidean_distances_plus = np.zeros(shape=(self.test_catalogue.nwaves,
-            self.training_catalogue.nwaves)) 
-
-        self.matches_ampphase = np.zeros(shape=(self.test_catalogue.nwaves,
-            self.training_catalogue.nwaves))
-
-        self.euclidean_distances_amp = np.zeros(shape=(self.test_catalogue.nwaves,
-            self.training_catalogue.nwaves)) 
-
-        self.euclidean_distances_phase = np.zeros(shape=(self.test_catalogue.nwaves,
-            self.training_catalogue.nwaves)) 
-
-        # build psd for match calculation
-        example_td = pycbc.types.TimeSeries(
-                np.real(self.training_catalogue.aligned_catalogue[0,:]),
-                delta_t=1.0/self.training_catalogue.fs)
-
-        flen = len(example_td.to_frequencyseries())
-
-        psd = aLIGOZeroDetHighPower(flen,
-                example_td.to_frequencyseries().delta_f,
-                low_freq_cutoff=10.0)
-
-        print 'Computing match as a function of nPC for each waveform'
-        for w in xrange(self.test_catalogue.nwaves):
-
-            # retrieve projection coefficients
-            hplus_betas  = self.projection_plus[self.test_catalogue.waveform_names[w]]
-            amp_betas    = self.projection_amp[self.test_catalogue.waveform_names[w]]
-            phase_betas  = self.projection_phase[self.test_catalogue.waveform_names[w]]
+            this_name  = os.path.join(pcs_path, pcs_filename + "_" + pca_attr + ".asc")
+            print "Dumping to %s"%this_name
             
-            target_hplus = pycbc.types.TimeSeries(
-                    np.real(self.test_catalogue.aligned_catalogue[w,:]),
-                    delta_t=1./self.test_catalogue.fs)
+            pcaObj = getattr(self, pca_attr)
 
-            target_amp   = self.test_catalogue.aligned_amplitudes[w,:]
-            target_phase = self.test_catalogue.aligned_phases[w,:]
 
-            for n in xrange(self.training_catalogue.nwaves):
+            # First row contains the mean waveform
+            dims = np.shape(pcaObj.components_)
+            output_array  = np.zeros(shape=(dims[0]+1,dims[1]))
 
-                #
-                # Plus reconstruction
-                #
-                reconstructed_hplus = np.real(reconstruct_waveform(self.pca_plus,
-                        hplus_betas, n+1, mtotal_ref=mtotal_ref))
-                recwav = pycbc.types.TimeSeries(reconstructed_hplus,
-                        delta_t=1./self.training_catalogue.fs)
+            output_array[0,:]  = pcaObj.mean_
+            output_array[1:,:] = pcaObj.components_
 
-                self.matches_plus[w,n] = pycbc.filter.match(recwav,
-                        target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
+            np.savetxt(this_name, output_array)
 
-                self.euclidean_distances_plus[w,n] = euclidean_distance(
-                        reconstructed_hplus, target_hplus.data)
-                #
-                # Amp/phase reconstruction
-                #
-                reconstructed_amp = reconstruct_waveform(self.pca_amp,
-                        amp_betas, n+1, mtotal_ref=mtotal_ref)
-                reconstructed_phase = reconstruct_waveform(self.pca_phase,
-                        phase_betas, n+1, mtotal_ref=mtotal_ref)
 
-                reconstructed_h = reconstructed_amp * \
-                        np.exp(1j*reconstructed_phase)
-
-                recwav = pycbc.types.TimeSeries(np.real(reconstructed_h),
-                        delta_t=1./self.training_catalogue.fs)
-
-                self.matches_ampphase[w,n] = pycbc.filter.match(recwav,
-                        target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
-
-                self.euclidean_distances_amp[w,n] =\
-                        euclidean_distance(reconstructed_amp, target_amp)
-
-                self.euclidean_distances_phase[w,n] =\
-                        euclidean_distance(reconstructed_amp, target_amp)
+        return 0
 
                      
 
@@ -480,7 +445,6 @@ def main():
     print 'Performing PCA'
     print ''
     pca = waveform_pca(train_catalogue, train_catalogue)
-    #pca.file_dump()
 
     return pca
 
@@ -490,7 +454,6 @@ def main():
 #
 if __name__ == "__main__":
     pca_results = main()
-    #pca_results.file_dump()
 
     
 
