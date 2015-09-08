@@ -36,10 +36,25 @@ import pycbc.types
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
 
-import bhex_wavedata as bwave
+from bhex_utils import bhex_wavedata as bwave
 
 # *****************************************************************************
 # Function Definitions 
+
+def compute_match(wave1, wave2, delta_t, low_frequency_cutoff, psd):
+    """
+    Helper function to put arrays wave1,2 into timeseries objects and return the
+    match
+    """
+
+    ts1 = pycbc.types.TimeSeries(wave1, delta_t=delta_t)
+    ts2 = pycbc.types.TimeSeries(wave2, delta_t=delta_t)
+
+    match, idx = pycbc.filter.match(ts1, ts2,
+            low_frequency_cutoff=low_frequency_cutoff, psd=psd)
+
+    return match
+    
 
 
 def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
@@ -49,6 +64,8 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
     contatined in pca and the projection coefficients betas
 
     pca is the object returned by sklearn.decomposition.PCA()
+
+    MIGHT NOT WORK ANYMORE
     """
 
     #betas=projection[waveform_name]
@@ -104,97 +121,6 @@ def perform_pca(data_matrix):
 
 
 
-
-#   def compute_matches(self, mtotal_ref=250.0):
-#       """
-#       Compute the match as a function of nPCs, for each waveform in the
-#       catalogue.  Uses the aLIGO ZDHP noise curve.
-#
-#       Since hx is just a phase shifted copy of h+, we only use h+ here.
-#       """
-#
-#       if not hasattr(self, 'projection'):
-#           self.project_catalogue()
-#
-#       self.matches_plus = np.zeros(shape=(self.test_catalogue.nwaves,
-#           self.training_catalogue.nwaves))
-#
-#       self.euclidean_distances_plus = np.zeros(shape=(self.test_catalogue.nwaves,
-#           self.training_catalogue.nwaves)) 
-#
-#       self.matches_ampphase = np.zeros(shape=(self.test_catalogue.nwaves,
-#           self.training_catalogue.nwaves))
-#
-#       self.euclidean_distances_amp = np.zeros(shape=(self.test_catalogue.nwaves,
-#           self.training_catalogue.nwaves)) 
-#
-#       self.euclidean_distances_phase = np.zeros(shape=(self.test_catalogue.nwaves,
-#           self.training_catalogue.nwaves)) 
-#
-#       # build psd for match calculation
-#       example_td = pycbc.types.TimeSeries(
-#               np.real(self.training_catalogue.aligned_catalogue[0,:]),
-#               delta_t=1.0/self.training_catalogue.fs)
-#
-#       flen = len(example_td.to_frequencyseries())
-#
-#       psd = aLIGOZeroDetHighPower(flen,
-#               example_td.to_frequencyseries().delta_f,
-#               low_freq_cutoff=10.0)
-#
-#       print 'Computing match as a function of nPC for each waveform'
-#       for w in xrange(self.test_catalogue.nwaves):
-#
-#           # retrieve projection coefficients
-#           hplus_betas  = self.projection_plus[self.test_catalogue.waveform_names[w]]
-#           amp_betas    = self.projection_amp[self.test_catalogue.waveform_names[w]]
-#           phase_betas  = self.projection_phase[self.test_catalogue.waveform_names[w]]
-#           
-#           target_hplus = pycbc.types.TimeSeries(
-#                   np.real(self.test_catalogue.aligned_catalogue[w,:]),
-#                   delta_t=1./self.test_catalogue.fs)
-#
-#           target_amp   = self.test_catalogue.aligned_amplitudes[w,:]
-#           target_phase = self.test_catalogue.aligned_phases[w,:]
-#
-#           for n in xrange(self.training_catalogue.nwaves):
-#
-#               #
-#               # Plus reconstruction
-#               #
-#               reconstructed_hplus = np.real(reconstruct_waveform(self.pca_plus,
-#                       hplus_betas, n+1, mtotal_ref=mtotal_ref))
-#               recwav = pycbc.types.TimeSeries(reconstructed_hplus,
-#                       delta_t=1./self.training_catalogue.fs)
-#
-#               self.matches_plus[w,n] = pycbc.filter.match(recwav,
-#                       target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
-#
-#               self.euclidean_distances_plus[w,n] = euclidean_distance(
-#                       reconstructed_hplus, target_hplus.data)
-#               #
-#               # Amp/phase reconstruction
-#               #
-#               reconstructed_amp = reconstruct_waveform(self.pca_amp,
-#                       amp_betas, n+1, mtotal_ref=mtotal_ref)
-#               reconstructed_phase = reconstruct_waveform(self.pca_phase,
-#                       phase_betas, n+1, mtotal_ref=mtotal_ref)
-#
-#               reconstructed_h = reconstructed_amp * \
-#                       np.exp(1j*reconstructed_phase)
-#
-#               recwav = pycbc.types.TimeSeries(np.real(reconstructed_h),
-#                       delta_t=1./self.training_catalogue.fs)
-#
-#               self.matches_ampphase[w,n] = pycbc.filter.match(recwav,
-#                       target_hplus, psd=psd, low_frequency_cutoff=10.0)[0]
-#
-#               self.euclidean_distances_amp[w,n] =\
-#                       euclidean_distance(reconstructed_amp, target_amp)
-#
-#               self.euclidean_distances_phase[w,n] =\
-#                       euclidean_distance(reconstructed_amp, target_amp)
-
 # *****************************************************************************
 # Class Definitions 
 
@@ -204,12 +130,21 @@ class waveform_pca:
     waveform catalogue object as input.
     """
 
-    def __init__(self, training_catalogue, test_catalogue=None):
+    def __init__(self, train_catalogue, test_catalogue=None):
 
         # XXX: don't need to store these, right?
-#       self.training_catalogue = training_catalogue
+#       self.train_catalogue = train_catalogue
 #       if test_catalogue is not None:
 #           self.test_catalogue  = test_catalogue
+
+        self.ntrain = train_catalogue.simulation_details.nsimulations
+        if test_catalogue is None:
+            self.ntest = None
+        else:
+            self.ntest = train_catalogue.simulation_details.nsimulations 
+
+        self.fmin = train_catalogue.simulation_details.fmin
+
 
         #
         # PCA of the NR data
@@ -220,33 +155,32 @@ class waveform_pca:
         # equal length waveforms
 
         self.NRhplusTimeSeriesPCA = \
-                perform_pca(np.real(training_catalogue.NRComplexTimeSeries))
+                perform_pca(np.real(train_catalogue.NRComplexTimeSeries))
         self.NRhcrossTimeSeriesPCA = \
-                perform_pca(-1*np.imag(training_catalogue.NRComplexTimeSeries))
+                perform_pca(-1*np.imag(train_catalogue.NRComplexTimeSeries))
         self.NRAmpTimeSeriesPCA = \
-                perform_pca(training_catalogue.NRAmpTimeSeries)
+                perform_pca(train_catalogue.NRAmpTimeSeries)
         self.NRPhaseTimeSeriesPCA = \
-                perform_pca(training_catalogue.NRPhaseTimeSeries)
-
-
-
+                perform_pca(train_catalogue.NRPhaseTimeSeries)
 
         #
         # PCA of the SI data (if any)
         #
-        if hasattr(training_catalogue, 'ref_mass'):
+        if hasattr(train_catalogue, 'ref_mass'):
             print "PCA of SI waveforms"
+
+            self.do_SIdecomposition=True
             
             # XXX: Can add any extra conditioning (e.g., filters) here
 
             self.SIhplusTimeSeriesPCA = \
-                    perform_pca(np.real(training_catalogue.SIComplexTimeSeries))
+                    perform_pca(np.real(train_catalogue.SIComplexTimeSeries))
             self.SIhcrossTimeSeriesPCA = \
-                    perform_pca(-1*np.imag(training_catalogue.SIComplexTimeSeries))
+                    perform_pca(-1*np.imag(train_catalogue.SIComplexTimeSeries))
             self.SIAmpTimeSeriesPCA = \
-                    perform_pca(training_catalogue.SIAmpTimeSeries)
+                    perform_pca(train_catalogue.SIAmpTimeSeries)
             self.SIPhaseTimeSeriesPCA = \
-                    perform_pca(training_catalogue.SIPhaseTimeSeries)
+                    perform_pca(train_catalogue.SIPhaseTimeSeries)
  
 
         # Project the test catalogue onto the new basis formed from the
@@ -264,6 +198,22 @@ class waveform_pca:
         projection onto this basis
 
         """
+
+        # XXX: Sanity check catalogues have matching configuration
+        if hasattr(train_catalogue, 'ref_mass') *  hasattr(test_catalogue,
+                'ref_mass') * (getattr(train_catalogue, 'ref_mass') ==
+                        getattr(test_catalogue, 'ref_mass')):
+
+                    print "Train and test catalogues have matching SI waveforms.\
+Will perform SI PCA decomposition"
+            
+                    do_si_projection=True
+
+        else:
+                print "Train and test catalogues DO NOT have matching SI waveforms.\
+Will perform SI PCA decomposition (different masses)"
+
+
 
         print 'Projecting time-domain test catalogue onto new basis'
 
@@ -304,7 +254,7 @@ class waveform_pca:
                                 ) 
                             )
 
-            if hasattr(test_catalogue, 'ref_mass'):
+            if hasattr(train_catalogue, 'ref_mass') * hasattr(test_catalogue, 'ref_mass'):
 
                 self.test_catalogue_data[w]\
                         ['SIhplusTimeSeriesBetas'] = \
@@ -340,6 +290,115 @@ class waveform_pca:
 
 
         return 0
+
+    def projection_fidelity(self, psd=None):
+        """
+        Compute the reconstruction fidelity as a function of nPCs, for each
+        waveform in the catalogue.  Optionally computes waveform match.
+
+        match / euclidean_distance arrays are organised as
+            number_of_test_waves x num_train_waves,
+
+        where num_train_waves = number of PCs used to reconstruct the test
+        waveform
+
+        """ 
+ 
+        # Pre-allocate
+        self.euclidean_distances_hplus =  np.zeros(shape=(self.ntest, self.ntrain))
+        self.euclidean_distances_amp = np.zeros(shape=(self.ntest, self.ntrain))
+        self.euclidean_distances_phase = np.zeros(shape=(self.ntest, self.ntrain))
+    
+        if hasattr(test_catalogue, 'ref_mass'):
+            # Require a PSD and SI analysis for match calculation
+            self.matches_hplus    = np.zeros(shape=(self.ntest, self.ntrain))
+            self.matches_ampphase = np.zeros(shape=(self.ntest, self.ntrain))
+
+        for w in xrange(self.ntest):
+    
+            # retrieve projection coefficients
+            hplus_NR_betas = self.test_catalogue_data[w]['NRhplusTimeSeriesBetas']
+            amp_NR_betas   = self.test_catalogue_data[w]['NRAmpTimeSeriesBetas']
+            phase_NR_betas = self.test_catalogue_data[w]['NRAmpTimeSeriesBetas']
+            
+            # The target waveforms
+            # We can just use the PCs to rebuild these using the PCA() inverse
+            # transform method instead of carrying all the data round
+            target_NR_hplus = self.NRhplusTimeSeriesPCA.inverse_transform(
+                    self.catalogue_data[w]['NRhplusTimeSeriesBetas'] )
+            target_NR_amp = self.NRAmpTimeSeriesPCA.inverse_transform(
+                    self.catalogue_data[w]['NRAmpTimeSeriesBetas'] )
+            target_NR_phase = self.NRPhaseTimeSeriesPCA.inverse_transform(
+                    self.catalogue_data[w]['NRPhaseTimeSeriesBetas'] )
+
+            if hasattr(test_catalogue, 'ref_mass'):
+                hplus_SI_betas = test_catalogue_data[w]['SIhplusTimeSeriesBetas']
+                amp_SI_betas   = test_catalogue_data[w]['SIAmpTimeSeriesBetas']
+                phase_SI_betas = test_catalogue_data[w]['SIAmpTimeSeriesBetas']
+                
+                # The target waveform
+                target_SI_hplus = self.SIhplusTimeSeriesPCA.inverse_transform(
+                        self.catalogue_data[w]['SIhplusTimeSeriesBetas'] )
+                target_SI_amp = self.SIAmpTimeSeriesPCA.inverse_transform(
+                        self.catalogue_data[w]['SIAmpTimeSeriesBetas'] )
+                target_SI_phase = self.SIPhaseTimeSeriesPCA.inverse_transform(
+                        self.catalogue_data[w]['SIPhaseTimeSeriesBetas'] )
+
+                target_SI_ampphase = target_SI_amp * np.exp(1j*target_SI_phase)
+    
+            for npcs in xrange(self.ntrain):
+    
+                #
+                # Reconstructions (inverse transforms) with n Pcs
+                #
+                reconstructed_NR_hplus = self.NRhplusTimeSeriesPCA.mean_
+                reconstructed_NR_amp   = self.NRAmpTimeSeriesPCA.mean_
+                reconstructed_NR_phase = self.NRPhaseTimeSeriesPCA.mean_
+
+                if hasattr(test_catalogue, 'ref_mass'):
+                    reconstructed_SI_hplus = self.SIhplusTimeSeriesPCA.mean_
+                    reconstructed_SI_amp   = self.SIAmpTimeSeriesPCA.mean_
+                    reconstructed_SI_phase = self.SIPhaseTimeSeriesPCA.mean_
+
+                for n in xrange(1,npcs):
+                    reconstructed_NR_hplus += \
+                            self.NRhplusTimeSeriesPCA.components_[n, :]
+                    reconstructed_NR_amp += \
+                            self.NRAmpTimeSeriesPCA.components_[n, :]
+                    reconstructed_NR_phase += \
+                            self.NRPhaseTimeSeriesPCA.components_[n, :]
+
+                    if psd is not None and hasattr(test_catalogue, 'ref_mass'):
+                        reconstructed_SI_hplus += \
+                                self.SIhplusTimeSeriesPCA.components_[n, :]
+                        reconstructed_SI_amp += \
+                                self.SIAmpTimeSeriesPCA.components_[n, :]
+                        reconstructed_SI_phase += \
+                                self.SIPhaseTimeSeriesPCA.components_[n, :]
+
+                reconstructed_NR_ampphase = \
+                        reconstructed_NR_amp*np.exp(1j*reconstructed_NR_phase)
+ 
+                self.euclidean_distances_plus[w,npcs] = euclidean_distance(
+                        reconstructed_NR_hplus, target_NR_hplus.data)
+                self.euclidean_distances_amp[w,npcs] =\
+                        euclidean_distance(reconstructed_NR_amp, target_NR_amp)
+                self.euclidean_distances_phase[w,npcs] =\
+                        euclidean_distance(reconstructed_NR_amp, target_NR_amp)
+    
+                if hasattr(test_catalogue, 'ref_mass'):
+                    reconstructed_SI_ampphase = \
+                            reconstructed_SI_amp*np.exp(1j*reconstructed_SI_phase)
+
+                    self.matches_hplus[w,npcs] = \
+                            compute_match(reconstructed_SI_hplus, target_hplus,
+                                    psd=psd, low_frequency_cutoff=self.fmin)
+        
+                    self.matches_ampphase[w,npcs] = \
+                            compute_match(reconstructed_SI_ampphase,
+                                target_SI_ampphase, psd=psd,
+                                low_frequency_cutoff=self.fmin)
+
 
 
     def file_dump(self, pca_attrs=['NRhplusTimeSeriesPCA'] , pcs_filename=None):
@@ -411,7 +470,7 @@ def main():
     # XXX: probably going to want a config parser
 
     sample_rate = 512
-    datalen= 4.0
+    SI_datalen= 4.0
 
     total_mass = 150. 
     distance=1. # Mpc
@@ -434,7 +493,7 @@ def main():
     print 'Building NR catalogue'
     print ''
     train_catalogue = bwave.waveform_catalogue(train_simulations,
-            ref_mass=total_mass, sample_rate=sample_rate, datalen=datalen,
+            ref_mass=total_mass, sample_rate=sample_rate, SI_datalen=SI_datalen,
             distance=distance)
 
 

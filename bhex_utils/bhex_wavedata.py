@@ -33,7 +33,7 @@ import scipy.signal as signal
 
 import lal
 #import lalsimulation as lalsim
-#import pycbc.types
+import pycbc.types
 #import pycbc.filter
 #from pycbc.psd import aLIGOZeroDetHighPower
 
@@ -132,30 +132,40 @@ class simulation_details:
 
     ... and so on ...
 
+    Note: will default to waveforms with min mass = 100 Msun permissable for a
+    low-frequency-cutoff at 30 Hz, unless Mmin10Hz or a different minimum mass
+    is defined
+
     """
 
     def __init__(self, series_names='RO3-series', Mmin30Hz=100.,
-            param_bounds=None):
+            Mmin10Hz=None, param_bounds=None):
 
         # ######################################################
         # Other initialisation
         self.series_names = series_names
-        self.Mmin30Hz = Mmin30Hz
         self.param_bounds = param_bounds
+
+        self.Mmin10Hz = Mmin10Hz
+        self.Mmin30Hz = Mmin30Hz
+        if Mmin10Hz is not None:
+            self.fmin = 10.0
+        else:
+            self.fmin = 30.0
 
         print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         print "Finding matching waveforms"
 
         # Get all waveforms
         self.simulations = self.list_simulations(series_names)
-
         self.nsimulations = len(self.simulations)
 
         print "----"
         print "Found %d waveforms matching criteria:"%(self.nsimulations)
         print "Series: ", series_names
-        print "Mmin30Hz: ", Mmin30Hz
         print "Bounds: ", param_bounds
+        if Mmin10Hz is not None:
+            print "Mmin10Hz: ", Mmin10Hz
         print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
 
@@ -189,8 +199,12 @@ class simulation_details:
             simulations += self._get_series(datadir,readme_file)
 
         # Down-select to those with a desirably small minimum mass
-        simulations = self._select_param_values(simulations, 'Mmin30Hz',
-                [-np.inf, self.Mmin30Hz])
+        if self.Mmin10Hz is not None:
+            simulations = self._select_param_values(simulations, 'Mmin10Hz',
+                    [-np.inf, self.Mmin30Hz])
+        else:
+            simulations = self._select_param_values(simulations, 'Mmin30Hz',
+                    [-np.inf, self.Mmin30Hz])
 
         # Now down-select on any other parameters
         if self.param_bounds is not None:
@@ -298,22 +312,40 @@ class waveform_catalogue:
     """
 
     def __init__(self, simulation_details, ref_mass=None, distance=1,
-            sample_rate=1024, datalen=4): 
+            sample_rate=1024, SI_datalen=4): 
         """
         Initalise with a simulation_details object and a reference mass ref_mass to
         which waveforms get scaled.  If ref_mass is None, waveforms are left in
         code units
+
+        SI_datalen is in seconds
+        NR_datalen is in samples
         """
 
         self.simulation_details = simulation_details
 
         # Load in the NR waveform data
+#        self.NR_datalen=55000
         self.load_wavedata()
+
 
         # Produce physical catalogue if reference mass specified
         if ref_mass is not None:
             # catalogue_to_SI() adds variables to self
-            self.catalogue_to_SI(ref_mass, sample_rate, distance, datalen)
+            self.catalogue_to_SI(ref_mass, sample_rate, distance, SI_datalen)
+
+            # assign some characteristics which will be useful elsewhere (e.g.,
+            # making PSDs)
+            self.SI_deltaT = 1.0/sample_rate
+
+            example_ts = \
+                    pycbc.types.TimeSeries(np.real(self.SIComplexTimeSeries[0,:]),
+                            delta_t=self.SI_deltaT)
+            example_fs = example_ts.to_frequencyseries()
+            self.SI_deltaF = example_fs.delta_f
+            self.SI_flen = len(example_fs)
+            del example_ts, example_fs
+
 
     def load_wavedata(self):
         """
@@ -378,20 +410,20 @@ class waveform_catalogue:
             if len(plus_data_resampled[w])>max_length:
                 max_length = len(plus_data_resampled[w])
 
-        self.NRdata_len = 2*max_length
+        self.NR_datalen = 2*max_length
 
         #
         # Insert into a numpy array
         #
         self.NRComplexTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NRdata_len), dtype=complex)
+            self.NR_datalen), dtype=complex)
         self.NRAmpTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NRdata_len))
+            self.NR_datalen))
         self.NRPhaseTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NRdata_len))
+            self.NR_datalen))
 
         # Alignment
-        align_idx = 0.5*self.NRdata_len
+        align_idx = 0.5*self.NR_datalen
         for w in xrange(self.simulation_details.nsimulations):
 
             wave = plus_data_resampled[w] - 1j*cross_data_resampled[w]
@@ -420,7 +452,7 @@ class waveform_catalogue:
     # XXX: TRUNCATION HERE?
 
     def catalogue_to_SI(self, ref_mass, sample_rate=1024, distance=100.,
-            datalen=4):
+            SI_datalen=4):
         """
         Convert waveforms in self.NRdata to physical time stamps / amplitudes
         """
@@ -435,17 +467,17 @@ class waveform_catalogue:
         Mscale = ref_mass * lal.MRSUN_SI / (distance * 1e6 * lal.PC_SI)
 
         # Resample to duration in seconds (=nsamples x deltaT) x samples / second
-        resamp_len = np.ceil(self.NRdata_len*SI_deltaT*self.sample_rate)
+        resamp_len = np.ceil(self.NR_datalen*SI_deltaT*self.sample_rate)
 
         self.SIComplexTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
-                    datalen*sample_rate), dtype=complex)
+                    SI_datalen*sample_rate), dtype=complex)
         self.SIAmpTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
-                    datalen*sample_rate))
+                    SI_datalen*sample_rate))
         self.SIPhaseTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
-                    datalen*sample_rate))
+                    SI_datalen*sample_rate))
 
         for w in xrange(self.simulation_details.nsimulations):
 
@@ -453,7 +485,7 @@ class waveform_catalogue:
             resampled_im = signal.resample(np.imag(self.NRComplexTimeSeries[w,:]), resamp_len)
 
             peakidx = np.argmax(abs(resampled_re + 1j*resampled_im))
-            startidx = 0.5*datalen*sample_rate - peakidx
+            startidx = 0.5*SI_datalen*sample_rate - peakidx
 
             self.SIComplexTimeSeries[w,startidx:startidx+len(resampled_re)] = \
                     Mscale*(resampled_re + 1j*resampled_im)
@@ -510,7 +542,7 @@ optionally, some constraints on the physical parameters.'
 
     # Some Example Inputs
     sample_rate = 1024
-    datalen= 4.0
+    SI_datalen= 4.0
 
     total_mass = 150. 
     distance=1. # Mpc
@@ -540,7 +572,7 @@ optionally, some constraints on the physical parameters.'
     print 'Building NR catalogue'
     print ''
     NR_catalogue = waveform_catalogue(simulations_list, ref_mass=total_mass,
-            sample_rate=sample_rate, datalen=datalen, distance=distance)
+            sample_rate=sample_rate, SI_datalen=SI_datalen, distance=distance)
 
 
     print '~~~~~~~~~~~~~~~~~~~~~'

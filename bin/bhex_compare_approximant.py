@@ -130,10 +130,12 @@ for s,simulation in enumerate(simulations_list.simulations):
 
     mass1, mass2 = component_masses(total_mass, mass_ratios[s])
 
-    hplus_EOBNR, _ = get_td_waveform(approximant="EOBNRv2",
+    hplus_EOBNR, _ = get_td_waveform(approximant="SEOBNRv2",
             distance=distance,
             mass1=mass1,
             mass2=mass2,
+            spin1z=0.99,
+            spin2z=0.99,
             f_lower=f_low,
             delta_t=1.0/sample_rate)
             #f_lower=fpeak_NR,

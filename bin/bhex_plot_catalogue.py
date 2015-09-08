@@ -25,8 +25,8 @@ script)
 """
 
 import sys
-import bhex_wavedata as bwave
-import bhex_pca as bpca
+from bhex_utils import bhex_wavedata as bwave
+from bhex_utils import bhex_pca as bpca
 from pycbc.psd import aLIGOZeroDetHighPower
 import pycbc.types
 import numpy as np
@@ -45,7 +45,7 @@ from matplotlib import pyplot as pl
 # USER INPUT
 
 sample_rate = 512
-datalen= 4.0
+SI_datalen= 4.0
 
 total_mass = 150.  # Generate SI waveforms at this mass
 distance=1. # Mpc
@@ -80,9 +80,8 @@ simulations = \
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
-catalogue = bwave.waveform_catalogue(simulations,
-        ref_mass=total_mass, sample_rate=sample_rate, datalen=datalen,
-        distance=distance)
+catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
+        sample_rate=sample_rate, SI_datalen=SI_datalen, distance=distance)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
