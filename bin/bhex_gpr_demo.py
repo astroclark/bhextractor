@@ -35,7 +35,7 @@ SI_datalen= 4.0
 total_mass = 150. 
 distance=1. # Mpc
 
-train_series_names = ['HRq-series']
+train_series_names = ['HR-series']
 
 train_bounds=dict()
 train_bounds['a1'] = [0, 0]
@@ -109,7 +109,8 @@ from sklearn import gaussian_process
 # jiggery-pokery
 X = np.atleast_2d(mass_ratios).T
 x = np.atleast_2d(mass_ratios_fit).T
-y = poly_beta(X, pfit_beta1).ravel()
+y = np.atleast_2d(beta1_measured).T
+
 
 #gp = gaussian_process.GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1)
 gp = gaussian_process.GaussianProcess(corr='cubic', theta0=1e-2, thetaL=1e-4, thetaU=1e-1,
@@ -123,11 +124,19 @@ fig = pl.figure()
 pl.plot(mass_ratios_fit, beta1_fit, 'r:', label=u'$f(x) = ax^3 + bx^2 +cx + d$')
 pl.plot(mass_ratios, beta1_measured, 'r.', markersize=10, label=u'Observations')
 pl.plot(x, y_pred, 'b-', label=u'Prediction')
-pl.fill(np.concatenate([x, x[::-1]]),
-        np.concatenate([y_pred - 1.9600 * sigma,
-                       (y_pred + 1.9600 * sigma)[::-1]]),
-        alpha=.5, fc='b', ec='None', label='95% confidence interval')
 
+low = np.concatenate(y_pred) - 1.9600 * sigma
+upp = np.concatenate(y_pred) + 1.9600 * sigma
+
+pl.fill_between(mass_ratios_fit, y1=low, y2=upp,
+        alpha=.5,label='95% confidence interval')
+
+pl.legend(loc='upper left')
+
+pl.xlabel('Mass Ratio (q)')
+pl.ylabel('First PC coefficient')
+
+pl.minorticks_on()
 
 pl.show()
 
