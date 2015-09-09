@@ -50,18 +50,16 @@ SI_datalen= 4.0
 total_mass = 150.  # Generate SI waveforms at this mass
 distance=1. # Mpc
 
-series_names = ['HRq-series'] # (see above for valid choices)
+series_names = ['HR-series', 'HRq-series', 'RO3-series'] # (see above for valid choices)
 
 #
 # Modify for imposing parameter bounds on the catalogue:
 #
 bounds=None
-#bounds=dict()
+bounds=dict()
 #bounds['a1'] = [0, 0]
 #bounds['a2'] = [0, 0]
-#bounds['q'] = [-np.inf, 3] 
-
-catalogue_name = 'HRq'
+bounds['q'] = [-np.inf, 2] 
 
 save_pcs = ['NRhplusTimeSeriesPCA', 'NRhcrossTimeSeriesPCA',
 'NRAmpTimeSeriesPCA', 'NRPhaseTimeSeriesPCA',  'SIhplusTimeSeriesPCA',
@@ -90,7 +88,7 @@ catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
 # Strain Time Series
 #
 fstrainNR, axstrainNR = pl.subplots(nrows=2, sharex=True)
-NRtime = np.arange(0, catalogue.NRdata_len * catalogue.NR_deltaT,
+NRtime = np.arange(0, catalogue.NR_datalen * catalogue.NR_deltaT,
         catalogue.NR_deltaT)
 NRtime -= NRtime[np.argmax(catalogue.NRAmpTimeSeries[0])]
 
@@ -114,7 +112,7 @@ pl.subplots_adjust(hspace=0)
 # ---- SI:
 fstrainSI, axstrainSI = pl.subplots(nrows=2, sharex=True)
 
-SItime = np.arange(0, datalen, 1.0/float(sample_rate))
+SItime = np.arange(0, SI_datalen, 1.0/float(sample_rate))
 SItime -= SItime[np.argmax(catalogue.SIAmpTimeSeries[0])]
 
 axstrainSI[0].plot(SItime, np.real(catalogue.SIComplexTimeSeries.T),

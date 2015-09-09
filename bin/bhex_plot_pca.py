@@ -51,7 +51,7 @@ total_mass = 150.
 distance=1. # Mpc
 
 # Define the train catalogue
-train_series_names = ['HR-series']
+train_series_names = ['HRq-series', 'RO3-series']
 train_bounds=dict()
 train_bounds['a1'] = [0, 0]
 train_bounds['a2'] = [0, 0]
@@ -104,7 +104,8 @@ pca = bpca.waveform_pca(train_catalogue, test_catalogue)
 
 # Characterise reconstructions
 # XXX build a PSD and call projection_fidelity()
-psd = aLIGOZeroDetHighPower(
+psd = aLIGOZeroDetHighPower(pca.SI_flen, pca.SI_deltaF, pca.fmin)
+pca.compute_projection_fidelity(psd=psd)
 
 
 

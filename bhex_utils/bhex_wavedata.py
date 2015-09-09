@@ -196,7 +196,7 @@ class simulation_details:
 
             readme_file = os.path.join(datadir, 'README_%s.txt'%series_name)
 
-            simulations += self._get_series(datadir,readme_file)
+            simulations += self._get_series(datadir,readme_file,series_name)
 
         # Down-select to those with a desirably small minimum mass
         if self.Mmin10Hz is not None:
@@ -264,7 +264,7 @@ class simulation_details:
                 sim[param]<=max(bounds) ]
 
     @staticmethod
-    def _get_series(datadir, readme_file):
+    def _get_series(datadir, readme_file, series_name):
         """
         Read the parameters from the readme file and return a list of simulation
         dictionaries
@@ -293,6 +293,7 @@ class simulation_details:
                 continue
             sim['wavename'] = wavename
             sim['wavefile'] = wavefile[0]
+            sim['series'] = series_name
 
             param_vals = [float(param) for param in readme_data[s,2:]]
             # physical params
@@ -325,14 +326,17 @@ class waveform_catalogue:
         self.simulation_details = simulation_details
 
         # Load in the NR waveform data
-#        self.NR_datalen=55000
         self.load_wavedata()
 
 
         # Produce physical catalogue if reference mass specified
         if ref_mass is not None:
             # catalogue_to_SI() adds variables to self
-            self.catalogue_to_SI(ref_mass, sample_rate, distance, SI_datalen)
+            self.catalogue_to_SI(ref_mass=ref_mass, sample_rate=sample_rate,
+                    distance=distance, SI_datalen=SI_datalen)
+
+    #def catalogue_to_SI(self, ref_mass, sample_rate=1024, distance=100.,
+    #        SI_datalen=4):
 
             # assign some characteristics which will be useful elsewhere (e.g.,
             # making PSDs)
@@ -372,7 +376,7 @@ class waveform_catalogue:
 
         for w, sim in enumerate(self.simulation_details.simulations):
 
-            print 'Loading %s waveform'%sim['wavename']
+            print 'Loading %s waveform (%s)'%(sim['wavename'], sim['series'])
 
             wavedata = np.loadtxt(sim['wavefile'])
 
@@ -426,36 +430,31 @@ class waveform_catalogue:
         align_idx = 0.5*self.NR_datalen
         for w in xrange(self.simulation_details.nsimulations):
 
-            wave = plus_data_resampled[w] - 1j*cross_data_resampled[w]
+            wave = window_wave(plus_data_resampled[w] -
+                    1j*cross_data_resampled[w])
 
             peak_idx=np.argmax(abs(wave))
             start_idx = align_idx - peak_idx
 
+            # Find where there's significant power
+            sigpower_idx = abs(wave) > 1e-3*max(abs(wave))
+
             self.NRComplexTimeSeries[w,start_idx:start_idx+len(wave)] = wave
             self.NRAmpTimeSeries[w,:] = abs(self.NRComplexTimeSeries[w,:])
-
-            # Only compute phase at non-negligible amplitudes.  Otherwise, the
-            # phase series is dominated by numerical artefacts
-
-            # XXX FIXME XXX
-            # really need a smooth transition here!
-
-            idx = self.NRAmpTimeSeries[w,:] > \
-                    1e-3*max(self.NRAmpTimeSeries[w,:])
-            self.NRPhaseTimeSeries[w,idx] = \
-                    phase_of(self.NRComplexTimeSeries[w,idx])
+            self.NRPhaseTimeSeries[w,:] = \
+                    phase_of(self.NRComplexTimeSeries[w,:])
 
         del time_data, plus_data, cross_data, plus_data_resampled, cross_data_resampled
 
         return 0
-
-    # XXX: TRUNCATION HERE?
 
     def catalogue_to_SI(self, ref_mass, sample_rate=1024, distance=100.,
             SI_datalen=4):
         """
         Convert waveforms in self.NRdata to physical time stamps / amplitudes
         """
+
+        print "converting NR catalogue to SI"
 
         # Add physical attributes
         self.ref_mass = ref_mass
@@ -472,6 +471,7 @@ class waveform_catalogue:
         self.SIComplexTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
                     SI_datalen*sample_rate), dtype=complex)
+
         self.SIAmpTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
                     SI_datalen*sample_rate))
@@ -483,12 +483,16 @@ class waveform_catalogue:
 
             resampled_re = signal.resample(np.real(self.NRComplexTimeSeries[w,:]), resamp_len)
             resampled_im = signal.resample(np.imag(self.NRComplexTimeSeries[w,:]), resamp_len)
+            wave = resampled_re + 1j*resampled_im
 
-            peakidx = np.argmax(abs(resampled_re + 1j*resampled_im))
+            idx = abs(wave)>1e-3*max(abs(wave))
+            wave = wave[idx]
+
+            peakidx = np.argmax(abs(wave))
             startidx = 0.5*SI_datalen*sample_rate - peakidx
 
-            self.SIComplexTimeSeries[w,startidx:startidx+len(resampled_re)] = \
-                    Mscale*(resampled_re + 1j*resampled_im)
+            self.SIComplexTimeSeries[w,startidx:startidx+len(wave)] = \
+                    Mscale*wave
 
             self.SIAmpTimeSeries[w,:] = abs(self.SIComplexTimeSeries[w,:])
             self.SIPhaseTimeSeries[w,:] = phase_of(self.SIComplexTimeSeries[w,:])
