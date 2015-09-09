@@ -35,7 +35,7 @@ SI_datalen= 4.0
 total_mass = 150. 
 distance=1. # Mpc
 
-train_series_names = ['HR-series']
+train_series_names = ['HRq-series']
 
 train_bounds=dict()
 train_bounds['a1'] = [0, 0]
@@ -85,7 +85,7 @@ beta3_measured = np.array([pca.test_catalogue_data[w]['NRAmpTimeSeriesBetas'][3]
 #
 
 # Get initial polynomial fit
-pfit_beta1 = np.polyfit(mass_ratios, beta1_measured, deg=1)
+pfit_beta1 = np.polyfit(mass_ratios, beta1_measured, deg=3)
 
 def poly_beta(x,pfit):
     """
@@ -111,7 +111,9 @@ X = np.atleast_2d(mass_ratios).T
 x = np.atleast_2d(mass_ratios_fit).T
 y = poly_beta(X, pfit_beta1).ravel()
 
-gp = gaussian_process.GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1)
+#gp = gaussian_process.GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1)
+gp = gaussian_process.GaussianProcess(corr='cubic', theta0=1e-2, thetaL=1e-4, thetaU=1e-1,
+                             random_start=100)
 gp.fit(X, y)  
 y_pred, sigma2_pred = gp.predict(x, eval_MSE=True)
 sigma = np.sqrt(sigma2_pred)
