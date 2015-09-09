@@ -234,6 +234,11 @@ Will perform SI PCA decomposition (different masses)"
 
         for w in xrange(len(self.test_catalogue_data)):
 
+            print np.shape(np.real(test_catalogue.NRComplexTimeSeries[w,:]))
+            print np.shape(self.NRhplusTimeSeriesPCA.mean_)
+            sys.exit()
+                    
+
             self.test_catalogue_data[w]\
                     ['NRhplusTimeSeriesBetas'] = \
                     np.concatenate( 

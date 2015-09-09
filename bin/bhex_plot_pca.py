@@ -49,6 +49,7 @@ sample_rate = 512
 SI_datalen= 4.0
 total_mass = 150. 
 distance=1. # Mpc
+NR_deltaT=0.1
 
 # Define the train catalogue
 train_series_names = ['HRq-series', 'RO3-series']
@@ -78,7 +79,7 @@ train_simulations = \
 
 train_catalogue = bwave.waveform_catalogue(train_simulations,
         ref_mass=total_mass, sample_rate=sample_rate, SI_datalen=SI_datalen,
-        distance=distance)
+        distance=distance, NR_deltaT=NR_deltaT)
 
 print ''
 print 'Building Testing Catalogue'
@@ -90,7 +91,7 @@ test_simulations = \
                 param_bounds=test_bounds, Mmin30Hz=total_mass)
 
 test_catalogue = bwave.waveform_catalogue(test_simulations, ref_mass=total_mass,
-        sample_rate=sample_rate, SI_datalen=SI_datalen, distance=distance)
+        sample_rate=sample_rate, SI_datalen=SI_datalen, distance=distance, NR_deltaT=NR_deltaT)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -107,7 +108,34 @@ pca = bpca.waveform_pca(train_catalogue, test_catalogue)
 psd = aLIGOZeroDetHighPower(pca.SI_flen, pca.SI_deltaF, pca.fmin)
 pca.compute_projection_fidelity(psd=psd)
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+#
+# Plots
+#
+print '~~~~~~~~~~~~~~~~~~~~~'
+print 'Plotting results'
+print ''
 
 
+#
+# Explained variance
+#
+
+# --- hplus
+
+# --- A(t) & phi(t)
+
+# --- A(f) & phi(f)
+
+
+#
+# Matches
+#
+
+# --- hplus
+
+# --- A(t) & phi(t)
+
+# --- A(f) & phi(f)
 
 

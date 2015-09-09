@@ -313,7 +313,7 @@ class waveform_catalogue:
     """
 
     def __init__(self, simulation_details, ref_mass=None, distance=1,
-            sample_rate=1024, SI_datalen=4): 
+            sample_rate=1024, SI_datalen=4, NR_deltaT=None): 
         """
         Initalise with a simulation_details object and a reference mass ref_mass to
         which waveforms get scaled.  If ref_mass is None, waveforms are left in
@@ -324,6 +324,7 @@ class waveform_catalogue:
         """
 
         self.simulation_details = simulation_details
+        self.NR_deltaT = NR_deltaT
 
         # Load in the NR waveform data
         self.load_wavedata()
@@ -335,8 +336,6 @@ class waveform_catalogue:
             self.catalogue_to_SI(ref_mass=ref_mass, sample_rate=sample_rate,
                     distance=distance, SI_datalen=SI_datalen)
 
-    #def catalogue_to_SI(self, ref_mass, sample_rate=1024, distance=100.,
-    #        SI_datalen=4):
 
             # assign some characteristics which will be useful elsewhere (e.g.,
             # making PSDs)
@@ -372,7 +371,11 @@ class waveform_catalogue:
 
         # Build waveforms in this catalogue
         max_time=-np.inf
-        self.NR_deltaT=np.inf
+
+        if self.NR_deltaT is None:
+            find_NR_deltaT = True
+            self.NR_deltaT=np.inf
+        else: find_NR_deltaT = False
 
         for w, sim in enumerate(self.simulation_details.simulations):
 
@@ -388,9 +391,9 @@ class waveform_catalogue:
             if wavedata[-1,0]>max_time:
                 max_time = np.copy(wavedata[-1,0])
 
-            if np.diff(wavedata[:,0])[0]<self.NR_deltaT:
-                self.NR_deltaT = np.diff(wavedata[:,0])[0]
-
+            if find_NR_deltaT:
+                if np.diff(wavedata[:,0])[0]<self.NR_deltaT:
+                    self.NR_deltaT = np.diff(wavedata[:,0])[0]
 
         # Now resample to a consistent deltaT
         time_data_resampled  = []
@@ -415,6 +418,8 @@ class waveform_catalogue:
                 max_length = len(plus_data_resampled[w])
 
         self.NR_datalen = 2*max_length
+        print self.NR_datalen
+        self.NR_datalen = 50000
 
         #
         # Insert into a numpy array
