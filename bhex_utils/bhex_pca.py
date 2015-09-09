@@ -143,8 +143,6 @@ class waveform_pca:
         else:
             self.ntest = train_catalogue.simulation_details.nsimulations 
 
-        self.fmin = train_catalogue.simulation_details.fmin
-
 
         #
         # PCA of the NR data
@@ -163,15 +161,16 @@ class waveform_pca:
         self.NRPhaseTimeSeriesPCA = \
                 perform_pca(train_catalogue.NRPhaseTimeSeries)
 
+        # Inherit useful characteristics of data
+        self.NR_deltaT = train_catalogue.NR_deltaT
+
         #
         # PCA of the SI data (if any)
         #
         if hasattr(train_catalogue, 'ref_mass'):
             print "PCA of SI waveforms"
-
-            self.do_SIdecomposition=True
             
-            # XXX: Can add any extra conditioning (e.g., filters) here
+            # XXX: Could add any extra conditioning (e.g., filters) here
 
             self.SIhplusTimeSeriesPCA = \
                     perform_pca(np.real(train_catalogue.SIComplexTimeSeries))
@@ -181,13 +180,23 @@ class waveform_pca:
                     perform_pca(train_catalogue.SIAmpTimeSeries)
             self.SIPhaseTimeSeriesPCA = \
                     perform_pca(train_catalogue.SIPhaseTimeSeries)
- 
+
+
+            # Inherit useful characteristics of data
+            self.fmin = train_catalogue.simulation_details.fmin
+            self.SI_deltaT = train_catalogue.SI_deltaT
+            self.SI_deltaF = train_catalogue.SI_deltaF
+            self.SI_flen = train_catalogue.SI_flen
+
 
         # Project the test catalogue onto the new basis formed from the
         # training catalogue
         if test_catalogue is not None:
 
-            # XXX: Sanity check catalogues have matching configuration
+            # XXX: First check whether we have appropriate catalogues for SI
+            # decomposition.  This means we have BOTH a test and a train
+            # catalogue and that they possess SI waveforms scaled to the same
+            # reference mass
             if hasattr(train_catalogue, 'ref_mass') *  hasattr(test_catalogue,
                     'ref_mass') * (getattr(train_catalogue, 'ref_mass') ==
                             getattr(test_catalogue, 'ref_mass')):
@@ -202,6 +211,7 @@ Will perform SI PCA decomposition"
 Will perform SI PCA decomposition (different masses)"
 
                     self.do_si_projection=False
+                    # but we will do the NR decomposition
 
             print "Evaluating projection of test catalogue onto new basis"
             self.project_test_catalogue(test_catalogue)
@@ -293,7 +303,7 @@ Will perform SI PCA decomposition (different masses)"
 
         return 0
 
-    def projection_fidelity(self, psd=None):
+    def compute_projection_fidelity(self, psd=None):
         """
         Compute the reconstruction fidelity as a function of nPCs, for each
         waveform in the catalogue.  Optionally computes waveform match.
@@ -311,7 +321,7 @@ Will perform SI PCA decomposition (different masses)"
         self.euclidean_distances_amp = np.zeros(shape=(self.ntest, self.ntrain))
         self.euclidean_distances_phase = np.zeros(shape=(self.ntest, self.ntrain))
     
-        if hasattr(test_catalogue, 'ref_mass'):
+        if self.do_si_projection:
             # Require a PSD and SI analysis for match calculation
             self.matches_hplus    = np.zeros(shape=(self.ntest, self.ntrain))
             self.matches_ampphase = np.zeros(shape=(self.ntest, self.ntrain))
@@ -327,24 +337,24 @@ Will perform SI PCA decomposition (different masses)"
             # We can just use the PCs to rebuild these using the PCA() inverse
             # transform method instead of carrying all the data round
             target_NR_hplus = self.NRhplusTimeSeriesPCA.inverse_transform(
-                    self.catalogue_data[w]['NRhplusTimeSeriesBetas'] )
+                    self.test_catalogue_data[w]['NRhplusTimeSeriesBetas'] )
             target_NR_amp = self.NRAmpTimeSeriesPCA.inverse_transform(
-                    self.catalogue_data[w]['NRAmpTimeSeriesBetas'] )
+                    self.test_catalogue_data[w]['NRAmpTimeSeriesBetas'] )
             target_NR_phase = self.NRPhaseTimeSeriesPCA.inverse_transform(
-                    self.catalogue_data[w]['NRPhaseTimeSeriesBetas'] )
+                    self.test_catalogue_data[w]['NRPhaseTimeSeriesBetas'] )
 
-            if hasattr(test_catalogue, 'ref_mass'):
-                hplus_SI_betas = test_catalogue_data[w]['SIhplusTimeSeriesBetas']
-                amp_SI_betas   = test_catalogue_data[w]['SIAmpTimeSeriesBetas']
-                phase_SI_betas = test_catalogue_data[w]['SIAmpTimeSeriesBetas']
+            if self.do_si_projection:
+                hplus_SI_betas = self.test_catalogue_data[w]['SIhplusTimeSeriesBetas']
+                amp_SI_betas   = self.test_catalogue_data[w]['SIAmpTimeSeriesBetas']
+                phase_SI_betas = self.test_catalogue_data[w]['SIAmpTimeSeriesBetas']
                 
                 # The target waveform
                 target_SI_hplus = self.SIhplusTimeSeriesPCA.inverse_transform(
-                        self.catalogue_data[w]['SIhplusTimeSeriesBetas'] )
+                        self.test_catalogue_data[w]['SIhplusTimeSeriesBetas'] )
                 target_SI_amp = self.SIAmpTimeSeriesPCA.inverse_transform(
-                        self.catalogue_data[w]['SIAmpTimeSeriesBetas'] )
+                        self.test_catalogue_data[w]['SIAmpTimeSeriesBetas'] )
                 target_SI_phase = self.SIPhaseTimeSeriesPCA.inverse_transform(
-                        self.catalogue_data[w]['SIPhaseTimeSeriesBetas'] )
+                        self.test_catalogue_data[w]['SIPhaseTimeSeriesBetas'] )
 
                 target_SI_ampphase = target_SI_amp * np.exp(1j*target_SI_phase)
     
@@ -357,7 +367,7 @@ Will perform SI PCA decomposition (different masses)"
                 reconstructed_NR_amp   = self.NRAmpTimeSeriesPCA.mean_
                 reconstructed_NR_phase = self.NRPhaseTimeSeriesPCA.mean_
 
-                if hasattr(test_catalogue, 'ref_mass'):
+                if self.do_si_projection:
                     reconstructed_SI_hplus = self.SIhplusTimeSeriesPCA.mean_
                     reconstructed_SI_amp   = self.SIAmpTimeSeriesPCA.mean_
                     reconstructed_SI_phase = self.SIPhaseTimeSeriesPCA.mean_
@@ -370,7 +380,7 @@ Will perform SI PCA decomposition (different masses)"
                     reconstructed_NR_phase += \
                             self.NRPhaseTimeSeriesPCA.components_[n, :]
 
-                    if psd is not None and hasattr(test_catalogue, 'ref_mass'):
+                    if self.do_si_projection:
                         reconstructed_SI_hplus += \
                                 self.SIhplusTimeSeriesPCA.components_[n, :]
                         reconstructed_SI_amp += \
@@ -381,25 +391,27 @@ Will perform SI PCA decomposition (different masses)"
                 reconstructed_NR_ampphase = \
                         reconstructed_NR_amp*np.exp(1j*reconstructed_NR_phase)
  
-                self.euclidean_distances_plus[w,npcs] = euclidean_distance(
-                        reconstructed_NR_hplus, target_NR_hplus.data)
+                self.euclidean_distances_hplus[w,npcs] = euclidean_distance(
+                        reconstructed_NR_hplus, target_NR_hplus)
                 self.euclidean_distances_amp[w,npcs] =\
                         euclidean_distance(reconstructed_NR_amp, target_NR_amp)
                 self.euclidean_distances_phase[w,npcs] =\
                         euclidean_distance(reconstructed_NR_amp, target_NR_amp)
     
-                if hasattr(test_catalogue, 'ref_mass'):
+                if self.do_si_projection:
+
                     reconstructed_SI_ampphase = \
                             reconstructed_SI_amp*np.exp(1j*reconstructed_SI_phase)
 
                     self.matches_hplus[w,npcs] = \
-                            compute_match(reconstructed_SI_hplus, target_hplus,
-                                    psd=psd, low_frequency_cutoff=self.fmin)
+                            compute_match(reconstructed_SI_hplus, target_SI_hplus,
+                                    delta_t=self.SI_deltaT, psd=psd,
+                                    low_frequency_cutoff=self.fmin)
         
                     self.matches_ampphase[w,npcs] = \
-                            compute_match(reconstructed_SI_ampphase,
-                                target_SI_ampphase, psd=psd,
-                                low_frequency_cutoff=self.fmin)
+                            compute_match(np.real(reconstructed_SI_ampphase),
+                                    np.real(target_SI_ampphase), delta_t=self.SI_deltaT,
+                                    psd=psd, low_frequency_cutoff=self.fmin)
 
 
 
