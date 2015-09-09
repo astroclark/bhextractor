@@ -186,6 +186,23 @@ class waveform_pca:
         # Project the test catalogue onto the new basis formed from the
         # training catalogue
         if test_catalogue is not None:
+
+            # XXX: Sanity check catalogues have matching configuration
+            if hasattr(train_catalogue, 'ref_mass') *  hasattr(test_catalogue,
+                    'ref_mass') * (getattr(train_catalogue, 'ref_mass') ==
+                            getattr(test_catalogue, 'ref_mass')):
+
+                        print "Train and test catalogues have matching SI waveforms.\
+Will perform SI PCA decomposition"
+                
+                        self.do_si_projection=True
+
+            else:
+                    print "Train and test catalogues DO NOT have matching SI waveforms.\
+Will perform SI PCA decomposition (different masses)"
+
+                    self.do_si_projection=False
+
             print "Evaluating projection of test catalogue onto new basis"
             self.project_test_catalogue(test_catalogue)
 
@@ -198,21 +215,6 @@ class waveform_pca:
         projection onto this basis
 
         """
-
-        # XXX: Sanity check catalogues have matching configuration
-        if hasattr(train_catalogue, 'ref_mass') *  hasattr(test_catalogue,
-                'ref_mass') * (getattr(train_catalogue, 'ref_mass') ==
-                        getattr(test_catalogue, 'ref_mass')):
-
-                    print "Train and test catalogues have matching SI waveforms.\
-Will perform SI PCA decomposition"
-            
-                    do_si_projection=True
-
-        else:
-                print "Train and test catalogues DO NOT have matching SI waveforms.\
-Will perform SI PCA decomposition (different masses)"
-
 
 
         print 'Projecting time-domain test catalogue onto new basis'
@@ -254,7 +256,7 @@ Will perform SI PCA decomposition (different masses)"
                                 ) 
                             )
 
-            if hasattr(train_catalogue, 'ref_mass') * hasattr(test_catalogue, 'ref_mass'):
+            if self.do_si_projection:
 
                 self.test_catalogue_data[w]\
                         ['SIhplusTimeSeriesBetas'] = \
