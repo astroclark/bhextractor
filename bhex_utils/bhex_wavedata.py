@@ -295,7 +295,8 @@ class waveform_catalogue:
     """
 
     def __init__(self, simulation_details, ref_mass=None, distance=1,
-            SI_deltaT=1./1024, SI_datalen=4, NR_deltaT=0.1, NR_datalen=10000): 
+            SI_deltaT=1./1024, SI_datalen=4, NR_deltaT=0.1, NR_datalen=10000,
+            trunc_time=False): 
         """
         Initalise with a simulation_details object and a reference mass ref_mass to
         which waveforms get scaled.  If ref_mass is None, waveforms are left in
@@ -307,6 +308,7 @@ class waveform_catalogue:
         self.NR_deltaT = NR_deltaT
         self.NR_datalen = NR_datalen
 
+        self.trunc_time = trunc_time
         # Load in the NR waveform data
         self.load_wavedata()
 
@@ -392,20 +394,53 @@ class waveform_catalogue:
         self.NRPhaseTimeSeries = np.zeros(shape=(len(plus_data_resampled),
             NR_nsamples))
 
-        # Alignment
+        # Alignment & Normalisation
         align_idx = 0.5*NR_nsamples
+
+        trunc_epsilon = 1e-3
+        trunc_len = np.inf
         for w in xrange(self.simulation_details.nsimulations):
 
             wave = window_wave(plus_data_resampled[w] -
                     1j*cross_data_resampled[w])
 
+            # Normalisation
+            wave /= np.vdot(wave,wave)
+
             peak_idx=np.argmax(abs(wave))
             start_idx = align_idx - peak_idx
 
             self.NRComplexTimeSeries[w,start_idx:start_idx+len(wave)] = wave
+
             self.NRAmpTimeSeries[w,:] = abs(self.NRComplexTimeSeries[w,:])
             self.NRPhaseTimeSeries[w,:] = \
                     phase_of(self.NRComplexTimeSeries[w,:])
+
+            # TRUNCATION ALGORITHM:
+                # 1) Loop through waveforms, find lengths of data with
+                # Amp>epsilon*max(Amp)
+                # 2) construct Planck window with length = min(lengths from 1)
+                # 3) Apply to all time series
+            if sum(self.NRAmpTimeSeries[w,:] > \
+                    trunc_epsilon*max(self.NRAmpTimeSeries[w,:])) < trunc_len:
+                trunc_len = sum(self.NRAmpTimeSeries[w,:] > \
+                    trunc_epsilon*max(self.NRAmpTimeSeries[w,:]))
+                trunc_idx = self.NRAmpTimeSeries[w,:] > \
+                    trunc_epsilon*max(self.NRAmpTimeSeries[w,:])
+
+        if self.trunc_time:
+
+            for w in xrange(self.simulation_details.nsimulations):
+
+                # Truncate to the length of the shortest waveform
+                self.NRComplexTimeSeries[w,trunc_idx] = \
+                        window_wave(self.NRComplexTimeSeries[w,trunc_idx])
+                self.NRComplexTimeSeries[w,np.invert(trunc_idx)] = 0.0
+
+                self.NRAmpTimeSeries[w,:] = abs(self.NRComplexTimeSeries[w,:])
+                self.NRPhaseTimeSeries[w,:] = \
+                        phase_of(self.NRComplexTimeSeries[w,:])
+                
 
         del time_data, plus_data, cross_data, plus_data_resampled, cross_data_resampled
 
@@ -449,6 +484,7 @@ class waveform_catalogue:
             wave = resampled_re + 1j*resampled_im
 
             idx = abs(wave)>1e-3*max(abs(wave))
+            wave = window_wave(wave)
             wave = wave[idx]
 
             peakidx = np.argmax(abs(wave))

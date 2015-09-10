@@ -41,6 +41,49 @@ from bhex_utils import bhex_wavedata as bwave
 # *****************************************************************************
 # Function Definitions 
 
+def plot_fidelity_by_npc(fidelity_matrix, title=None,
+        figsize=None, ylabel = '$\mathcal{M}$', legloc=None):
+
+    from matplotlib import pyplot as pl
+
+    # Calculations
+    min_fidelity = fidelity_matrix.min(axis=0)
+    max_fidelity = fidelity_matrix.max(axis=0)
+    mean_fidelity = fidelity_matrix.mean(axis=0)
+    median_fidelity = np.median(fidelity_matrix, axis=0)
+    rms_fidelity = np.sqrt(np.mean(np.square(fidelity_matrix), axis=0))
+
+    low, upp = np.percentile(fidelity_matrix, [10, 90], axis=0)  
+
+    fig, ax = pl.subplots()
+    if figsize is not None:
+        fig.set_size_inches(figsize)
+
+    center = ax.step(np.arange(1,len(min_fidelity)+1)-0.5, median_fidelity, color='r',
+            label='median', where='post')
+
+    ax.bar(np.arange(1,len(min_fidelity)+1)-0.5, bottom=low, height=upp-low,
+            color='lightgrey', label='10th/90th percentile',
+            edgecolor='lightgrey', width=1)
+
+    lims=ax.step(np.arange(1,len(min_fidelity)+1)-0.5, min_fidelity, color='k', linestyle='--',
+            label='min/max', where='post')
+
+    ax.step(np.arange(1,len(min_fidelity)+1)-0.5, max_fidelity, color='k',
+            linestyle='--', where='post')
+
+    ax.minorticks_on()
+    ax.set_xlabel('Number of PCs')
+    ax.set_ylabel(ylabel)
+
+    ax.set_xlim(1,np.shape(fidelity_matrix)[1]+1)
+    ax.grid()
+
+    leg = ax.legend(loc='lower right')
+
+
+    return fig, ax
+
 def compute_match(wave1, wave2, delta_t, low_frequency_cutoff, psd):
     """
     Helper function to put arrays wave1,2 into timeseries objects and return the
@@ -145,6 +188,11 @@ class waveform_pca:
 
         # XXX: Probably the smart place to truncate the catalogue so we have
         # equal length waveforms
+
+
+        # Should also do Fourier domain PCA here.  Remember you'll want to save
+        # those PCs as time series, though.  and figure out the geometrical
+        # frequencies etc.
 
         self.NRhplusTimeSeriesPCA = \
                 perform_pca(np.real(train_catalogue.NRComplexTimeSeries))

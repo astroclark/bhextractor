@@ -63,15 +63,8 @@ train_bounds['q'] = [-np.inf, 3]
 # Define the test catalogue
 #
 # Remember: intuitive results <=> train == test
-#   test_series_names = ['HR-series']
-#   test_bounds=dict()
-#   test_bounds['a1'] = [0, 0]
-#   test_bounds['a2'] = [0, 0]
-#   test_bounds['q'] = [-np.inf, 3] 
-test_series_names = ['HRq-series']
+test_series_names = ['RO3-series']
 test_bounds=dict()
-test_bounds['a1'] = [0, 0]
-test_bounds['a2'] = [0, 0]
 test_bounds['q'] = [-np.inf, 3] 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -126,20 +119,37 @@ print 'Plotting results'
 print ''
 
 
-#
-# Explained variance
-#
-
-# --- hplus
-
-# --- A(t) & phi(t)
-
-# --- A(f) & phi(f)
-
 
 #
 # Matches
 #
+npcs = np.arange(1,pca.ntrain+1)
+
+# Adopt the same approach as for explained variance here
+match_types = ['matches_hplus','matches_ampphase']
+
+# Dictionary to store the number of PCs required for 95% match for each
+# decomposition
+MatchThresh=0.97
+npcMatchThresh = dict()
+
+xmin=np.inf
+xmax=-np.inf
+for m, mat in enumerate(match_types):
+
+    matches = getattr(pca,mat)
+    med_matches = np.median(matches, axis=0)
+
+    if npcs[np.argwhere(med_matches>MatchThresh)[0][0]]>xmax:
+        xmax = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
+
+    npcMatchThresh[mat] = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
+
+    f, ax = bpca.plot_fidelity_by_npc(matches)
+    ax.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
+    ax.set_xticks(npcs)
+
+    ax.set_ylabel('Match with %s reconstruction'%(mat.replace('matches_','')))
 
 # --- hplus
 

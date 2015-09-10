@@ -35,48 +35,6 @@ import pycbc.types
 import numpy as np
 from matplotlib import pyplot as pl
 
-def plot_fidelity_by_npc(fidelity_matrix, title=None,
-        figsize=None, ylabel = '$\mathcal{M}$', legloc=None):
-
-
-    # Calculations
-    min_fidelity = fidelity_matrix.min(axis=0)
-    max_fidelity = fidelity_matrix.max(axis=0)
-    mean_fidelity = fidelity_matrix.mean(axis=0)
-    median_fidelity = np.median(fidelity_matrix, axis=0)
-    rms_fidelity = np.sqrt(np.mean(np.square(fidelity_matrix), axis=0))
-
-    low, upp = np.percentile(fidelity_matrix, [10, 90], axis=0)  
-
-    fig, ax = pl.subplots()
-    if figsize is not None:
-        fig.set_size_inches(figsize)
-
-    center = ax.step(np.arange(1,len(min_fidelity)+1)-0.5, median_fidelity, color='r',
-            label='median', where='post')
-
-    ax.bar(np.arange(1,len(min_fidelity)+1)-0.5, bottom=low, height=upp-low,
-            color='lightgrey', label='10th/90th percentile',
-            edgecolor='lightgrey', width=1)
-
-    lims=ax.step(np.arange(1,len(min_fidelity)+1)-0.5, min_fidelity, color='k', linestyle='--',
-            label='min/max', where='post')
-
-    ax.step(np.arange(1,len(min_fidelity)+1)-0.5, max_fidelity, color='k',
-            linestyle='--', where='post')
-
-    ax.minorticks_on()
-    ax.set_xlabel('Number of PCs')
-    ax.set_ylabel(ylabel)
-
-    ax.set_xlim(1,np.shape(fidelity_matrix)[1]+1)
-    ax.grid()
-
-    leg = ax.legend(loc='lower right')
-
-
-    return fig, ax
-
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # 
@@ -134,7 +92,7 @@ train_simulations = \
 
 train_catalogue = bwave.waveform_catalogue(train_simulations,
         ref_mass=total_mass, SI_deltaT=SI_deltaT, SI_datalen=SI_datalen,
-        distance=distance)
+        distance=distance, trunc_time=True)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -220,7 +178,7 @@ for m, mat in enumerate(match_types):
 
     npcMatchThresh[mat] = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
 
-    f, ax = plot_fidelity_by_npc(matches)
+    f, ax = bpca.plot_fidelity_by_npc(matches)
     ax.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
     ax.set_xticks(npcs)
 

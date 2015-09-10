@@ -50,16 +50,16 @@ SI_datalen= 4.0
 total_mass = 150.  # Generate SI waveforms at this mass
 distance=1. # Mpc
 
-series_names = ['HR-series', 'HRq-series', 'RO3-series'] # (see above for valid choices)
+series_names = ['HRq-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
 
 #
 # Modify for imposing parameter bounds on the catalogue:
 #
-bounds=None
+#bounds=None
 bounds=dict()
-#bounds['a1'] = [0, 0]
-#bounds['a2'] = [0, 0]
-bounds['q'] = [-np.inf, 2] 
+bounds['a1'] = [0, 0]
+bounds['a2'] = [0, 0]
+bounds['q'] = [-np.inf, 3] 
 
 save_pcs = ['NRhplusTimeSeriesPCA', 'NRhcrossTimeSeriesPCA',
 'NRAmpTimeSeriesPCA', 'NRPhaseTimeSeriesPCA',  'SIhplusTimeSeriesPCA',
@@ -79,7 +79,8 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
 catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
-        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance)
+        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
+        trunc_time=True)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
