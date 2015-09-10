@@ -15,12 +15,15 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
-bhextractor_plot_catalogue.py
+bhextractor_plot_pca.py
 
 Construct catalogues and principal component analysis for NR BBH waveforms
 
-This script simply builds and plots a catalogue (defined by the user in this
-script)
+This script simply builds a catalogue (defined by the user in this
+script) and produces plots of the PC basis and related characteristics.
+
+See bhex_pca_projections.py for projections of test catalogues onto a basis and
+reconstruction fidelity measures.
 
 """
 
@@ -31,6 +34,49 @@ from pycbc.psd import aLIGOZeroDetHighPower
 import pycbc.types
 import numpy as np
 from matplotlib import pyplot as pl
+
+def plot_fidelity_by_npc(fidelity_matrix, title=None,
+        figsize=None, ylabel = '$\mathcal{M}$', legloc=None):
+
+
+    # Calculations
+    min_fidelity = fidelity_matrix.min(axis=0)
+    max_fidelity = fidelity_matrix.max(axis=0)
+    mean_fidelity = fidelity_matrix.mean(axis=0)
+    median_fidelity = np.median(fidelity_matrix, axis=0)
+    rms_fidelity = np.sqrt(np.mean(np.square(fidelity_matrix), axis=0))
+
+    low, upp = np.percentile(fidelity_matrix, [10, 90], axis=0)  
+
+    fig, ax = pl.subplots()
+    if figsize is not None:
+        fig.set_size_inches(figsize)
+
+    center = ax.step(np.arange(1,len(min_fidelity)+1)-0.5, median_fidelity, color='r',
+            label='median', where='post')
+
+    ax.bar(np.arange(1,len(min_fidelity)+1)-0.5, bottom=low, height=upp-low,
+            color='lightgrey', label='10th/90th percentile',
+            edgecolor='lightgrey', width=1)
+
+    lims=ax.step(np.arange(1,len(min_fidelity)+1)-0.5, min_fidelity, color='k', linestyle='--',
+            label='min/max', where='post')
+
+    ax.step(np.arange(1,len(min_fidelity)+1)-0.5, max_fidelity, color='k',
+            linestyle='--', where='post')
+
+    ax.minorticks_on()
+    ax.set_xlabel('Number of PCs')
+    ax.set_ylabel(ylabel)
+
+    ax.set_xlim(1,np.shape(fidelity_matrix)[1]+1)
+    ax.grid()
+
+    leg = ax.legend(loc='lower right')
+
+
+    return fig, ax
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # 
@@ -90,18 +136,6 @@ train_catalogue = bwave.waveform_catalogue(train_simulations,
         ref_mass=total_mass, SI_deltaT=SI_deltaT, SI_datalen=SI_datalen,
         distance=distance)
 
-print ''
-print 'Building Testing Catalogue'
-print ''
-print 'The principal component basis is constructed from these waveforms'
-print ''
-test_simulations = \
-        bwave.simulation_details(series_names=test_series_names,
-                param_bounds=test_bounds, Mmin30Hz=total_mass)
-
-test_catalogue = bwave.waveform_catalogue(test_simulations, ref_mass=total_mass,
-        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance)
-
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
@@ -110,7 +144,7 @@ test_catalogue = bwave.waveform_catalogue(test_simulations, ref_mass=total_mass,
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Performing PCA'
 print ''
-pca = bpca.waveform_pca(train_catalogue, test_catalogue)
+pca = bpca.waveform_pca(train_catalogue, train_catalogue)
 
 # Characterise reconstructions
 # XXX build a PSD and call projection_fidelity()
@@ -127,24 +161,103 @@ print ''
 
 
 #
-# Explained variance
+# Explained variance: Time Series
 #
 
-# --- hplus
+# PCA decompositions whose variances we will plot:
+pc_types = ['NRhplusTimeSeriesPCA', 'NRAmpTimeSeriesPCA', \
+        'NRPhaseTimeSeriesPCA']
 
-# --- A(t) & phi(t)
+# Dictionary to store the number of PCs required for 95% variance for each
+# decomposition
+VarThresh=0.99
+npcVarThresh = dict()
 
-# --- A(f) & phi(f)
+fev, axev = pl.subplots()
+xmax=-np.inf
+npcs = np.arange(1,pca.ntrain+1)
+for p, pcs in enumerate(pc_types):
 
+    ev = np.cumsum(getattr(pca,pcs).explained_variance_ratio_)
+
+    s=axev.step(npcs-0.5, ev, label=pcs.replace('NR','').replace('PCA',''))
+
+    if npcs[np.argwhere(ev>VarThresh)[0][0]] > xmax:
+        xmax=npcs[np.argwhere(ev>VarThresh)[0][0]]
+
+    npcVarThresh[pcs] = npcs[np.argwhere(ev>VarThresh)[0][0]]
+    axev.axvline(npcVarThresh[pcs],color=s[0].get_color(), linestyle='--')
+
+axev.set_xlabel('Number of PCs')
+axev.set_ylabel('explained variance [%]')
+axev.legend(loc='lower right')
+axev.minorticks_on()
+axev.set_xticks(npcs)
+axev.set_ylim(0.9,1)
+axev.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
 
 #
 # Matches
 #
 
+# Adopt the same approach as for explained variance here
+match_types = ['matches_hplus','matches_ampphase']
+
+# Dictionary to store the number of PCs required for 95% match for each
+# decomposition
+MatchThresh=0.97
+npcMatchThresh = dict()
+
+xmin=np.inf
+xmax=-np.inf
+for m, mat in enumerate(match_types):
+
+    matches = getattr(pca,mat)
+    med_matches = np.median(matches, axis=0)
+
+    if npcs[np.argwhere(med_matches>MatchThresh)[0][0]]>xmax:
+        xmax = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
+
+    npcMatchThresh[mat] = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
+
+    f, ax = plot_fidelity_by_npc(matches)
+    ax.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
+    ax.set_xticks(npcs)
+
+    ax.set_ylabel('Match with %s reconstruction'%(mat.replace('matches_','')))
+
+#
+# The principal components themselves
+#
+
 # --- hplus
+NRtime = np.arange(0, train_catalogue.NR_datalen, train_catalogue.NR_deltaT)
+NRtime -= NRtime[np.argmax(train_catalogue.NRAmpTimeSeries[0])]
 
-# --- A(t) & phi(t)
+# zoom on significant amplitude regime
+xmin=-np.inf
+xmax=np.inf
+for w in xrange(pca.ntrain):
+    idx = np.argwhere(train_catalogue.NRAmpTimeSeries[w,:] >
+            1e-3*max(train_catalogue.NRAmpTimeSeries[w,:]))
+    if NRtime[idx][0]>xmin:
+        xmin=NRtime[idx][0]
+    if NRtime[idx][-1]<xmax:
+        xmax=NRtime[idx][-1]
 
-# --- A(f) & phi(f)
+for p,pcs in enumerate(pc_types):
+
+    f, ax = pl.subplots()
+    for p in xrange(npcVarThresh[pcs]):
+        ax.plot(NRtime, getattr(pca, pcs).components_[p,:], label='PC %d'%(p+1))
+        ax.set_xlim(xmin-100,xmax+50)
+        #ax.set_xlim(-1000,500)
+    ax.set_xlabel('Time [M$_{\odot}$]')
+    ax.set_ylabel('PC amplitude for %s'%pcs.replace('NR','').replace('PCA',''))
+    ax.minorticks_on()
+    ax.legend(loc='upper left')
+        
+
+pl.show()
 
 
