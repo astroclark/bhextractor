@@ -44,7 +44,7 @@ from matplotlib import pyplot as pl
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-sample_rate = 512
+SI_deltaT = 1./512
 SI_datalen= 4.0
 
 total_mass = 150.  # Generate SI waveforms at this mass
@@ -79,7 +79,7 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
 catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
-        sample_rate=sample_rate, SI_datalen=SI_datalen, distance=distance)
+        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
@@ -88,8 +88,7 @@ catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
 # Strain Time Series
 #
 fstrainNR, axstrainNR = pl.subplots(nrows=2, sharex=True)
-NRtime = np.arange(0, catalogue.NR_datalen * catalogue.NR_deltaT,
-        catalogue.NR_deltaT)
+NRtime = np.arange(0, catalogue.NR_datalen, catalogue.NR_deltaT)
 NRtime -= NRtime[np.argmax(catalogue.NRAmpTimeSeries[0])]
 
 axstrainNR[0].plot(NRtime, np.real(catalogue.NRComplexTimeSeries.T), color='grey')
@@ -112,7 +111,7 @@ pl.subplots_adjust(hspace=0)
 # ---- SI:
 fstrainSI, axstrainSI = pl.subplots(nrows=2, sharex=True)
 
-SItime = np.arange(0, SI_datalen, 1.0/float(sample_rate))
+SItime = np.arange(0, SI_datalen, SI_deltaT)
 SItime -= SItime[np.argmax(catalogue.SIAmpTimeSeries[0])]
 
 axstrainSI[0].plot(SItime, np.real(catalogue.SIComplexTimeSeries.T),
@@ -186,7 +185,7 @@ fspecSI, axspecSI = pl.subplots()
 for wave in catalogue.SIComplexTimeSeries:
 
     hplus_NR = \
-            pycbc.types.TimeSeries(np.real(wave), delta_t=1./sample_rate)
+            pycbc.types.TimeSeries(np.real(wave), delta_t=SI_deltaT)
     hplus_NR.data = bwave.window_wave(hplus_NR.data)
     Hplus_NR = hplus_NR.to_frequencyseries()
 

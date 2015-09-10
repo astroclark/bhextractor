@@ -29,7 +29,7 @@ from matplotlib import pyplot as pl
 # Training data input
 # XXX: probably going to want a config parser
 
-sample_rate = 512
+SI_deltaT = 1.0/512
 SI_datalen= 4.0
 
 total_mass = 150. 
@@ -54,7 +54,7 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
 train_catalogue = bwave.waveform_catalogue(train_simulations,
-        ref_mass=total_mass, sample_rate=sample_rate, SI_datalen=SI_datalen,
+        ref_mass=total_mass, SI_deltaT=SI_deltaT, SI_datalen=SI_datalen,
         distance=distance)
 
 #

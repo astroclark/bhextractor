@@ -45,21 +45,30 @@ from matplotlib import pyplot as pl
 # USER INPUT (do not edit beyond this section)
 
 # Options common to train & test data:
-sample_rate = 512
+SI_deltaT = 1./512
 SI_datalen= 4.0
 total_mass = 150. 
 distance=1. # Mpc
-NR_deltaT=0.1
 
+#
 # Define the train catalogue
-train_series_names = ['HRq-series', 'RO3-series']
+#
+train_series_names = ['HRq-series']
 train_bounds=dict()
 train_bounds['a1'] = [0, 0]
 train_bounds['a2'] = [0, 0]
 train_bounds['q'] = [-np.inf, 3] 
 
+#
 # Define the test catalogue
-test_series_names = ['HR-series']
+#
+# Remember: intuitive results <=> train == test
+#   test_series_names = ['HR-series']
+#   test_bounds=dict()
+#   test_bounds['a1'] = [0, 0]
+#   test_bounds['a2'] = [0, 0]
+#   test_bounds['q'] = [-np.inf, 3] 
+test_series_names = ['HRq-series']
 test_bounds=dict()
 test_bounds['a1'] = [0, 0]
 test_bounds['a2'] = [0, 0]
@@ -78,8 +87,8 @@ train_simulations = \
                 param_bounds=train_bounds, Mmin30Hz=total_mass)
 
 train_catalogue = bwave.waveform_catalogue(train_simulations,
-        ref_mass=total_mass, sample_rate=sample_rate, SI_datalen=SI_datalen,
-        distance=distance, NR_deltaT=NR_deltaT)
+        ref_mass=total_mass, SI_deltaT=SI_deltaT, SI_datalen=SI_datalen,
+        distance=distance)
 
 print ''
 print 'Building Testing Catalogue'
@@ -91,7 +100,7 @@ test_simulations = \
                 param_bounds=test_bounds, Mmin30Hz=total_mass)
 
 test_catalogue = bwave.waveform_catalogue(test_simulations, ref_mass=total_mass,
-        sample_rate=sample_rate, SI_datalen=SI_datalen, distance=distance, NR_deltaT=NR_deltaT)
+        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

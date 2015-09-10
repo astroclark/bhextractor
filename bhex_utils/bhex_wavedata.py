@@ -32,10 +32,7 @@ import numpy as np
 import scipy.signal as signal
 
 import lal
-#import lalsimulation as lalsim
 import pycbc.types
-#import pycbc.filter
-#from pycbc.psd import aLIGOZeroDetHighPower
 
 # *****************************************************************************
 global __param_names__
@@ -44,21 +41,6 @@ __param_names__ = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
 
 # *****************************************************************************
 # Function Definitions 
-
-def taper_start(input_data, fs=512):
-    """  
-    Taper the start of the data
-    """
-
-    timeseries = lal.CreateREAL8TimeSeries('blah', 0.0, 0,
-            1.0/fs, lal.StrainUnit, int(len(input_data)))
-    timeseries.data.data = input_data
-
-    lalsim.SimInspiralREAL8WaveTaper(timeseries.data,
-        lalsim.SIM_INSPIRAL_TAPER_START)
-
-    return timeseries.data.data
-
 
 def highpass(timeseries, delta_t=1./512, knee=9., order=12, attn=0.1):
     """
@@ -313,18 +295,17 @@ class waveform_catalogue:
     """
 
     def __init__(self, simulation_details, ref_mass=None, distance=1,
-            sample_rate=1024, SI_datalen=4, NR_deltaT=None): 
+            SI_deltaT=1./1024, SI_datalen=4, NR_deltaT=0.1, NR_datalen=10000): 
         """
         Initalise with a simulation_details object and a reference mass ref_mass to
         which waveforms get scaled.  If ref_mass is None, waveforms are left in
         code units
 
-        SI_datalen is in seconds
-        NR_datalen is in samples
         """
 
         self.simulation_details = simulation_details
         self.NR_deltaT = NR_deltaT
+        self.NR_datalen = NR_datalen
 
         # Load in the NR waveform data
         self.load_wavedata()
@@ -333,13 +314,13 @@ class waveform_catalogue:
         # Produce physical catalogue if reference mass specified
         if ref_mass is not None:
             # catalogue_to_SI() adds variables to self
-            self.catalogue_to_SI(ref_mass=ref_mass, sample_rate=sample_rate,
+            self.catalogue_to_SI(ref_mass=ref_mass, SI_deltaT=SI_deltaT,
                     distance=distance, SI_datalen=SI_datalen)
 
 
             # assign some characteristics which will be useful elsewhere (e.g.,
             # making PSDs)
-            self.SI_deltaT = 1.0/sample_rate
+            self.SI_deltaT = SI_deltaT
 
             example_ts = \
                     pycbc.types.TimeSeries(np.real(self.SIComplexTimeSeries[0,:]),
@@ -372,11 +353,6 @@ class waveform_catalogue:
         # Build waveforms in this catalogue
         max_time=-np.inf
 
-        if self.NR_deltaT is None:
-            find_NR_deltaT = True
-            self.NR_deltaT=np.inf
-        else: find_NR_deltaT = False
-
         for w, sim in enumerate(self.simulation_details.simulations):
 
             print 'Loading %s waveform (%s)'%(sim['wavename'], sim['series'])
@@ -387,21 +363,12 @@ class waveform_catalogue:
             plus_data.append(wavedata[:,1])
             cross_data.append(wavedata[:,2])
 
-            # Get characteristics to standardise waveforms
-            if wavedata[-1,0]>max_time:
-                max_time = np.copy(wavedata[-1,0])
-
-            if find_NR_deltaT:
-                if np.diff(wavedata[:,0])[0]<self.NR_deltaT:
-                    self.NR_deltaT = np.diff(wavedata[:,0])[0]
-
         # Now resample to a consistent deltaT
         time_data_resampled  = []
         plus_data_resampled  = []
         cross_data_resampled = []
 
         print 'Resampling to uniform rate'
-        max_length = -np.inf
         for w in xrange(self.simulation_details.nsimulations): 
             deltaT = np.diff(time_data[w])[0]
             if deltaT > self.NR_deltaT:
@@ -414,25 +381,19 @@ class waveform_catalogue:
                 plus_data_resampled.append(np.copy(plus_data[w]))
                 cross_data_resampled.append(np.copy(cross_data[w]))
 
-            if len(plus_data_resampled[w])>max_length:
-                max_length = len(plus_data_resampled[w])
-
-        self.NR_datalen = 2*max_length
-        print self.NR_datalen
-        self.NR_datalen = 50000
-
         #
         # Insert into a numpy array
         #
+        NR_nsamples = self.NR_datalen / self.NR_deltaT
         self.NRComplexTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NR_datalen), dtype=complex)
+            NR_nsamples), dtype=complex)
         self.NRAmpTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NR_datalen))
+            NR_nsamples))
         self.NRPhaseTimeSeries = np.zeros(shape=(len(plus_data_resampled),
-            self.NR_datalen))
+            NR_nsamples))
 
         # Alignment
-        align_idx = 0.5*self.NR_datalen
+        align_idx = 0.5*NR_nsamples
         for w in xrange(self.simulation_details.nsimulations):
 
             wave = window_wave(plus_data_resampled[w] -
@@ -440,9 +401,6 @@ class waveform_catalogue:
 
             peak_idx=np.argmax(abs(wave))
             start_idx = align_idx - peak_idx
-
-            # Find where there's significant power
-            sigpower_idx = abs(wave) > 1e-3*max(abs(wave))
 
             self.NRComplexTimeSeries[w,start_idx:start_idx+len(wave)] = wave
             self.NRAmpTimeSeries[w,:] = abs(self.NRComplexTimeSeries[w,:])
@@ -453,7 +411,7 @@ class waveform_catalogue:
 
         return 0
 
-    def catalogue_to_SI(self, ref_mass, sample_rate=1024, distance=100.,
+    def catalogue_to_SI(self, ref_mass, SI_deltaT=1./1024, distance=100.,
             SI_datalen=4):
         """
         Convert waveforms in self.NRdata to physical time stamps / amplitudes
@@ -463,26 +421,26 @@ class waveform_catalogue:
 
         # Add physical attributes
         self.ref_mass = ref_mass
-        self.sample_rate=sample_rate
+        self.SI_deltaT=SI_deltaT
         self.distance=distance
 
         # Time steps of NR waveforms at the reference mass: 
-        SI_deltaT = ref_mass * lal.MTSUN_SI * self.NR_deltaT
+        SI_deltaT_of_NR = ref_mass * lal.MTSUN_SI * self.NR_deltaT
         Mscale = ref_mass * lal.MRSUN_SI / (distance * 1e6 * lal.PC_SI)
 
         # Resample to duration in seconds (=nsamples x deltaT) x samples / second
-        resamp_len = np.ceil(self.NR_datalen*SI_deltaT*self.sample_rate)
+        resamp_len = np.ceil(self.NR_datalen/self.NR_deltaT*SI_deltaT_of_NR/self.SI_deltaT)
 
         self.SIComplexTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
-                    SI_datalen*sample_rate), dtype=complex)
+                    SI_datalen/SI_deltaT), dtype=complex)
 
         self.SIAmpTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
-                    SI_datalen*sample_rate))
+                    SI_datalen/SI_deltaT))
         self.SIPhaseTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
-                    SI_datalen*sample_rate))
+                    SI_datalen/SI_deltaT))
 
         for w in xrange(self.simulation_details.nsimulations):
 
@@ -494,7 +452,7 @@ class waveform_catalogue:
             wave = wave[idx]
 
             peakidx = np.argmax(abs(wave))
-            startidx = 0.5*SI_datalen*sample_rate - peakidx
+            startidx = 0.5*SI_datalen/SI_deltaT - peakidx
 
             self.SIComplexTimeSeries[w,startidx:startidx+len(wave)] = \
                     Mscale*wave
