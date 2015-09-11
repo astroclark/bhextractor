@@ -26,6 +26,7 @@ from __future__ import division
 import os
 import sys 
 import cPickle as pickle
+import copy
 
 import numpy as np
 from scipy.spatial.distance import euclidean as euclidean_distance
@@ -163,6 +164,13 @@ def perform_pca(data_matrix):
     return pca
 
 
+def reconstruct(pca, betas, npcs):
+    reconstruction = np.copy(pca.mean_)
+
+    for n in xrange(npcs):
+        reconstruction+=betas[n] * pca.components_[n,:]
+    return reconstruction
+
 
 # *****************************************************************************
 # Class Definitions 
@@ -185,9 +193,6 @@ class waveform_pca:
         # PCA of the NR data
         #
         print "PCA of NR waveforms"
-
-        # XXX: Probably the smart place to truncate the catalogue so we have
-        # equal length waveforms
 
 
         # Should also do Fourier domain PCA here.  Remember you'll want to save
@@ -272,7 +277,7 @@ Will perform SI PCA decomposition (different masses)"
         print 'Projecting time-domain test catalogue onto new basis'
 
         self.test_catalogue_data = \
-                list(test_catalogue.simulation_details.simulations)
+                copy.deepcopy(test_catalogue.simulation_details.simulations)
 
         for w in xrange(len(self.test_catalogue_data)):
                     
@@ -362,30 +367,54 @@ Will perform SI PCA decomposition (different masses)"
         print "Evaluating reconstruction fidelity"
  
         # Pre-allocate
-        self.euclidean_distances_hplus =  np.zeros(shape=(self.ntest, self.ntrain))
-        self.euclidean_distances_amp = np.zeros(shape=(self.ntest, self.ntrain))
-        self.euclidean_distances_phase = np.zeros(shape=(self.ntest, self.ntrain))
-    
+
+        class euclidean_distances(object):
+            hplus = np.zeros(shape=(self.ntest, self.ntrain))
+            amplitude = np.zeros(shape=(self.ntest, self.ntrain))
+            phase = np.zeros(shape=(self.ntest, self.ntrain))
+
+        class projections(object):
+            hplus = np.zeros(shape=(self.ntest, self.ntrain))
+            ampphase = np.zeros(shape=(self.ntest, self.ntrain))
+
         if self.do_si_projection:
-            self.matches_hplus    = np.zeros(shape=(self.ntest, self.ntrain))
-            self.matches_ampphase = np.zeros(shape=(self.ntest, self.ntrain))
+            class matches(object):
+                hplus = np.zeros(shape=(self.ntest, self.ntrain))
+                ampphase = np.zeros(shape=(self.ntest, self.ntrain))
+
 
         for w in xrange(self.ntest):
     
             # retrieve projection coefficients
             hplus_NR_betas = self.test_catalogue_data[w]['NRhplusTimeSeriesBetas']
+
             amp_NR_betas   = self.test_catalogue_data[w]['NRAmpTimeSeriesBetas']
             phase_NR_betas = self.test_catalogue_data[w]['NRPhaseTimeSeriesBetas']
             
-            # The target waveforms
+            # --- The target waveforms
             # We can just use the PCs to rebuild these using the PCA() inverse
             # transform method instead of carrying all the data round
-            target_NR_hplus = self.NRhplusTimeSeriesPCA.inverse_transform(
-                    self.test_catalogue_data[w]['NRhplusTimeSeriesBetas'] )
-            target_NR_amp = self.NRAmpTimeSeriesPCA.inverse_transform(
-                    self.test_catalogue_data[w]['NRAmpTimeSeriesBetas'] )
-            target_NR_phase = self.NRPhaseTimeSeriesPCA.inverse_transform(
-                    self.test_catalogue_data[w]['NRPhaseTimeSeriesBetas'] )
+            # XXX: can only use inverse transform to go back to training data!
+
+           # target_NR_hplus = self.NRhplusTimeSeriesPCA.inverse_transform(
+           #         self.test_catalogue_data[w]['NRhplusTimeSeriesBetas'] )
+           # target_NR_amp = self.NRAmpTimeSeriesPCA.inverse_transform(
+           #         self.test_catalogue_data[w]['NRAmpTimeSeriesBetas'] )
+           # target_NR_phase = self.NRPhaseTimeSeriesPCA.inverse_transform(
+           #         self.test_catalogue_data[w]['NRPhaseTimeSeriesBetas'] )
+
+            target_NR_hplus = reconstruct(self.NRhplusTimeSeriesPCA,
+                    self.test_catalogue_data[w]['NRhplusTimeSeriesBetas'],
+                    len(self.test_catalogue_data[w]['NRhplusTimeSeriesBetas']))
+            target_NR_amp = reconstruct(self.NRAmpTimeSeriesPCA,
+                    self.test_catalogue_data[w]['NRAmpTimeSeriesBetas'],
+                    len(self.test_catalogue_data[w]['NRAmpTimeSeriesBetas']))
+            target_NR_phase = reconstruct(self.NRPhaseTimeSeriesPCA,
+                    self.test_catalogue_data[w]['NRPhaseTimeSeriesBetas'],
+                    len(self.test_catalogue_data[w]['NRPhaseTimeSeriesBetas']))
+
+
+            target_NR_ampphase = target_NR_amp*np.exp(1j*target_NR_phase)
 
             if self.do_si_projection:
                 hplus_SI_betas = self.test_catalogue_data[w]['SIhplusTimeSeriesBetas']
@@ -393,84 +422,88 @@ Will perform SI PCA decomposition (different masses)"
                 phase_SI_betas = self.test_catalogue_data[w]['SIPhaseTimeSeriesBetas']
                 
                 # The target waveform
-                target_SI_hplus = self.SIhplusTimeSeriesPCA.inverse_transform(
-                        self.test_catalogue_data[w]['SIhplusTimeSeriesBetas'] )
-                target_SI_amp = self.SIAmpTimeSeriesPCA.inverse_transform(
-                        self.test_catalogue_data[w]['SIAmpTimeSeriesBetas'] )
-                target_SI_phase = self.SIPhaseTimeSeriesPCA.inverse_transform(
-                        self.test_catalogue_data[w]['SIPhaseTimeSeriesBetas'] )
+#               target_SI_hplus = self.SIhplusTimeSeriesPCA.inverse_transform(
+#                       self.test_catalogue_data[w]['SIhplusTimeSeriesBetas'] )
+#               target_SI_amp = self.SIAmpTimeSeriesPCA.inverse_transform(
+#                       self.test_catalogue_data[w]['SIAmpTimeSeriesBetas'] )
+#               target_SI_phase = self.SIPhaseTimeSeriesPCA.inverse_transform(
+#                       self.test_catalogue_data[w]['SIPhaseTimeSeriesBetas'] )
+
+                target_SI_hplus = reconstruct(self.SIhplusTimeSeriesPCA,
+                        self.test_catalogue_data[w]['SIhplusTimeSeriesBetas'],
+                        len(self.test_catalogue_data[w]['SIhplusTimeSeriesBetas']))
+                target_SI_amp = reconstruct(self.SIAmpTimeSeriesPCA,
+                        self.test_catalogue_data[w]['SIAmpTimeSeriesBetas'],
+                        len(self.test_catalogue_data[w]['SIAmpTimeSeriesBetas']))
+                target_SI_phase = reconstruct(self.SIPhaseTimeSeriesPCA,
+                        self.test_catalogue_data[w]['SIPhaseTimeSeriesBetas'],
+                        len(self.test_catalogue_data[w]['SIPhaseTimeSeriesBetas']))
+
+
 
                 target_SI_ampphase = target_SI_amp * np.exp(1j*target_SI_phase)
+
     
-            for npcs in xrange(self.ntrain):
+            for n,npcs in enumerate(xrange(1,self.ntrain)):
     
-                #
-                # Reconstructions (inverse transforms) with n Pcs
-                #
                 reconstructed_NR_hplus = \
-                        np.copy(self.NRhplusTimeSeriesPCA.mean_)
-                reconstructed_NR_amp   = \
-                        np.copy(self.NRAmpTimeSeriesPCA.mean_)
+                        reconstruct(self.NRhplusTimeSeriesPCA, hplus_NR_betas,
+                                npcs)
+                reconstructed_NR_amp = \
+                        reconstruct(self.NRAmpTimeSeriesPCA, amp_NR_betas, npcs)
                 reconstructed_NR_phase = \
-                        np.copy(self.NRPhaseTimeSeriesPCA.mean_)
+                        reconstruct(self.NRPhaseTimeSeriesPCA, phase_NR_betas,
+                                npcs)
 
                 if self.do_si_projection:
                     reconstructed_SI_hplus = \
-                            np.copy(self.SIhplusTimeSeriesPCA.mean_)
-                    reconstructed_SI_amp   = \
-                            np.copy(self.SIAmpTimeSeriesPCA.mean_)
+                            reconstruct(self.SIhplusTimeSeriesPCA, hplus_SI_betas,
+                                    npcs)
+                    reconstructed_SI_amp = \
+                            reconstruct(self.SIAmpTimeSeriesPCA, amp_SI_betas, npcs)
                     reconstructed_SI_phase = \
-                            np.copy(self.SIPhaseTimeSeriesPCA.mean_)
-
-                for n in xrange(0,npcs):
-
-                    reconstructed_NR_hplus += \
-                            hplus_NR_betas[n]*self.NRhplusTimeSeriesPCA.components_[n,:]
-                    reconstructed_NR_amp += \
-                            amp_NR_betas[n]*self.NRAmpTimeSeriesPCA.components_[n,:]
-                    reconstructed_NR_phase += \
-                            phase_NR_betas[n]*self.NRPhaseTimeSeriesPCA.components_[n,:]
-
-                    if self.do_si_projection:
-                        reconstructed_SI_hplus += \
-                                hplus_SI_betas[n]*self.SIhplusTimeSeriesPCA.components_[n,:]
-                        reconstructed_SI_amp += \
-                                amp_SI_betas[n]*self.SIAmpTimeSeriesPCA.components_[n,:]
-                        reconstructed_SI_phase += \
-                                phase_SI_betas[n]*self.SIPhaseTimeSeriesPCA.components_[n,:]
+                            reconstruct(self.SIPhaseTimeSeriesPCA, phase_SI_betas,
+                                    npcs)
 
                 reconstructed_NR_ampphase = \
                         reconstructed_NR_amp*np.exp(1j*reconstructed_NR_phase)
  
-                self.euclidean_distances_hplus[w,npcs] = euclidean_distance(
-                        reconstructed_NR_hplus, target_NR_hplus)
-                self.euclidean_distances_amp[w,npcs] =\
+                euclidean_distances.hplus[w,n] = euclidean_distance(
+                   reconstructed_NR_hplus, target_NR_hplus)
+                euclidean_distances.amplitude[w,n] =\
+                   euclidean_distance(reconstructed_NR_amp, target_NR_amp)
+                euclidean_distances.phase[w,n] =\
                         euclidean_distance(reconstructed_NR_amp, target_NR_amp)
-                self.euclidean_distances_phase[w,npcs] =\
-                        euclidean_distance(reconstructed_NR_amp, target_NR_amp)
+
+                projections.hplus[w,n] = np.dot(
+                        reconstructed_NR_hplus/np.linalg.norm(reconstructed_NR_hplus),
+                        target_NR_hplus/np.linalg.norm(target_NR_hplus)
+                        )
+
+                projections.ampphase[w,n] = np.vdot(
+                        reconstructed_NR_ampphase/np.linalg.norm(reconstructed_NR_ampphase),
+                        target_NR_ampphase/np.linalg.norm(target_NR_ampphase)
+                        )
     
                 if self.do_si_projection:
 
                     reconstructed_SI_ampphase = \
                             reconstructed_SI_amp*np.exp(1j*reconstructed_SI_phase)
 
-                    self.matches_hplus[w,npcs] = \
+                    matches.hplus[w,n] = \
                             compute_match(reconstructed_SI_hplus, target_SI_hplus,
                                     delta_t=self.SI_deltaT, psd=psd,
                                     low_frequency_cutoff=self.fmin)
         
-                    self.matches_ampphase[w,npcs] = \
+                    matches.ampphase[w,n] = \
                             compute_match(np.real(reconstructed_SI_ampphase),
                                     np.real(target_SI_ampphase), delta_t=self.SI_deltaT,
                                     psd=psd, low_frequency_cutoff=self.fmin)
 
-#                   if npcs==self.ntrain-1:
-#                       from matplotlib import pyplot as pl
-#                       pl.figure()
-#                       pl.plot(target_SI_hplus)
-#                       pl.plot(reconstructed_SI_hplus)
-#                       pl.show()
-#                       sys.exit()
+        if self.do_si_projection:
+            return euclidean_distances, projections, matches
+        else:
+            return euclidean_distances, projections
 
 
 

@@ -107,7 +107,7 @@ pca = bpca.waveform_pca(train_catalogue, train_catalogue)
 # Characterise reconstructions
 # XXX build a PSD and call projection_fidelity()
 psd = aLIGOZeroDetHighPower(pca.SI_flen, pca.SI_deltaF, pca.fmin)
-pca.compute_projection_fidelity(psd=psd)
+euclidean_distances, projections, matches = pca.compute_projection_fidelity(psd=psd)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
@@ -159,7 +159,7 @@ axev.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
 #
 
 # Adopt the same approach as for explained variance here
-match_types = ['matches_hplus','matches_ampphase']
+match_types = ['hplus','ampphase']
 
 # Dictionary to store the number of PCs required for 95% match for each
 # decomposition
@@ -170,15 +170,15 @@ xmin=np.inf
 xmax=-np.inf
 for m, mat in enumerate(match_types):
 
-    matches = getattr(pca,mat)
-    med_matches = np.median(matches, axis=0)
+    these_matches = getattr(matches,mat)
+    med_matches = np.median(these_matches, axis=0)
 
     if npcs[np.argwhere(med_matches>MatchThresh)[0][0]]>xmax:
         xmax = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
 
     npcMatchThresh[mat] = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
 
-    f, ax = bpca.plot_fidelity_by_npc(matches)
+    f, ax = bpca.plot_fidelity_by_npc(these_matches)
     ax.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
     ax.set_xticks(npcs)
 

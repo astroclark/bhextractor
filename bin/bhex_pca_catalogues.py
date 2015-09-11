@@ -15,12 +15,13 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
-bhextractor_plot_catalogue.py
+bhex_pca_catalogues.py
 
 Construct catalogues and principal component analysis for NR BBH waveforms
 
-This script simply builds and plots a catalogue (defined by the user in this
-script)
+This script performs a PCA decomposition of two training catalogues.  A test
+catalogue is then projected onto each new basis and we study the distribution of
+the test waveforms in the PC spaces.
 
 """
 
@@ -51,13 +52,20 @@ total_mass = 150.
 distance=1. # Mpc
 
 #
-# Define the train catalogue
+# Define the First train catalogue
 #
-train_series_names = ['HRq-series']
-train_bounds=dict()
-train_bounds['a1'] = [0, 0]
-train_bounds['a2'] = [0, 0]
-train_bounds['q'] = [-np.inf, 3] 
+train1_series_names = ['HRq-series']
+train1_bounds=dict()
+train1_bounds['a1'] = [0, 0]
+train1_bounds['a2'] = [0, 0]
+train1_bounds['q'] = [-np.inf, 3] 
+
+#
+# Define the Second train catalogue
+#
+train2_series_names = ['RO3-series']
+train2_bounds=dict()
+train2_bounds['q'] = [-np.inf, 3] 
 
 #
 # Define the test catalogue
@@ -70,16 +78,26 @@ test_bounds['q'] = [-np.inf, 3]
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Build Catalogues
 
-print '~~~~~~~~~~~~~~~~~~~~~~~~~~~'
-print 'Building Training Catalogue'
+print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
+print 'Building Training Catalogues'
 print ''
-print 'The principal component basis is constructed from these waveforms'
+print 'The principal component bases are constructed from these waveforms'
 print ''
-train_simulations = \
-        bwave.simulation_details(series_names=train_series_names,
-                param_bounds=train_bounds, Mmin30Hz=total_mass)
+train1_simulations = \
+        bwave.simulation_details(series_names=train1_series_names,
+                param_bounds=train1_bounds, Mmin30Hz=total_mass)
 
-train_catalogue = bwave.waveform_catalogue(train_simulations,
+train1_catalogue = bwave.waveform_catalogue(train1_simulations,
+        ref_mass=total_mass, SI_deltaT=SI_deltaT, SI_datalen=SI_datalen,
+        distance=distance)
+
+# Second training set
+
+train2_simulations = \
+        bwave.simulation_details(series_names=train2_series_names,
+                param_bounds=train2_bounds, Mmin30Hz=total_mass)
+
+train2_catalogue = bwave.waveform_catalogue(train2_simulations,
         ref_mass=total_mass, SI_deltaT=SI_deltaT, SI_datalen=SI_datalen,
         distance=distance)
 
@@ -95,7 +113,6 @@ test_simulations = \
 test_catalogue = bwave.waveform_catalogue(test_simulations, ref_mass=total_mass,
         SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance)
 
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
 # Do the PCA
@@ -103,12 +120,14 @@ test_catalogue = bwave.waveform_catalogue(test_simulations, ref_mass=total_mass,
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Performing PCA'
 print ''
-pca = bpca.waveform_pca(train_catalogue, test_catalogue)
+pca1 = bpca.waveform_pca(train1_catalogue, test_catalogue)
+pca2 = bpca.waveform_pca(train2_catalogue, test_catalogue)
 
 # Characterise reconstructions
 # XXX build a PSD and call projection_fidelity()
-psd = aLIGOZeroDetHighPower(pca.SI_flen, pca.SI_deltaF, pca.fmin)
-pca.compute_projection_fidelity(psd=psd)
+psd = aLIGOZeroDetHighPower(pca1.SI_flen, pca1.SI_deltaF, pca1.fmin)
+euclidean_distances1, projections1, matches1 = pca1.compute_projection_fidelity(psd=psd)
+euclidean_distances2, projections2, matches2 = pca2.compute_projection_fidelity(psd=psd)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 #
