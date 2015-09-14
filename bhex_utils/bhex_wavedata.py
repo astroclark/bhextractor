@@ -161,7 +161,7 @@ class simulation_details:
         """
 
         valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-                "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
+                "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
                 "TP-series"]
 
         if type(series_names)!=list:

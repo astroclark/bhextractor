@@ -25,8 +25,8 @@ configuration in a config parser & ini file.
 """
 
 import sys
-import bhex_wavedata as bwave
-import bhex_pca as bpca
+from bhex_utils import bhex_wavedata as bwave
+from bhex_utils import bhex_pca as bpca
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # 
@@ -40,24 +40,28 @@ import bhex_pca as bpca
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-sample_rate = 512
-datalen= 4.0
-
-total_mass = 150.  # Generate SI waveforms at this mass
+# Options common to train & test data:
+SI_deltaT = 1./512
+SI_datalen= 4.0
+total_mass = 150. 
 distance=1. # Mpc
 
-train_series_names = ['HRq-series'] # (see above for valid choices)
+#train_series_names = ['HRq-series'] # (see above for valid choices)
+train_series_names = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
+        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
+        "TP-series"]
+#train_series_names = ['HRq-series'] # (see above for valid choices)
 
 #
 # Modify for imposing parameter bounds on the catalogue:
 #
-train_bounds=None
-#train_bounds=dict()
-#train_bounds['a1'] = [0, 0]
-#train_bounds['a2'] = [0, 0]
+#train_bounds=None
+train_bounds=dict()
+train_bounds['a1'] = [0, 0]
+train_bounds['a2'] = [0, 0]
 #train_bounds['q'] = [-np.inf, 3] 
 
-catalogue_name = 'HRq'
+catalogue_name = 'NonSpinning'
 
 save_pcs = ['NRhplusTimeSeriesPCA', 'NRhcrossTimeSeriesPCA',
 'NRAmpTimeSeriesPCA', 'NRPhaseTimeSeriesPCA',  'SIhplusTimeSeriesPCA',
@@ -75,9 +79,8 @@ train_simulations = \
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
-train_catalogue = bwave.waveform_catalogue(train_simulations,
-        ref_mass=total_mass, sample_rate=sample_rate, datalen=datalen,
-        distance=distance)
+train_catalogue = bwave.waveform_catalogue(train_simulations, ref_mass=total_mass,
+        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance)
 
 # Dump catalogue to pickle
 train_catalogue.file_dump(catalogue_name=catalogue_name)
