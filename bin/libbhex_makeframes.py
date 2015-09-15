@@ -82,23 +82,29 @@ nr-group = GATech
 
 "writing ninja config files for these simulations"
 
+if os.path.exists(catalogue_name):
+    print >> sys.stderr, "%s exists, remove"%catalogue_name
+    sys.exit()
+os.makedirs(catalogue_name)
+
 for simulation in simulation_selection.simulations:
 
-    wavefile = os.path.basename(simulation['wavefile'])
+
+    wavefile = os.path.join(catalogue_name,
+            os.path.basename(simulation['wavefile']))
         
     # Write the config file
     meta_file_name = wavefile.replace('asc', 'bbh')
     meta_file = open(meta_file_name, 'w')
     text = template.format(mass_ratio=simulation['q'],
             wavename=simulation['wavename'],
-            wavefile=os.path.basename(simulation['wavefile'])
+            wavefile=wavefile
             )
     meta_file.writelines(text)
     meta_file.close()
 
     # Copy the ascii file here
-    shutil.copyfile(simulation['wavefile'],
-            os.path.basename(simulation['wavefile']))
+    shutil.copyfile(simulation['wavefile'], wavefile)
 
     # Make frame
     subprocess.call(['lalapps_fr_ninja', 
@@ -109,4 +115,9 @@ for simulation in simulation_selection.simulations:
     # Clean up
     os.remove(wavefile)
     os.remove(meta_file_name)
+
+# Create the NINJA xml
+subprocess.call(['lalapps_ninja', "--format", "NINJA2", "--datadir",
+    catalogue_name, "--outfile", catalogue_name+".xml", "--min-mass-ratio", "0",
+    "--max-mass-ratio", "100", "--pattern", "*gwf"])
 

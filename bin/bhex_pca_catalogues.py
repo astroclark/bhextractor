@@ -39,7 +39,7 @@ from matplotlib import pyplot as pl
 #
 
 #valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
+#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
 #        "TP-series"]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -137,43 +137,5 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Plotting results'
 print ''
 
-
-
-#
-# Matches
-#
-npcs = np.arange(1,pca.ntrain+1)
-
-# Adopt the same approach as for explained variance here
-match_types = ['matches_hplus','matches_ampphase']
-
-# Dictionary to store the number of PCs required for 95% match for each
-# decomposition
-MatchThresh=0.97
-npcMatchThresh = dict()
-
-xmin=np.inf
-xmax=-np.inf
-for m, mat in enumerate(match_types):
-
-    matches = getattr(pca,mat)
-    med_matches = np.median(matches, axis=0)
-
-    if npcs[np.argwhere(med_matches>MatchThresh)[0][0]]>xmax:
-        xmax = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
-
-    npcMatchThresh[mat] = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
-
-    f, ax = bpca.plot_fidelity_by_npc(matches)
-    ax.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
-    ax.set_xticks(npcs)
-
-    ax.set_ylabel('Match with %s reconstruction'%(mat.replace('matches_','')))
-
-# --- hplus
-
-# --- A(t) & phi(t)
-
-# --- A(f) & phi(f)
 
 

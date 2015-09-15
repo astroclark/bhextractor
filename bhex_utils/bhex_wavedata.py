@@ -491,7 +491,15 @@ class waveform_catalogue:
             startidx = 0.5*SI_datalen/SI_deltaT - peakidx
 
             self.SIComplexTimeSeries[w,startidx:startidx+len(wave)] = \
-                    Mscale*wave
+                    np.copy(wave)
+#                   #Mscale*wave
+
+#           self.SIComplexTimeSeries[w,:] /= \
+#                   np.vdot(self.SIComplexTimeSeries[w,:],
+#                           self.SIComplexTimeSeries[w,:])
+#
+#           print np.vdot(self.SIComplexTimeSeries[w,:],self.SIComplexTimeSeries[w,:])
+#           sys.exit()
 
             self.SIAmpTimeSeries[w,:] = abs(self.SIComplexTimeSeries[w,:])
             self.SIPhaseTimeSeries[w,:] = phase_of(self.SIComplexTimeSeries[w,:])
