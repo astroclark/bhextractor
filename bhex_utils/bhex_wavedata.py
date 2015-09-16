@@ -161,7 +161,7 @@ class simulation_details:
         """
 
         valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-                "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
+                "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
                 "TP-series"]
 
         if type(series_names)!=list:
@@ -491,7 +491,15 @@ class waveform_catalogue:
             startidx = 0.5*SI_datalen/SI_deltaT - peakidx
 
             self.SIComplexTimeSeries[w,startidx:startidx+len(wave)] = \
-                    Mscale*wave
+                    np.copy(wave)
+#                   #Mscale*wave
+
+#           self.SIComplexTimeSeries[w,:] /= \
+#                   np.vdot(self.SIComplexTimeSeries[w,:],
+#                           self.SIComplexTimeSeries[w,:])
+#
+#           print np.vdot(self.SIComplexTimeSeries[w,:],self.SIComplexTimeSeries[w,:])
+#           sys.exit()
 
             self.SIAmpTimeSeries[w,:] = abs(self.SIComplexTimeSeries[w,:])
             self.SIPhaseTimeSeries[w,:] = phase_of(self.SIComplexTimeSeries[w,:])

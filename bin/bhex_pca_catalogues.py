@@ -39,7 +39,7 @@ from matplotlib import pyplot as pl
 #
 
 #valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
+#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
 #        "TP-series"]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
