@@ -555,12 +555,15 @@ file dumps"
         # Ascii Dump
         #
         for pca_attr in pca_attrs:
-
-            this_name  = os.path.join(pcs_path, pcs_filename + "_" + pca_attr + ".asc")
-            print "Dumping to %s"%this_name
             
             pcaObj = getattr(self, pca_attr)
 
+            #
+            # Ascii
+            #
+            this_name_asc  = os.path.join(pcs_path, pcs_filename + "_" +
+                    pca_attr + ".asc")
+            print "Dumping to %s"%this_name_asc
 
             # First row contains the mean waveform
             dims = np.shape(pcaObj.components_)
@@ -569,8 +572,18 @@ file dumps"
             output_array[0,:]  = pcaObj.mean_
             output_array[1:,:] = pcaObj.components_
 
-            np.savetxt(this_name, output_array)
+            np.savetxt(this_name_asc, output_array)
 
+            #
+            # Binary
+            #
+            this_name_bin  = os.path.join(pcs_path, pcs_filename + "_" +
+                    pca_attr + ".dat")
+            print "Dumping to %s"%this_name_bin
+
+            fp = open(this_name_bin, "wb")
+            output_array.tofile(fp)
+            fp.close()
 
         return 0
 
