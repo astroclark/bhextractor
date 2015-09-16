@@ -404,8 +404,8 @@ class waveform_catalogue:
             wave = window_wave(plus_data_resampled[w] -
                     1j*cross_data_resampled[w])
 
-            # Normalisation
-            wave /= np.vdot(wave,wave)
+            # Normalisation (do this in the PCA)
+            #wave /= np.vdot(wave,wave)
 
             peak_idx=np.argmax(abs(wave))
             start_idx = align_idx - peak_idx
@@ -491,15 +491,7 @@ class waveform_catalogue:
             startidx = 0.5*SI_datalen/SI_deltaT - peakidx
 
             self.SIComplexTimeSeries[w,startidx:startidx+len(wave)] = \
-                    np.copy(wave)
-#                   #Mscale*wave
-
-#           self.SIComplexTimeSeries[w,:] /= \
-#                   np.vdot(self.SIComplexTimeSeries[w,:],
-#                           self.SIComplexTimeSeries[w,:])
-#
-#           print np.vdot(self.SIComplexTimeSeries[w,:],self.SIComplexTimeSeries[w,:])
-#           sys.exit()
+                    Mscale*wave
 
             self.SIAmpTimeSeries[w,:] = abs(self.SIComplexTimeSeries[w,:])
             self.SIPhaseTimeSeries[w,:] = phase_of(self.SIComplexTimeSeries[w,:])

@@ -151,11 +151,16 @@ def reconstruct_waveform(pca, betas, npcs, mtotal_ref=250.0,
 
     return reconstruction
 
-def perform_pca(data_matrix):
+def perform_pca(data_matrix, norm=False):
     """
     Use the scikits-learn PCA tools to do PCA on a peak-aligned time-domain
     waveform catalogue
     """
+
+    if norm:
+        # normalise each row by its norm
+        for row in data_matrix:
+            row /= np.linalg.norm(row)
 
     #pca = PCA(whiten=True)
     pca = PCA(whiten=False)
@@ -200,11 +205,13 @@ class waveform_pca:
         # frequencies etc.
 
         self.NRhplusTimeSeriesPCA = \
-                perform_pca(np.real(train_catalogue.NRComplexTimeSeries))
+                perform_pca(np.real(train_catalogue.NRComplexTimeSeries),
+                        norm=False)
         self.NRhcrossTimeSeriesPCA = \
-                perform_pca(-1*np.imag(train_catalogue.NRComplexTimeSeries))
+                perform_pca(-1*np.imag(train_catalogue.NRComplexTimeSeries),
+                        norm=True)
         self.NRAmpTimeSeriesPCA = \
-                perform_pca(train_catalogue.NRAmpTimeSeries)
+                perform_pca(train_catalogue.NRAmpTimeSeries, norm=False)
         self.NRPhaseTimeSeriesPCA = \
                 perform_pca(train_catalogue.NRPhaseTimeSeries)
 
@@ -220,11 +227,13 @@ class waveform_pca:
             # XXX: Could add any extra conditioning (e.g., filters) here
 
             self.SIhplusTimeSeriesPCA = \
-                    perform_pca(np.real(train_catalogue.SIComplexTimeSeries))
+                    perform_pca(np.real(train_catalogue.SIComplexTimeSeries),
+                            norm=True)
             self.SIhcrossTimeSeriesPCA = \
-                    perform_pca(-1*np.imag(train_catalogue.SIComplexTimeSeries))
+                    perform_pca(-1*np.imag(train_catalogue.SIComplexTimeSeries),
+                            norm=True)
             self.SIAmpTimeSeriesPCA = \
-                    perform_pca(train_catalogue.SIAmpTimeSeries)
+                    perform_pca(train_catalogue.SIAmpTimeSeries, norm=True)
             self.SIPhaseTimeSeriesPCA = \
                     perform_pca(train_catalogue.SIPhaseTimeSeries)
 
@@ -444,7 +453,7 @@ Will perform SI PCA decomposition (different masses)"
                 target_SI_ampphase = target_SI_amp * np.exp(1j*target_SI_phase)
 
     
-            for n,npcs in enumerate(xrange(1,self.ntrain)):
+            for n,npcs in enumerate(xrange(1,self.ntrain+1)):
     
                 reconstructed_NR_hplus = \
                         reconstruct(self.NRhplusTimeSeriesPCA, hplus_NR_betas,

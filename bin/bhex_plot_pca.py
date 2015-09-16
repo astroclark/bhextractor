@@ -206,6 +206,7 @@ for w in xrange(pca.ntrain):
 for p,pcs in enumerate(pc_types):
 
     f, ax = pl.subplots()
+    ax.plot(NRtime, getattr(pca, pcs).mean_, label='Mean', linestyle='--')
     for p in xrange(npcVarThresh[pcs]):
         ax.plot(NRtime, getattr(pca, pcs).components_[p,:], label='PC %d'%(p+1))
         ax.set_xlim(xmin-100,xmax+50)
