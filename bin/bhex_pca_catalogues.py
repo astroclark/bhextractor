@@ -136,16 +136,14 @@ euclidean_distances2, projections2, matches2 = pca2.compute_projection_fidelity(
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Plotting results'
 print ''
-
-
-
 #
 # Matches
 #
-npcs = np.arange(1,pca.ntrain+1)
 
 # Adopt the same approach as for explained variance here
-match_types = ['matches_hplus','matches_ampphase']
+#match_types = ['hplus','ampphase']
+match_types = ['ampphase']
+plot_titles= ['cat1', 'cat2']
 
 # Dictionary to store the number of PCs required for 95% match for each
 # decomposition
@@ -154,26 +152,24 @@ npcMatchThresh = dict()
 
 xmin=np.inf
 xmax=-np.inf
-for m, mat in enumerate(match_types):
 
-    matches = getattr(pca,mat)
-    med_matches = np.median(matches, axis=0)
+for m, matches in enumerate([matches1, matches2]):
 
+    these_matches = getattr(matches,'ampphase')
+    med_matches = np.median(these_matches, axis=0)
+
+    npcs = np.arange(1,np.shape(matches.ampphase)[1]+1)
     if npcs[np.argwhere(med_matches>MatchThresh)[0][0]]>xmax:
         xmax = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
 
-    npcMatchThresh[mat] = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
+    npcMatchThresh[plot_titles[m]] = npcs[np.argwhere(med_matches>MatchThresh)[0][0]]
 
-    f, ax = bpca.plot_fidelity_by_npc(matches)
-    ax.set_xlim(0.5,pca.ntrain+0.5)#xmax+0.5)
+    f, ax = bpca.plot_fidelity_by_npc(these_matches)
+    ax.set_xlim(0.5,npcs[-1]+0.5)#xmax+0.5)
     ax.set_xticks(npcs)
 
-    ax.set_ylabel('Match with %s reconstruction'%(mat.replace('matches_','')))
+    ax.set_ylabel('Match')
 
-# --- hplus
-
-# --- A(t) & phi(t)
-
-# --- A(f) & phi(f)
+    ax.set_title(plot_titles[m])
 
 
