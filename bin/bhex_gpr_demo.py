@@ -35,7 +35,10 @@ SI_datalen= 4.0
 total_mass = 150. 
 distance=1. # Mpc
 
-train_series_names = ['HR-series']
+train_series_names = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
+        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
+        "TP-series"]
+#train_series_names = ["HRq-series", "HR-series"]
 
 train_bounds=dict()
 train_bounds['a1'] = [0, 0]
@@ -85,24 +88,24 @@ beta3_measured = np.array([pca.test_catalogue_data[w]['NRAmpTimeSeriesBetas'][3]
 #
 
 # Get initial polynomial fit
-pfit_beta1 = np.polyfit(mass_ratios, beta1_measured, deg=3)
-
-def poly_beta(x,pfit):
-    """
-    Polynomial function, given parameters pfit
-    """
-    deg = len(pfit)-1
-
-    y = pfit[-1]
-    for n in xrange(deg):
-        power = deg - n
-        #print n, power
-        y += pfit[n]*x**power
-
-    return y
+#   pfit_beta1 = np.polyfit(mass_ratios, beta1_measured, deg=3)
+#
+#   def poly_beta(x,pfit):
+#       """
+#       Polynomial function, given parameters pfit
+#       """
+#       deg = len(pfit)-1
+#
+#       y = pfit[-1]
+#       for n in xrange(deg):
+#           power = deg - n
+#           #print n, power
+#           y += pfit[n]*x**power
+#
+#       return y
     
 mass_ratios_fit = np.arange(mass_ratios.min(), mass_ratios.max(), 0.01)
-beta1_fit = poly_beta(mass_ratios_fit, pfit_beta1)
+#beta1_fit = poly_beta(mass_ratios_fit, pfit_beta1)
 
 from sklearn import gaussian_process
 
@@ -112,16 +115,17 @@ x = np.atleast_2d(mass_ratios_fit).T
 y = np.atleast_2d(beta1_measured).T
 
 
-#gp = gaussian_process.GaussianProcess(theta0=1e-2, thetaL=1e-4, thetaU=1e-1)
-gp = gaussian_process.GaussianProcess(corr='cubic', theta0=1e-2, thetaL=1e-4, thetaU=1e-1,
+#gp = gaussian_process.GaussianProcess(corr='cubic', theta0=1e-2, thetaL=1e-4, thetaU=1e-1,
+#                             random_start=100)
+gp = gaussian_process.GaussianProcess(corr='cubic', 
                              random_start=100)
 gp.fit(X, y)  
 y_pred, sigma2_pred = gp.predict(x, eval_MSE=True)
 sigma = np.sqrt(sigma2_pred)
 
 
-fig = pl.figure()
-pl.plot(mass_ratios_fit, beta1_fit, 'r:', label=u'$f(x) = ax^3 + bx^2 +cx + d$')
+pl.figure()
+#pl.plot(mass_ratios_fit, beta1_fit, 'r:', label=u'$f(x) = ax^3 + bx^2 +cx + d$')
 pl.plot(mass_ratios, beta1_measured, 'r.', markersize=10, label=u'Observations')
 pl.plot(x, y_pred, 'b-', label=u'Prediction')
 
