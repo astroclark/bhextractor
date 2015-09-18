@@ -43,7 +43,7 @@ from bhex_utils import bhex_pca as bpca
 # Options common to train & test data:
 SI_deltaT = 1./512
 SI_datalen= 4.0
-total_mass = 150. 
+total_mass = 100. 
 distance=1. # Mpc
 
 #train_series_names = ['HRq-series'] # (see above for valid choices)
