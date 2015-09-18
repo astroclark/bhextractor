@@ -206,12 +206,12 @@ class waveform_pca:
 
         self.NRhplusTimeSeriesPCA = \
                 perform_pca(np.real(train_catalogue.NRComplexTimeSeries),
-                        norm=False)
+                        norm=True)
         self.NRhcrossTimeSeriesPCA = \
                 perform_pca(-1*np.imag(train_catalogue.NRComplexTimeSeries),
                         norm=True)
         self.NRAmpTimeSeriesPCA = \
-                perform_pca(train_catalogue.NRAmpTimeSeries, norm=False)
+                perform_pca(train_catalogue.NRAmpTimeSeries, norm=True)
         self.NRPhaseTimeSeriesPCA = \
                 perform_pca(train_catalogue.NRPhaseTimeSeries)
 
