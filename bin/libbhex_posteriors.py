@@ -42,9 +42,11 @@ lsctables.use_in(ligolw.LIGOLWContentHandler)
 
 import lal
 import lalmetaio
+import lalinspiral
 
 import pycbc.types
 import pycbc.filter
+import pycbc.inject
 from pycbc.psd import aLIGOZeroDetHighPower
 
 from pylal import Fr
@@ -61,6 +63,8 @@ def parser():
     parser.add_option("-f", "--sim-inspiral", type=str, default=None)
     parser.add_option("-n", "--npcs", type=int, default=1)
     parser.add_option("-t", "--event", type=int, default=0)
+    parser.add_option("-d", "--delta-t", type=float, default=1./512)
+    parser.add_option("-L", "--datalen", type=float, default=4.0)
 
     (opts,args) = parser.parse_args()
 
@@ -76,7 +80,7 @@ def parser():
 
     if opts.sim_inspiral is not None:
         if not os.path.isfile(opts.sim_inspiral):
-            print >> sys.stderr, "sim-inspiral file not found at: "%opts.sim_inspiral
+            print >> sys.stderr, "sim-inspiral file not found at: %s"%opts.sim_inspiral
             sys.exit()
 
     return opts, args
@@ -142,15 +146,36 @@ def main():
     posfile = args[0]
 
     if opts.sim_inspiral is not None:
+        # Build the injected waveform
+
         #
         # Parse sim_inspiral table
         #
         sims = get_sims(opts.sim_inspiral)
-
+ 
         # Sim_inspiral row for this event:
         this_sim = sims[opts.event]
+#
+#       # Retrieve the injected strain data
+#       Hp, Hc = lalinspiral.NRInjectionFromSimInspiral(this_sim, opts.delta_t)
+#       hp = pycbc.types.TimeSeries(Hp.data.data[:], delta_t=Hp.delta_t,
+#               epoch=Hp.epoch)
+#       hc = pycbc.types.TimeSeries(Hc.data.data[:], delta_t=Hc.delta_t,
+#               epoch=Hc.epoch)
 
-        # Retrieve the numrel data
+        # Injection set object with details (and methods) for injections
+        injSet = pycbc.inject.InjectionSet(opts.sim_inspiral)
+
+        h1_epoch = this_sim.h_end_time + 1e-9*this_sim.h_end_time_ns \
+                -0.5*opts.datalen
+        h1_injection = pycbc.types.TimeSeries(
+                np.zeros(opts.datalen/opts.delta_t),
+                delta_t=opts.delta_t, epoch=h1_epoch
+                )
+        h1_injection = injSet.apply(h1_injection, 'H1')
+
+
+
 
 
     #
