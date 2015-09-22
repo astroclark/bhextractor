@@ -382,6 +382,7 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     mkdirs(self.basepath)
     if dax:
         os.chdir(self.basepath)
+    # XXX
     self.posteriorpath=os.path.join(self.basepath,'posterior_samples')
     #mkdirs(self.posteriorpath)
     daglogdir=cp.get('paths','daglogdir')
@@ -697,7 +698,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
     #pagedir=os.path.join(self.basepath,evstring,myifos)
    # mkdirs(pagedir)
     mergenode=MergeNSNode(self.merge_job,parents=enginenodes)
-    mergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(myifos,evstring)))
+    #mergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(myifos,evstring)))
+    mergenode.set_pos_output_file('posterior_%s_%s.dat'%(myifos,evstring))
     self.add_node(mergenode)
     # Call finalize to build final list of available data
     enginenodes[0].finalize()
@@ -723,7 +725,8 @@ class LALInferencePipelineDAG(pipeline.CondorDAG):
               if co!=cotest_nodes[0]:
                 co.add_var_arg('--dont-dump-psd')
             pmergenode=MergeNSNode(self.merge_job,parents=cotest_nodes)
-            pmergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(ifo,evstring)))
+            #pmergenode.set_pos_output_file(os.path.join(self.posteriorpath,'posterior_%s_%s.dat'%(ifo,evstring)))
+            pmergenode.set_pos_output_file('posterior_%s_%s.dat'%(ifo,evstring))
             self.add_node(pmergenode)
             par_mergenodes.append(pmergenode)
             presultsdir=os.path.join(pagedir,ifo)
@@ -1194,7 +1197,7 @@ class EngineJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
     self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
     self.add_condor_cmd('transfer_input_files', 'lalinference_execute.tar.bz2')
     self.add_condor_cmd('transfer_output_files',
-            '$(macrooutfile),$(macrooutfile)_B.txt,$(macrooutfile)_B.txt')
+            '$(macrooutfile),$(macrooutfile)_B.txt,$(macrooutfile)_params.txt')
  
   def set_grid_site(self,site=None):
     """
@@ -1667,7 +1670,7 @@ class MergeNSJob(pipeline.CondorDAGJob,pipeline.AnalysisJob):
       self.add_condor_cmd('when_to_transfer_output', 'ON_EXIT')
 
       self.add_condor_cmd('transfer_input_files',
-              '$(macroargument), $(macroheaders), $(macronsfiles),\
+              '$(macroargument0), $(macroheaders),\
  lalapps_nest2pos.py, nest2pos.py')
       self.add_condor_cmd('transfer_output_files', '$(macropos),\
  $(macropos)_B.txt')
@@ -1695,6 +1698,7 @@ class MergeNSNode(pipeline.CondorDAGNode):
                   nsfilesstr+="%s"%nsfile
               else:
                   nsfilesstr+="%s, "%nsfile
+          # Note that this is added as macroargument0
           self.add_file_arg(nsfilesstr)
 
     def add_engine_parent(self,parent):

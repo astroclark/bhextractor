@@ -27,9 +27,9 @@ lalapps_inspinj \
     --snr-distr volume \
     --min-snr  ${snr} --max-snr ${snr} \
     --ligo-psd aligopsd.txt \
-    --ligo-start-freq 10 \
+    --ligo-start-freq 30 \
     --virgo-psd advirgopsd.txt \
-    --virgo-start-freq 10 \
+    --virgo-start-freq 30 \
     --ifos H1,L1,V1 \
     --ninja-snr \
     --verbose \

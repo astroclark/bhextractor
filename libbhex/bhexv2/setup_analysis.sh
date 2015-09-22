@@ -4,7 +4,7 @@ mass=${1}
 snr=${2}
 
 inj_path="/home/jclark308/Projects/bhextractor/ninja_injections"
-injection_file="NonSpinning_M-150_snr-15.xml"
+injection_file="NonSpinning_M-${mass}_snr-${snr}.xml"
 
 config_file="libbhex_config_nonspinning.ini"
 
