@@ -126,11 +126,13 @@ distance=1. # Mpc
 #
 # --- Catalogue Definition
 #
-series_names = ['HRq-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
+series_names = ['HR-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
 
 bounds=None
 #bounds=dict()
-#bounds['q'] = [-np.inf, 3] 
+#bounds['q'] = [1, 1]
+#bounds['a1'] = [0,0]
+#bounds['a2'] = [0,1]
 
 #
 # --- Reconstruction data
@@ -138,8 +140,10 @@ bounds=None
 
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
         "data/observed")
-h1_waveforms = np.loadtxt(os.path.join(event_file_dir, "waveforms/waveform_H1_1000.dat"))
-l1_waveforms = np.loadtxt(os.path.join(event_file_dir, "waveforms/waveform_L1_1000.dat"))
+h1_wave_samples = np.loadtxt(os.path.join(event_file_dir, "waveforms/waveform_H1_1000.dat"))
+l1_wave_samples = np.loadtxt(os.path.join(event_file_dir, "waveforms/waveform_L1_1000.dat"))
+
+geo_wave_samples = np.loadtxt(os.path.join(event_file_dir, "geo_waveforms/waveform_geo_1000.dat"))
 
 h1_psd = np.loadtxt(os.path.join(event_file_dir, \
         "lalinferencenest-0-H1-1126259462.39-14.datH1-PSD.dat"))
@@ -180,8 +184,20 @@ time_axis = np.arange(0, SI_datalen, SI_deltaT)
 #
 
 # Loop over waves
-matches = np.zeros(simulations.nsimulations)
-masses = np.zeros(simulations.nsimulations)
+
+geo_matches = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
+geo_masses  = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
+
+h1_matches = np.zeros(shape=(simulations.nsimulations, len(h1_wave_samples)))
+h1_masses  = np.zeros(shape=(simulations.nsimulations, len(h1_wave_samples)))
+l1_matches = np.zeros(shape=(simulations.nsimulations, len(l1_wave_samples)))
+l1_masses  = np.zeros(shape=(simulations.nsimulations, len(l1_wave_samples)))
+
+# XXX: Hack to use median, rather than sampled waveforms
+#geo_wave_samples = [np.median(geo_wave_samples, axis=0)]
+
+#h1_wave_samples = [np.median(h1_wave_samples, axis=0)]
+#l1_wave_samples = [np.median(l1_wave_samples, axis=0)]
 
 
 for w, wave in enumerate(catalogue.SIComplexTimeSeries):
@@ -196,30 +212,46 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     h1_wave = whiten_wave(wave, h1_psd)
     l1_wave = whiten_wave(wave, l1_psd)
 
-    #
-    # --- H1
-    #
 
     # Find best-fitting mass (in terms of match)
-    print "Optimising for total mass..."
-    h1_data = np.median(h1_waveforms, axis=0)
+    print "Optimising for total mass for each sampled waveform..."
 
-    h1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(h1_wave,
-        h1_data, SI_deltaT), full_output=True, retall=True, disp=True)
+    for s, (geo_sample, h1_sample, l1_sample) in enumerate(zip(geo_wave_samples,
+        h1_wave_samples, l1_wave_samples)):
 
-    print "Best matching mass [match]: %.2f [%.2f]"%(h1_result[0][0], 1-h1_result[1])
 
-    #
-    # --- L1
-    #
+        print "Evaluating waveform %d of %d"%( s, len(geo_wave_samples) )
 
-    sys.exit()
+        geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(wave,
+            geo_sample, SI_deltaT), full_output=True, retall=True, disp=True)
 
-    # Populate results arrays
-    masses[w]  = np.copy(result[0][0])
-    matches[w] = 1-result[1]
+#        h1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(h1_wave,
+#            h1_sample, SI_deltaT), full_output=True, retall=True, disp=True)
 
-    #sys.exit()
+#        l1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(l1_wave,
+#            l1_sample, SI_deltaT), full_output=True, retall=True, disp=True)
+
+        geo_matches[w, s] = 1-geo_result[1]
+        geo_masses[w, s] = geo_result[0][0]
+
+#        h1_matches[w, s] = 1-h1_result[1]
+#        h1_masses[w, s] = h1_result[0][0]
+
+#        l1_matches[w, s] = 1-l1_result[1]
+#        l1_masses[w, s] = l1_result[0][0]
+
+    geo_bestidx=np.argmax(geo_matches[w, :])
+    h1_bestidx=np.argmax(h1_matches[w, :])
+    l1_bestidx=np.argmax(l1_matches[w, :])
+
+    print "geo: Best matching mass [match]: %.2f [%.2f]"%(
+            geo_masses[w,geo_bestidx], max(geo_matches[w,:]))
+    print "H1: Best matching mass [match]: %.2f [%.2f]"%(
+            h1_masses[w,h1_bestidx], max(h1_matches[w,:]))
+    print "L1: Best matching mass [match]: %.2f [%.2f]"%(
+            l1_masses[w,l1_bestidx], max(l1_matches[w,:]))
+
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
