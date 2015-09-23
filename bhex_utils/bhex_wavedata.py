@@ -446,7 +446,7 @@ class waveform_catalogue:
 
         return 0
 
-    def catalogue_to_SI(self, ref_mass, SI_deltaT=1./1024, distance=100.,
+    def catalogue_to_SI(self, ref_mass, SI_deltaT=1./512, distance=1.,
             SI_datalen=4):
         """
         Convert waveforms in self.NRdata to physical time stamps / amplitudes
