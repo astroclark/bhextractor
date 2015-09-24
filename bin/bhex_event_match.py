@@ -32,6 +32,7 @@ import pycbc.types
 import numpy as np
 import scipy.optimize
 import scipy.stats
+import timeit
 from matplotlib import pyplot as pl
 
 def scale_wave(wave, total_mass):
@@ -133,7 +134,7 @@ def whiten_wave(wave, asd):
 SI_deltaT = 1./1024
 SI_datalen= 4.0
 
-f_min = 30.0
+f_min = 50.0
 
 # Initial guess at the mass
 mass_guess = 74.0#100 + 100*np.random.random()
@@ -228,7 +229,7 @@ bounds['q'] = [1, 1]
 #
 # --- Reconstruction data
 #
-
+print "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
         "data/observed")
 
@@ -248,6 +249,7 @@ l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "IFO1_asd.dat"))
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
+then = timeit.time.time()
 simulations = \
         bwave.simulation_details(series_names=series_names, param_bounds=bounds,
                 Mmin30Hz=init_total_mass)
@@ -257,8 +259,17 @@ print 'Building NR catalogue'
 print ''
 catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
         SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
-        trunc_time=True)
+        trunc_time=False)
+now = timeit.time.time()
+print "...catalogue construction took %.1f..."%(now-then)
 
+#   # XXX Zero padding data
+#   geo_wave_samples_new = np.zeros(shape=(len(geo_wave_samples), SI_datalen /
+#       SI_deltaT))
+#   for s,sample_wave in enumerate(geo_wave_samples):
+#       geo_wave_samples_new[s, :len(sample_wave)] = np.copy(sample_wave)
+#   geo_wave_samples = np.copy(geo_wave_samples_new)
+#
 # Useful time/freq samples
 time_axis = np.arange(0, SI_datalen, SI_deltaT)
 freq_axis = np.arange(0, catalogue.SI_flen*catalogue.SI_deltaF,
@@ -270,6 +281,7 @@ l1_asd = np.interp(freq_axis, l1_bw_asd_data[:,0], l1_bw_asd_data[:,1])
 
 mean_asd = np.sqrt(scipy.stats.hmean([h1_asd**2, l1_asd**2]))
 
+#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Parameter Estimation
 #
@@ -286,10 +298,6 @@ h1_masses  = np.zeros(shape=(simulations.nsimulations, len(h1_wave_samples)))
 l1_matches = np.zeros(shape=(simulations.nsimulations, len(l1_wave_samples)))
 l1_masses  = np.zeros(shape=(simulations.nsimulations, len(l1_wave_samples)))
 
-# XXX: Hack to use median, rather than sampled waveforms
-#geo_wave_samples = [np.median(geo_wave_samples, axis=0)]
-#h1_wave_samples = [np.median(h1_wave_samples, axis=0)]
-#l1_wave_samples = [np.median(l1_wave_samples, axis=0)]
 
 # Loop over waves in NR catalogue
 for w, wave in enumerate(catalogue.SIComplexTimeSeries):
@@ -301,8 +309,8 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     #
     # --- Whiten the catalogue waveform
     #
-    h1_wave = whiten_wave(wave, h1_asd)
-    l1_wave = whiten_wave(wave, l1_asd)
+    #h1_wave = whiten_wave(wave, h1_asd)
+    #l1_wave = whiten_wave(wave, l1_asd)
 
 
     # Find best-fitting mass (in terms of match)
@@ -315,27 +323,29 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
         print '-----------------------------'
         print "Evaluating waveform %d of %d"%( s, len(geo_wave_samples) )
 
+        then = timeit.time.time()
         geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(wave,
             geo_sample, mean_asd, SI_deltaT), full_output=True, retall=True,
             disp=False)
+        now = timeit.time.time()
+        print "...mass optimisation took %.1f sec..."%(now-then)
 
         geo_matches[w, s] = 1-geo_result[1]
         geo_masses[w, s] = geo_result[0][0]
 
-        #h1_result = scipy.optimize.fmin(mismatch, x0=geo_masses[w,s], args=(h1_wave,
-        h1_result = scipy.optimize.fmin(mismatch, x0=geo_masses[w,s], args=(h1_wave,
-            h1_sample, None, SI_deltaT), full_output=True, retall=True,
-            disp=False)
-
-        h1_matches[w, s] = 1-h1_result[1]
-        h1_masses[w, s] = h1_result[0][0]
-
-        l1_result = scipy.optimize.fmin(mismatch, x0=geo_masses[w,s], args=(l1_wave,
-            l1_sample, None, SI_deltaT), full_output=True, retall=True,
-            disp=False)
-
-        l1_matches[w, s] = 1-l1_result[1]
-        l1_masses[w, s] = l1_result[0][0]
+#       h1_result = scipy.optimize.fmin(mismatch, x0=geo_masses[w,s], args=(h1_wave,
+#           h1_sample, None, SI_deltaT), full_output=True, retall=True,
+#           disp=False)
+#
+#       h1_matches[w, s] = 1-h1_result[1]
+#       h1_masses[w, s] = h1_result[0][0]
+#
+#       l1_result = scipy.optimize.fmin(mismatch, x0=geo_masses[w,s], args=(l1_wave,
+#           l1_sample, None, SI_deltaT), full_output=True, retall=True,
+#           disp=False)
+#
+#       l1_matches[w, s] = 1-l1_result[1]
+#       l1_masses[w, s] = l1_result[0][0]
 
         print "geo: Best matching mass [match]: %.2f [%.2f]"%(
                 geo_masses[w,s], geo_matches[w,s])
