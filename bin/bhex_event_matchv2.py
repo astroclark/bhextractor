@@ -36,34 +36,44 @@ import scipy.interpolate
 import timeit
 from matplotlib import pyplot as pl
 
-def scale_wave(wave, total_mass):
+import lalmetaio
+import lalinspiral
+from glue.ligolw import lsctables, table, utils, ligolw, ilwd
+table.use_in(ligolw.LIGOLWContentHandler)
+lsctables.use_in(ligolw.LIGOLWContentHandler)
+
+def swig_row(wavefile, total_mass):
+    """
+    Make a sim_inspiral row which points numrel_data to the wavefile and sets up
+    m1 and m2 to correspond to the total mass of the system
+    """
+
+    swigrow = lalmetaio.SimInspiralTable()
+
+    swigrow.mass1=0.5*total_mass
+    swigrow.mass2=0.5*total_mass
+    swigrow.numrel_data="file://localhost"+os.path.realpath(wavefile)
+    swigrow.numrel_mode_max=2
+    swigrow.numrel_mode_min=2
+    swigrow.f_lower=10.0
+    swigrow.distance=1.0
+
+    return swigrow
+
+def scale_wave(wave_file, total_mass):
     """
     Scale the waveform to total_mass.  Assumes the waveform is initially
     generated at init_total_mass defined in this script.
+
     """
-    amp = abs(wave)
-    phase = bwave.phase_of(wave)
 
-    scale_ratio = total_mass / init_total_mass
-    amp *= scale_ratio
+    row = swig_row(wave_file, total_mass)
+    Hp, Hc = lalinspiral.NRInjectionFromSimInspiral(row, SI_deltaT)
 
-    peakidx = np.argmax(amp)
-    interp_times = scale_ratio * time_axis - \
-            peakidx*SI_deltaT*(scale_ratio-1)
+    hp = pycbc.types.TimeSeries(Hp.data.data[:], delta_t=Hp.deltaT, epoch=Hp.epoch)
+    hc = pycbc.types.TimeSeries(Hc.data.data[:], delta_t=Hp.deltaT, epoch=Hp.epoch)
 
-#    resamp_hplus = np.interp(time_axis, interp_times, np.real(wave))
-#    resamp_hcross = np.interp(time_axis, interp_times, np.imag(wave))
-#    return resamp_hplus #+ 1j*resamp_hcross
-
-    resamp_amp = np.interp(time_axis, interp_times, amp)
-    resamp_phase = np.interp(time_axis, interp_times, phase)
- 
-#    f = scipy.interpolate.interp1d(interp_times, amp, kind='cubic')
-#    resamp_amp = f(time_axis)
-#    resamp_phase = f(time_axis)
-    
-
-    return resamp_amp*np.exp(1j*resamp_phase)
+    return hp, hc
 
 
 def mismatch(total_mass, tmplt_wave_data, event_wave_data, asd=None,
@@ -111,9 +121,11 @@ def mismatch(total_mass, tmplt_wave_data, event_wave_data, asd=None,
 #SI_deltaT = 1./1024
 SI_deltaT = 1./4096
 SI_datalen= 4.0
+SI_deltaF=1./SI_datalen
+SI_flen=len(np.fft.fftfreq(int(SI_datalen/SI_deltaT), SI_deltaT))
 f_min = 40.0
 
-nsampls=1000
+nsampls=500
 
 # Initial guess at the mass
 mass_guess = 74.0#100 + 100*np.random.random()
@@ -125,7 +137,7 @@ distance=1. # Mpc
 #
 # --- Catalogue Definition
 #
-series_names = ['TP2-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
+series_names = ['HRq-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
 
 bounds=None
 #bounds=dict()
@@ -151,36 +163,23 @@ if 0:
             delta_t=SI_deltaT)
     emax=np.argmax(abs(hplus_EOBNR))
    
-    import lal
-    sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
-    hplus_EOBNR.data /= np.real(sY22)
+    #import lal
+    #sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
+    #hplus_EOBNR.data /= np.real(sY22)
     hplus_EOBNR.data = bwave.window_wave(hplus_EOBNR.data)
    
    
-    simulations = \
-            bwave.simulation_details(series_names=series_names, param_bounds=bounds,
-                    Mmin30Hz=100.0)
-   
-    catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
-            SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
-            trunc_time=False)
-   
-    # Useful time/freq samples
-    wave = np.real(catalogue.SIComplexTimeSeries[0,:])
-   
-    nmax = np.argmax(abs(wave))
-   
-    time_axis = np.arange(0, SI_datalen, SI_deltaT)  
-   
+    simulations =  bwave.simulation_details(series_names=series_names, param_bounds=bounds,
+            Mmin30Hz=100.0)
+
     # rescale 
     then = timeit.time.time()
-    wave = scale_wave(wave, mtot)
+    waveframe = simulations.simulations[0]['wavefile'].replace('asc','gwf')
+    hplus_NR, _ = scale_wave(waveframe, mtot)
     now = timeit.time.time()
-
     print "Waveform scaling took %.3f sec"%(now-then)
+    #hplus_NR.data = bwave.window_wave(hplus_NR.data)
    
-   
-    hplus_NR = pycbc.types.TimeSeries(np.real(wave), delta_t=SI_deltaT)
     tlen = max(len(hplus_NR), len(hplus_EOBNR))
     hplus_EOBNR.resize(tlen)
     hplus_NR.resize(tlen)
@@ -217,7 +216,7 @@ event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
 geo_wave_samples_in = np.loadtxt(os.path.join(event_file_dir, "geo_waveforms/waveform_geo_1000.dat"))
 
 # Downsample the number of posterior samples (useful for testing)
-#geo_wave_samples_in=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+geo_wave_samples_in=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
 
 
 # XXX Zero padding data
@@ -239,9 +238,6 @@ l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "IFO1_asd.dat"))
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
 
-#
-# --- Generate initial catalogue
-#
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
@@ -250,20 +246,13 @@ simulations = \
         bwave.simulation_details(series_names=series_names, param_bounds=bounds,
                 Mmin30Hz=init_total_mass)
 
-print '~~~~~~~~~~~~~~~~~~~~~'
-print 'Building NR catalogue'
-print ''
-catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
-        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
-        trunc_time=False)
 now = timeit.time.time()
 print "...catalogue construction took %.1f..."%(now-then)
 
 
 # Useful time/freq samples
 time_axis = np.arange(0, SI_datalen, SI_deltaT)
-freq_axis = np.arange(0, catalogue.SI_flen*catalogue.SI_deltaF,
-        catalogue.SI_deltaF)
+freq_axis = np.arange(0, SI_flen * SI_deltaF, SI_deltaF)
 
 # Interpolate the ASD to the waveform frequencies
 h1_asd = np.interp(freq_axis, h1_bw_asd_data[:,0], h1_bw_asd_data[:,1])
@@ -271,7 +260,6 @@ l1_asd = np.interp(freq_axis, l1_bw_asd_data[:,0], l1_bw_asd_data[:,1])
 
 mean_asd = np.sqrt(scipy.stats.hmean([h1_asd**2, l1_asd**2]))
 
-#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Parameter Estimation
 #
@@ -285,14 +273,14 @@ geo_matches = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
 geo_masses  = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
 
 # Loop over waves in NR catalogue
-for w, wave in enumerate(catalogue.SIComplexTimeSeries):
+for w in xrange(simulations.nsimulations):
 
     print "________________________________"
     print "Computing match for %s (%d/%d)"%(simulations.simulations[w]['wavename'],
             w+1, simulations.nsimulations)
 
+    waveframe = simulations.simulations[w]['wavefile'].replace('asc','gwf')
 
-    # Find best-fitting mass (in terms of match)
     print "Optimising for total mass for each sampled waveform..."
 
     for s, geo_sample in enumerate(geo_wave_samples):
@@ -303,9 +291,11 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
         print " (NR: %s [%d/%d])"%( simulations.simulations[w]['wavename'], w+1,
                 simulations.nsimulations)
 
+        # Find best-fitting mass (in terms of match)
         then = timeit.time.time()
-        geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(wave,
-            geo_sample, mean_asd, SI_deltaT, catalogue.SI_deltaF),
+        geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess,
+                args=(waveframe, geo_sample, mean_asd, SI_deltaT,
+                    SI_deltaF),
             full_output=True, retall=True, disp=False)
         now = timeit.time.time()
         print "...mass optimisation took %.3f sec..."%(now-then)
@@ -328,7 +318,7 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Dump data
-filename=series_names[0]
+filename=series_names[0] + 'v2'
 np.savez(filename, geo_matches=geo_matches, geo_masses=geo_masses)
 
 

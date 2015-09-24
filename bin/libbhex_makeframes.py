@@ -30,31 +30,21 @@ from bhex_utils import bhex_pca as bpca
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT: define the catalogue
 
-# Options common to train & test data:
-SI_deltaT = 1./512
-SI_datalen= 4.0
-total_mass = 150. 
-distance=1. # Mpc
+#series_names = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
+#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
+#        "TP-series"]
 
-#series_names = ['HRq-series'] # (see above for valid choices)
-series_names = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
-        "TP-series"]
+total_mass = 100
+
+series_names = ['HRq-series'] # (see above for valid choices)
 
 #
 # Modify for imposing parameter bounds on the catalogue:
 #
-#bounds=None
-bounds=dict()
-bounds['a1'] = [0, 0]
-bounds['a2'] = [0, 0]
-#bounds['q'] = [-np.inf, 3] 
+bounds=None
 
-catalogue_name = 'NonSpinning'
+catalogue_name = 'HRq'
 
-save_pcs = ['NRhplusTimeSeriesPCA', 'NRhcrossTimeSeriesPCA',
-'NRAmpTimeSeriesPCA', 'NRPhaseTimeSeriesPCA',  'SIhplusTimeSeriesPCA',
-'SIhcrossTimeSeriesPCA', 'SIAmpTimeSeriesPCA', 'SIPhaseTimeSeriesPCA']
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Do the work:
@@ -65,6 +55,7 @@ print ''
 simulation_selection = \
         bwave.simulation_details(series_names=series_names,
                 param_bounds=bounds, Mmin30Hz=total_mass)
+
 
 print '~~~~~~~~~~~~~~~~~~~~~~~'
 print 'Constructing NINJA data'

@@ -15,10 +15,13 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
-libbhex_makeframes.py
+bhex_makeframes.py
 
-Construct a catalogue and build the NINJA input frames for each waveform in that
-catalogue
+Build numrel frame files corresponding to the waveforms in a given series and
+save the frame to the same location as the ascii.  This facilitates injection /
+template production directly from the bhex_wave.simulations class and
+lalinspiral.NRInjectionFromSimInspiral.
+
 """
 
 import os,sys
@@ -38,12 +41,6 @@ total_mass = 100
 
 series_names = ['HRq-series'] # (see above for valid choices)
 
-#
-# Modify for imposing parameter bounds on the catalogue:
-#
-bounds=None
-
-catalogue_name = 'HRq'
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -54,7 +51,7 @@ print 'Selecting Simulations'
 print ''
 simulation_selection = \
         bwave.simulation_details(series_names=series_names,
-                param_bounds=bounds, Mmin30Hz=total_mass)
+                param_bounds=None, Mmin30Hz=total_mass)
 
 
 print '~~~~~~~~~~~~~~~~~~~~~~~'
@@ -69,33 +66,32 @@ template="""mass-ratio = {mass_ratio}
 simulation-details = {wavename}
 nr-group = GATech
 
-2,2 = {wavefile}"""
+2,2 = {wavefile}\n"""
 
 "writing ninja config files for these simulations"
 
-if os.path.exists(catalogue_name):
-    print >> sys.stderr, "%s exists, remove"%catalogue_name
-    sys.exit()
-os.makedirs(catalogue_name)
 
 for simulation in simulation_selection.simulations:
 
 
-    wavefile = os.path.join(catalogue_name,
-            os.path.basename(simulation['wavefile']))
+    nr_data_dir = os.path.dirname(simulation['wavefile'])
+
+    original_dir = os.getcwd()
+    os.chdir(nr_data_dir)
         
     # Write the config file
-    meta_file_name = wavefile.replace('asc', 'bbh')
+    meta_file_name = os.path.basename(
+            simulation['wavefile'].replace('asc', 'bbh'))
     meta_file = open(meta_file_name, 'w')
+
     text = template.format(mass_ratio=simulation['q'],
             wavename=simulation['wavename'],
-            wavefile=wavefile
+            wavefile=os.path.basename(simulation['wavefile'])
             )
+
     meta_file.writelines(text)
     meta_file.close()
 
-    # Copy the ascii file here
-    shutil.copyfile(simulation['wavefile'], wavefile)
 
     # Make frame
     subprocess.call(['lalapps_fr_ninja', 
@@ -104,11 +100,9 @@ for simulation in simulation_selection.simulations:
         "--output", meta_file_name.replace('bbh','gwf')])
 
     # Clean up
-    os.remove(wavefile)
-    os.remove(meta_file_name)
+    #os.remove(meta_file_name)
 
-# Create the NINJA xml
-subprocess.call(['lalapps_ninja', "--format", "NINJA2", "--datadir",
-    catalogue_name, "--outfile", catalogue_name+".xml", "--min-mass-ratio", "0",
-    "--max-mass-ratio", "100", "--pattern", "*gwf"])
+    os.chdir(original_dir)
+
+
 
