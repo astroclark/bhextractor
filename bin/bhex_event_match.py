@@ -95,30 +95,6 @@ def mismatch(total_mass, tmplt_wave_data, event_wave_data, asd=None,
 
     return 1-match
 
-def whiten_wave(wave, asd):
-    """
-    Whiten the complex waveform wave and return a wave with unit-hrss in each
-    polarisation
-    """
-
-    hp = pycbc.types.TimeSeries(np.real(wave[:]), delta_t=SI_deltaT)
-    hc = pycbc.types.TimeSeries(-1*np.imag(wave[:]), delta_t=SI_deltaT)
-
-    # XXX Should have some checks here on sample rate / datalen but everything uses
-    # 4s, 1024 Hz so should be ok...for now
-
-    Hp = hp.to_frequencyseries()
-    Hp.data /= asd
-    Hc = hc.to_frequencyseries()
-    Hc.data /= asd
-
-    hp_white = Hp.to_timeseries()
-    hp_white /= pycbc.filter.sigma(hp_white)
-    hc_white = Hc.to_timeseries()
-    hc_white /= pycbc.filter.sigma(hc_white)
-
-    return hp_white - 1j*hc_white
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # 
 # Some useful info:
@@ -233,8 +209,6 @@ print "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
         "data/observed")
 
-h1_wave_samples = np.loadtxt(os.path.join(event_file_dir, "waveforms/waveform_H1_1000.dat"))
-l1_wave_samples = np.loadtxt(os.path.join(event_file_dir, "waveforms/waveform_L1_1000.dat"))
 geo_wave_samples = np.loadtxt(os.path.join(event_file_dir, "geo_waveforms/waveform_geo_1000.dat"))
 
 h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "IFO0_asd.dat"))
@@ -281,7 +255,6 @@ l1_asd = np.interp(freq_axis, l1_bw_asd_data[:,0], l1_bw_asd_data[:,1])
 
 mean_asd = np.sqrt(scipy.stats.hmean([h1_asd**2, l1_asd**2]))
 
-#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Parameter Estimation
 #
@@ -293,11 +266,6 @@ mean_asd = np.sqrt(scipy.stats.hmean([h1_asd**2, l1_asd**2]))
 # Preallocate
 geo_matches = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
 geo_masses  = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
-h1_matches = np.zeros(shape=(simulations.nsimulations, len(h1_wave_samples)))
-h1_masses  = np.zeros(shape=(simulations.nsimulations, len(h1_wave_samples)))
-l1_matches = np.zeros(shape=(simulations.nsimulations, len(l1_wave_samples)))
-l1_masses  = np.zeros(shape=(simulations.nsimulations, len(l1_wave_samples)))
-
 
 # Loop over waves in NR catalogue
 for w, wave in enumerate(catalogue.SIComplexTimeSeries):
@@ -306,18 +274,11 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     print "Computing match for %s (%d/%d)"%(simulations.simulations[w]['wavename'],
             w, simulations.nsimulations)
 
-    #
-    # --- Whiten the catalogue waveform
-    #
-    #h1_wave = whiten_wave(wave, h1_asd)
-    #l1_wave = whiten_wave(wave, l1_asd)
-
 
     # Find best-fitting mass (in terms of match)
     print "Optimising for total mass for each sampled waveform..."
 
-    for s, (geo_sample, h1_sample, l1_sample) in enumerate(zip(geo_wave_samples,
-        h1_wave_samples, l1_wave_samples)):
+    for s, geo_sample in enumerate(geo_wave_samples):
 
 
         print '-----------------------------'
@@ -333,26 +294,8 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
         geo_matches[w, s] = 1-geo_result[1]
         geo_masses[w, s] = geo_result[0][0]
 
-#       h1_result = scipy.optimize.fmin(mismatch, x0=geo_masses[w,s], args=(h1_wave,
-#           h1_sample, None, SI_deltaT), full_output=True, retall=True,
-#           disp=False)
-#
-#       h1_matches[w, s] = 1-h1_result[1]
-#       h1_masses[w, s] = h1_result[0][0]
-#
-#       l1_result = scipy.optimize.fmin(mismatch, x0=geo_masses[w,s], args=(l1_wave,
-#           l1_sample, None, SI_deltaT), full_output=True, retall=True,
-#           disp=False)
-#
-#       l1_matches[w, s] = 1-l1_result[1]
-#       l1_masses[w, s] = l1_result[0][0]
-
         print "geo: Best matching mass [match]: %.2f [%.2f]"%(
                 geo_masses[w,s], geo_matches[w,s])
-        print "H1: Best matching mass [match]: %.2f [%.2f]"%(
-                h1_masses[w,s], h1_matches[w,s])
-        print "L1: Best matching mass [match]: %.2f [%.2f]"%(
-                l1_masses[w,s], l1_matches[w,s])
 
 
     geo_bestidx=np.argmax(geo_matches[w, :])
@@ -363,10 +306,6 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     print "Maximising over all waveforms:"
     print "geo: Best matching mass [match]: %.2f [%.2f]"%(
             geo_masses[w,geo_bestidx], max(geo_matches[w,:]))
-    print "H1: Best matching mass [match]: %.2f [%.2f]"%(
-            h1_masses[w,h1_bestidx], max(h1_matches[w,:]))
-    print "L1: Best matching mass [match]: %.2f [%.2f]"%(
-            l1_masses[w,l1_bestidx], max(l1_matches[w,:]))
 
 
 
