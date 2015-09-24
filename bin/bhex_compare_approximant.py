@@ -134,8 +134,8 @@ for s,simulation in enumerate(simulations_list.simulations):
             distance=distance,
             mass1=mass1,
             mass2=mass2,
-            spin1z=0.99,
-            spin2z=0.99,
+            spin1z=0.0,
+            spin2z=0.0,
             f_lower=f_low,
             delta_t=1.0/sample_rate)
             #f_lower=fpeak_NR,
