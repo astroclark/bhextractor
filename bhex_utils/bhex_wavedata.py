@@ -401,8 +401,10 @@ class waveform_catalogue:
         trunc_len = np.inf
         for w in xrange(self.simulation_details.nsimulations):
 
-            wave = window_wave(plus_data_resampled[w] -
-                    1j*cross_data_resampled[w])
+#            wave = window_wave(plus_data_resampled[w] -
+#                    1j*cross_data_resampled[w])
+            # XXX
+            wave = plus_data_resampled[w] - 1j*cross_data_resampled[w]
 
             # Normalisation (do this in the PCA)
             #wave /= np.vdot(wave,wave)
@@ -433,8 +435,9 @@ class waveform_catalogue:
             for w in xrange(self.simulation_details.nsimulations):
 
                 # Truncate to the length of the shortest waveform
-                self.NRComplexTimeSeries[w,trunc_idx] = \
-                        window_wave(self.NRComplexTimeSeries[w,trunc_idx])
+                #self.NRComplexTimeSeries[w,trunc_idx] = \
+                #        window_wave(self.NRComplexTimeSeries[w,trunc_idx])
+
                 self.NRComplexTimeSeries[w,np.invert(trunc_idx)] = 0.0
 
                 self.NRAmpTimeSeries[w,:] = abs(self.NRComplexTimeSeries[w,:])
@@ -484,7 +487,7 @@ class waveform_catalogue:
             wave = resampled_re + 1j*resampled_im
 
             idx = abs(wave)>1e-3*max(abs(wave))
-            wave = window_wave(wave)
+            #wave = window_wave(wave)
             wave = wave[idx]
 
             peakidx = np.argmax(abs(wave))
