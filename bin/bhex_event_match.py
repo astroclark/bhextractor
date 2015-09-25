@@ -66,35 +66,47 @@ def scale_wave(wave, total_mass):
     return resamp_amp*np.exp(1j*resamp_phase)
 
 
-def mismatch(total_mass, tmplt_wave_data, event_wave_data, asd=None,
+def mismatch(total_mass, mass_bounds, tmplt_wave_data, event_wave_data, asd=None,
         delta_t=1./512, delta_f=0.25):
     """
     Compute mismatch (1-match) between the tmplt wave and the event wave, given
     the total mass.  Uses event_wave and psd which are defined globally in the
     script.
     """
+    min_mass, max_mass = mass_bounds
 
-    # Rescale the template to this total mass
-    tmplt = scale_wave(tmplt_wave_data, total_mass)
+    if (total_mass >= min_mass) and (total_mass <= max_mass):
 
-    # Convert the wave to a pycbc timeseries object
-    hp = pycbc.types.TimeSeries(np.real(tmplt[:]), delta_t=SI_deltaT)
-    hc = pycbc.types.TimeSeries(-1*np.imag(tmplt[:]), delta_t=SI_deltaT)
+        # Rescale the template to this total mass
+        tmplt = scale_wave(tmplt_wave_data, total_mass)
 
-    event_wave = pycbc.types.TimeSeries(event_wave_data, delta_t=SI_deltaT)
+        # Convert the wave to a pycbc timeseries object
+        hp = pycbc.types.TimeSeries(np.real(tmplt[:]), delta_t=SI_deltaT)
+        hc = pycbc.types.TimeSeries(-1*np.imag(tmplt[:]), delta_t=SI_deltaT)
 
-    if asd is not None:
-        psd = pycbc.types.FrequencySeries(asd**2, delta_f=delta_f)
+        event_wave = pycbc.types.TimeSeries(event_wave_data, delta_t=SI_deltaT)
+
+        if asd is not None:
+            psd = pycbc.types.FrequencySeries(asd**2, delta_f=delta_f)
+        else:
+            psd = None
+
+        try:
+            match, _ = pycbc.filter.match(hp, event_wave, psd=psd,
+                    low_frequency_cutoff=f_min)
+        except ZeroDivisionError:
+            match = np.nan
+
+        return 1-match
+
     else:
-        psd = None
 
-    try:
-        match, _ = pycbc.filter.match(hp, event_wave, psd=psd,
-                low_frequency_cutoff=f_min)
-    except ZeroDivisionError:
-        match = np.nan
+        return 1.
 
-    return 1-match
+
+def mtot_from_mchirp(mc, q):
+    eta = q/(1+q)**2.0
+    return mc * eta**(-3./5)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # 
@@ -113,7 +125,7 @@ SI_deltaT = 1./4096
 SI_datalen= 4.0
 f_min = 40.0
 
-nsampls=1000
+nsampls=100
 
 # Initial guess at the mass
 mass_guess = 74.0#100 + 100*np.random.random()
@@ -125,11 +137,11 @@ distance=1. # Mpc
 #
 # --- Catalogue Definition
 #
-series_names = ['TP2-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
+series_names = ['HR-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
 
-bounds=None
-#bounds=dict()
-#bounds['q'] = [1, 1]
+#bounds=None
+bounds=dict()
+bounds['q'] = [4, 6]
 #bounds['a1'] = [0,0]
 #bounds['a2'] = [0,1]
 
@@ -217,7 +229,7 @@ event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
 geo_wave_samples_in = np.loadtxt(os.path.join(event_file_dir, "geo_waveforms/waveform_geo_1000.dat"))
 
 # Downsample the number of posterior samples (useful for testing)
-#geo_wave_samples_in=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+geo_wave_samples_in=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
 
 
 # XXX Zero padding data
@@ -295,6 +307,10 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     # Find best-fitting mass (in terms of match)
     print "Optimising for total mass for each sampled waveform..."
 
+    # Find minimum mass
+    min_mass = mtot_from_mchirp(29, simulations.simulations[w]['q'])
+    max_mass = mtot_from_mchirp(35, simulations.simulations[w]['q'])
+
     for s, geo_sample in enumerate(geo_wave_samples):
 
 
@@ -304,9 +320,9 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
                 simulations.nsimulations)
 
         then = timeit.time.time()
-        geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(wave,
-            geo_sample, mean_asd, SI_deltaT, catalogue.SI_deltaF),
-            full_output=True, retall=True, disp=False)
+        geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
+            [min_mass, max_mass], wave, geo_sample, mean_asd, SI_deltaT,
+            catalogue.SI_deltaF), full_output=True, retall=True, disp=False)
         now = timeit.time.time()
         print "...mass optimisation took %.3f sec..."%(now-then)
 
