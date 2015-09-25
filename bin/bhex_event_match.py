@@ -308,8 +308,8 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     print "Optimising for total mass for each sampled waveform..."
 
     # Find minimum mass
-    min_mass = mtot_from_mchirp(29, simulations.simulations[w]['q'])
-    max_mass = mtot_from_mchirp(35, simulations.simulations[w]['q'])
+    min_mass = mtot_from_mchirp(27, simulations.simulations[w]['q'])
+    max_mass = mtot_from_mchirp(34, simulations.simulations[w]['q'])
 
     for s, geo_sample in enumerate(geo_wave_samples):
 
