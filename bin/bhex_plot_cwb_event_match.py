@@ -37,6 +37,7 @@ pl.rcParams.update({'xtick.labelsize':16})
 pl.rcParams.update({'ytick.labelsize':16})
 pl.rcParams.update({'legend.fontsize':16})
 
+
 def make_labels(simulations):
     """
     Return a list of strings with suitable labels for e.g., box plots
@@ -60,7 +61,6 @@ def make_labels(simulations):
     return labels
 
 
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
@@ -79,8 +79,10 @@ distance=1. # Mpc
 #
 match_file = sys.argv[1]
 match_results = np.load(match_file)
-geo_matches = match_results['geo_matches']
-geo_masses = match_results['geo_masses']
+h1_matches = match_results['h1_matches']
+h1_masses = match_results['h1_masses']
+l1_matches = match_results['l1_matches']
+l1_masses = match_results['l1_masses']
 
 #bounds=None
 bounds=dict()
@@ -90,9 +92,6 @@ bounds=dict()
 
 bounds['a1'] = [0,0]
 bounds['a2'] = [0,0]
-
-#
-#   # --XXX
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
@@ -108,74 +107,39 @@ simulations = \
         bwave.simulation_details(param_bounds=bounds, Mmin30Hz=init_total_mass)
 
 
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Manipulation and derived FOMs
-#
-
-mean_matches = np.mean(geo_matches, axis=1)
-median_matches = np.median(geo_matches, axis=1)
-match_sort = np.argsort(median_matches)
+# Manipulation
+h1_match_sort = np.argsort(h1_matches)
+l1_match_sort = np.argsort(l1_matches)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
 
-# Plots to make:
-# box plots for distributions of mass / match
-#   sort these plots in descending match
-#   label by parsing parameters from the simulations object
 
-fmatchbox, axmatchbox = pl.subplots(figsize=(12,8))
-match_box = axmatchbox.boxplot(geo_matches[match_sort].T, whis='range', showcaps=True,
-        showmeans=True, showfliers=False,
-        vert=False)
-axmatchbox.set_xlabel('Mass-optimised Match')
-axmatchbox.set_ylabel('Waveform Parameters')
-axmatchbox.grid(linestyle='-', color='grey')
-axmatchbox.minorticks_on()
+fmatchplot, axmatchplot = pl.subplots(figsize=(12,8))
+h1_match_plot = axmatchplot.plot(h1_matches[h1_match_sort],
+        range(1,len(h1_matches)+1), 'rs', label='H1 response')
+l1_match_plot = axmatchplot.plot(l1_matches[h1_match_sort],
+        range(1,len(h1_matches)+1), 'go', label='L1 response')
+axmatchplot.set_xlabel('Mass-optimised Match')
+axmatchplot.set_ylabel('Waveform Parameters')
+axmatchplot.grid(linestyle='-', color='grey')
+axmatchplot.minorticks_on()
 
-if sum(mean_matches==0):
-    axmatchbox.set_ylim((len(mean_matches) -
-        np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
+axmatchplot.set_yticks(range(1,len(h1_matches)+1))
 
-    axmatchbox.set_xlim(0.8,1)
+if sum(h1_matches==0):
+    axmatchplot.set_ylim((len(h1_matches) -
+        np.where(h1_matches==0)[0])[0]+0.5,len(h1_matches)+0.5)
 
-ylabels=make_labels(np.array(simulations.simulations)[match_sort])
-axmatchbox.set_yticklabels(ylabels)#, rotation=90)
+    axmatchplot.set_xlim(0.8,1)
 
-fmatchbox.tight_layout()
+ylabels=make_labels(np.array(simulations.simulations)[h1_match_sort])
+axmatchplot.set_yticklabels(ylabels)#, rotation=90)
 
-# --- masses
-fmassbox, axmassbox = pl.subplots(figsize=(12,8))
-mass_box = axmassbox.boxplot(geo_masses[match_sort].T, whis='range', showcaps=True,
-        showmeans=True, showfliers=False,
-        vert=False)
-axmassbox.set_xlabel('Match-optimised mass')
-axmassbox.set_ylabel('Waveform Parameters')
-axmassbox.grid(linestyle='-', color='grey')
-axmassbox.minorticks_on()
-
-if sum(mean_matches==0):
-    axmassbox.set_ylim((len(mean_matches) -
-        np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
-
-ylabels=make_labels(np.array(simulations.simulations)[match_sort])
-axmassbox.set_yticklabels(ylabels)#, rotation=90)
-
-fmassbox.tight_layout()
-
-# 1- and 2-D Histograms of mass, match (do with a triangle plot) for the
-# waveform with the highest median match
-
-samples = np.array([geo_matches[match_sort[-1],:], geo_masses[match_sort[-1],:]]).T
-trifig = triangle.corner(samples, quantiles=[0.25, 0.50, 0.75], labels=['Match', 
-    'M$_{\mathrm{tot}}$ [M$_{\odot}$]'], plot_contours=True,
-    plot_datapoints=True)
-title = make_labels([simulations.simulations[match_sort[-1]]])
-trifig.suptitle(title[0], fontsize=16)
-trifig.subplots_adjust(top=0.9)
-
+fmatchplot.tight_layout()
 
 pl.show()
+sys.exit()
 
 

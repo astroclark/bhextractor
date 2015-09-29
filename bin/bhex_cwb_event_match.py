@@ -51,16 +51,8 @@ def scale_wave(wave, total_mass):
     interp_times = scale_ratio * time_axis - \
             peakidx*SI_deltaT*(scale_ratio-1)
 
-#    resamp_hplus = np.interp(time_axis, interp_times, np.real(wave))
-#    resamp_hcross = np.interp(time_axis, interp_times, np.imag(wave))
-#    return resamp_hplus #+ 1j*resamp_hcross
-
     resamp_amp = np.interp(time_axis, interp_times, amp)
     resamp_phase = np.interp(time_axis, interp_times, phase)
- 
-#    f = scipy.interpolate.interp1d(interp_times, amp, kind='cubic')
-#    resamp_amp = f(time_axis)
-#    resamp_phase = f(time_axis)
     
 
     return resamp_amp*np.exp(1j*resamp_phase)
@@ -108,10 +100,13 @@ def mtot_from_mchirp(mc, q):
     eta = q/(1+q)**2.0
     return mc * eta**(-3./5)
 
+def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
+    peakidx = np.argmax(h1_wave_in)
+    nsamp = datalen * sample_rate
+    return inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-#SI_deltaT = 1./1024
 SI_deltaT = 1./4096
 SI_datalen= 4.0
 f_min = 40.0
@@ -135,106 +130,28 @@ bounds=dict()
 bounds['a1'] = [0,0]
 bounds['a2'] = [0,0]
 
-# XXX SANITY CHECKING SCALING AND BEHAVIOUR OF NR WAVE wrt SEOBNR
-
-if 0:
-    mtot=70
-    bounds=dict()
-    bounds['q'] = [1, 1]
-    from pycbc.waveform import get_td_waveform
-    hplus_EOBNR, _ = get_td_waveform(approximant="SEOBNRv2",
-            distance=distance,
-            mass1=0.5*mtot,
-            mass2=0.5*mtot,
-            spin1z=0.0,
-            spin2z=0.0,
-            f_lower=10,
-            delta_t=SI_deltaT)
-    emax=np.argmax(abs(hplus_EOBNR))
-   
-    import lal
-    sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
-    hplus_EOBNR.data /= np.real(sY22)
-    hplus_EOBNR.data = bwave.window_wave(hplus_EOBNR.data)
-   
-   
-    simulations = \
-            bwave.simulation_details(param_bounds=bounds, Mmin30Hz=100.0)
-   
-    catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
-            SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
-            trunc_time=False)
-   
-    # Useful time/freq samples
-    wave = np.real(catalogue.SIComplexTimeSeries[0,:])
-   
-    nmax = np.argmax(abs(wave))
-   
-    time_axis = np.arange(0, SI_datalen, SI_deltaT)  
-   
-    # rescale 
-    then = timeit.time.time()
-    wave = scale_wave(wave, mtot)
-    now = timeit.time.time()
-
-    print "Waveform scaling took %.3f sec"%(now-then)
-   
-   
-    hplus_NR = pycbc.types.TimeSeries(np.real(wave), delta_t=SI_deltaT)
-    tlen = max(len(hplus_NR), len(hplus_EOBNR))
-    hplus_EOBNR.resize(tlen)
-    hplus_NR.resize(tlen)
-   
-    match = pycbc.filter.match(hplus_EOBNR,
-            hplus_NR,low_frequency_cutoff=f_min)
-   
-    pl.figure()
-    pl.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
-            abs(hplus_EOBNR.to_frequencyseries()), label='SEOBNRv2')
-   
-    pl.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
-            abs(hplus_NR.to_frequencyseries()), label='NR')
-    pl.title('M$_{\mathrm{tot}}$=%d M$_{\odot}$: match=%.2f'%(mtot,match[0]))
-    pl.xlabel('Frequency [Hz]')
-    pl.ylabel('|H(f)|')
-    pl.legend()
-   
-    pl.axvline(f_min, color='r')
-   
-    pl.show()
-   
-    sys.exit()
-#
-#   # --XXX
 
 #
 # --- Reconstruction data
 #
 print "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
-        "data/observed")
+        "data/observed/cwb")
 
-geo_wave_samples_in = np.loadtxt(os.path.join(event_file_dir, "geo_waveforms/waveform_geo_1000.dat"))
-
-# Downsample the number of posterior samples (useful for testing)
-#geo_wave_samples_in=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+h1_wave_in = np.loadtxt(os.path.join(event_file_dir, "H1_wf_strain.dat"))
+l1_wave_in = np.loadtxt(os.path.join(event_file_dir, "L1_wf_strain.dat"))
 
 
-# XXX Zero padding data
-#   geo_wave_samples = np.zeros(shape=(len(geo_wave_samples_in),
-#           SI_datalen/SI_deltaT))
-#   for s, sample in enumerate(geo_wave_samples_in):
-#       geo_wave_samples[s,:len(sample)] = sample
+# Extract the 4 second chunk in the middle
+h1_wave = extract_wave(h1_wave_in, datalen=SI_datalen)
+l1_wave = extract_wave(l1_wave_in, datalen=SI_datalen)
 
-# XXX Resampling data
-geo_wave_samples = np.zeros(shape=(len(geo_wave_samples_in),
-        int(SI_datalen/SI_deltaT)))
-for s, sample in enumerate(geo_wave_samples_in):
-    geo_wave_samples[s,:] = scipy.signal.resample(sample,
-            int(SI_datalen/SI_deltaT))
+# resample to 4096 
+#h1_wave = scipy.signal.resample(h1_wave, 2*len(h1_wave))
+#l1_wave = scipy.signal.resample(l1_wave, 2*len(l1_wave))
 
-h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "IFO0_asd.dat"))
-l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "IFO1_asd.dat"))
+h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "h1_asd.dat"))
+l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "l1_asd.dat"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
@@ -265,12 +182,9 @@ freq_axis = np.arange(0, catalogue.SI_flen*catalogue.SI_deltaF,
         catalogue.SI_deltaF)
 
 # Interpolate the ASD to the waveform frequencies
-h1_asd = np.interp(freq_axis, h1_bw_asd_data[:,0], h1_bw_asd_data[:,1])
-l1_asd = np.interp(freq_axis, l1_bw_asd_data[:,0], l1_bw_asd_data[:,1])
+h1_asd = np.interp(freq_axis, h1_cwb_asd_data[:,0], h1_cwb_asd_data[:,1])
+l1_asd = np.interp(freq_axis, l1_cwb_asd_data[:,0], l1_cwb_asd_data[:,1])
 
-mean_asd = np.sqrt(scipy.stats.hmean([h1_asd**2, l1_asd**2]))
-
-#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Parameter Estimation
 #
@@ -280,8 +194,11 @@ mean_asd = np.sqrt(scipy.stats.hmean([h1_asd**2, l1_asd**2]))
 #
 
 # Preallocate
-geo_matches = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
-geo_masses  = np.zeros(shape=(simulations.nsimulations, len(geo_wave_samples)))
+h1_matches = np.zeros(shape=(simulations.nsimulations))
+h1_masses  = np.zeros(shape=(simulations.nsimulations))
+
+l1_matches = np.zeros(shape=(simulations.nsimulations))
+l1_masses  = np.zeros(shape=(simulations.nsimulations))
 
 # Loop over waves in NR catalogue
 for w, wave in enumerate(catalogue.SIComplexTimeSeries):
@@ -292,48 +209,53 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 
 
     # Find best-fitting mass (in terms of match)
-    print "Optimising for total mass for each sampled waveform..."
+    print "Optimising for total mass for CWB reconstructions..."
 
     # Find minimum mass
     min_mass = mtot_from_mchirp(27, simulations.simulations[w]['q'])
     max_mass = mtot_from_mchirp(34, simulations.simulations[w]['q'])
 
-    for s, geo_sample in enumerate(geo_wave_samples):
 
+    # --- H1
+    then = timeit.time.time()
 
-        print '-----------------------------'
-        print "Evaluating sample waveform %d of %d"%( s, len(geo_wave_samples) )
-        print " (NR: %s [%d/%d])"%( simulations.simulations[w]['wavename'], w+1,
-                simulations.nsimulations)
+    h1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
+        [min_mass, max_mass], wave, h1_wave, h1_asd, SI_deltaT,
+        catalogue.SI_deltaF), full_output=True, retall=True, disp=False)
 
-        then = timeit.time.time()
-        geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
-            [min_mass, max_mass], wave, geo_sample, mean_asd, SI_deltaT,
-            catalogue.SI_deltaF), full_output=True, retall=True, disp=False)
-        now = timeit.time.time()
-        print "...mass optimisation took %.3f sec..."%(now-then)
+    now = timeit.time.time()
+    print "...H1 mass optimisation took %.3f sec..."%(now-then)
 
-        geo_matches[w, s] = 1-geo_result[1]
-        geo_masses[w, s] = geo_result[0][0]
+    h1_matches[w] = 1-h1_result[1]
+    h1_masses[w] = h1_result[0][0]
 
-        print "geo: Best matching mass [match]: %.2f [%.2f]"%(
-                geo_masses[w,s], geo_matches[w,s])
+    print "H1: Best matching mass [match]: %.2f [%.2f]"%(
+            h1_masses[w], h1_matches[w])
 
+    # --- L1
+    then = timeit.time.time()
 
-    geo_bestidx=np.argmax(geo_matches[w, :])
+    l1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
+        [min_mass, max_mass], wave, l1_wave, l1_asd, SI_deltaT,
+        catalogue.SI_deltaF), full_output=True, retall=True, disp=False)
 
-    print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    print "Maximising over all waveforms:"
-    print "geo: Best matching mass [match]: %.2f [%.2f]"%(
-            geo_masses[w,geo_bestidx], max(geo_matches[w,:]))
+    now = timeit.time.time()
+    print "...L1 mass optimisation took %.3f sec..."%(now-then)
+
+    l1_matches[w] = 1-l1_result[1]
+    l1_masses[w] = l1_result[0][0]
+
+    print "L1: Best matching mass [match]: %.2f [%.2f]"%(
+            h1_masses[w], h1_matches[w])
 
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Dump data
 import uuid
-filename=usertag+'_'+str(uuid.uuid4())
-np.savez(filename, geo_matches=geo_matches, geo_masses=geo_masses)
+filename=usertag+'_CWB_'+str(uuid.uuid4())
+np.savez(filename, h1_matches=h1_matches, h1_masses=h1_masses,
+        l1_matches=l1_matches, l1_masses=l1_masses)
 
 
 
