@@ -125,7 +125,7 @@ SI_deltaT = 1./4096
 SI_datalen= 4.0
 f_min = 40.0
 
-nsampls=100
+#nsampls=500
 
 # Initial guess at the mass
 mass_guess = 74.0#100 + 100*np.random.random()
@@ -137,11 +137,11 @@ distance=1. # Mpc
 #
 # --- Catalogue Definition
 #
-series_names = ['HR-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
+series_names = ['%s-series'%sys.argv[1]]
 
-#bounds=None
-bounds=dict()
-bounds['q'] = [4, 6]
+bounds=None
+#bounds=dict()
+#bounds['q'] = [1, 1]
 #bounds['a1'] = [0,0]
 #bounds['a2'] = [0,1]
 
@@ -229,7 +229,7 @@ event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
 geo_wave_samples_in = np.loadtxt(os.path.join(event_file_dir, "geo_waveforms/waveform_geo_1000.dat"))
 
 # Downsample the number of posterior samples (useful for testing)
-geo_wave_samples_in=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+#geo_wave_samples_in=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
 
 
 # XXX Zero padding data
@@ -344,7 +344,8 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Dump data
-filename=series_names[0]
+import uuid
+filename=series_names[0]+'_'+str(uuid.uuid4())
 np.savez(filename, geo_matches=geo_matches, geo_masses=geo_masses)
 
 
