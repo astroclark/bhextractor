@@ -37,7 +37,7 @@ import pycbc.types
 # *****************************************************************************
 global __param_names__
 __param_names__ = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
-                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz']
+                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz', 'Mchirp30Hz']
 
 # *****************************************************************************
 # Function Definitions 
@@ -106,8 +106,7 @@ class simulation_details:
 
     In [25]: bounds['q'] = [2, np.inf]
 
-    In [26]: simcat = bwave.simulation_details(series_names=['Eq-series',
-    'RO3-series'], param_bounds=bounds, Mmin30Hz=100)
+    In [26]: simcat = bwave.simulation_details(param_bounds=bounds, Mmin30Hz=100)
 
     In [28]: for sim in simcat.simulations: print sim
     {'a1': 0.6, 'th2L': 90.0, 'D': 7.0, 'thJL': 19.8, 'th1L': 90.0, 'q': 2.5, 'th12': 180.0, 'a2': 0.6,  'wavefile': ['/home/jclark308/Projects/bhextractor/data/NR_data/GT_BBH_BURST_CATALOG/Eq-series/Eq_D7_q2.50_a0.6_ph270_m140/Strain_jinit_l2_m2_r75_Eq_D7_q2.50_a0.6_ph270_m140.asc'], 'wavename': 'Eq_D7_q2.50_a0.6_ph270_m140', 'ph2': 90.0, 'ph1': -90.0, 'Mmin30Hz': 97.3, 'Mmin10Hz': 292.0, 'thSL': 90.0}
@@ -120,12 +119,11 @@ class simulation_details:
 
     """
 
-    def __init__(self, series_names='RO3-series', Mmin30Hz=100.,
-            Mmin10Hz=None, param_bounds=None):
+    def __init__(self, Mmin30Hz=100., Mmin10Hz=None, param_bounds=None,
+            catdir="GT-CATALOG_22"):
 
         # ######################################################
         # Other initialisation
-        self.series_names = series_names
         self.param_bounds = param_bounds
 
         self.Mmin10Hz = Mmin10Hz
@@ -135,50 +133,38 @@ class simulation_details:
         else:
             self.fmin = 30.0
 
+        self.catdir=catdir
+
         print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
         print "Finding matching waveforms"
 
         # Get all waveforms
-        self.simulations = self.list_simulations(series_names)
+        #self.simulations = self.list_simulations(series_names)
+        self.simulations = self.list_simulations(catdir=self.catdir)
         self.nsimulations = len(self.simulations)
 
         print "----"
         print "Found %d waveforms matching criteria:"%(self.nsimulations)
-        print "Series: ", series_names
         print "Bounds: ", param_bounds
         if Mmin10Hz is not None:
             print "Mmin10Hz: ", Mmin10Hz
         print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
-
-    def list_simulations(self,series_names,
-            catdir="GT_BBH_BURST_CATALOG"):
+    def list_simulations(self, catdir="GT-CATALOG_22"):
         """
-        Creates a list of simulation diectionaries which contain the locations
+        Creates a list of simulation dictionaries which contain the locations
         of the data files and the physical parameters the requested series
 
         TODO: add support for selecting waveforms based on physical parameters
         """
 
-        valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-                "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
-                "TP-series"]
 
-        if type(series_names)!=list:
-            series_names = [series_names]
+        datadir = os.path.join(os.environ['BHEX_PREFIX'], 'data/NR_data',
+                catdir)
 
-        simulations = []
-        for series_name in series_names:
-            if series_name not in valid_series:
-                print >> sys.stderr, "ERROR: series name (%s)must be in "%(series_name), valid_series
-                sys.exit()
+        readme_file = os.path.join(datadir, 'README.txt')
 
-            datadir = os.path.join(os.environ['BHEX_PREFIX'], 'data/NR_data',
-                    catdir, series_name)
-
-            readme_file = os.path.join(datadir, 'README_%s.txt'%series_name)
-
-            simulations += self._get_series(datadir,readme_file,series_name)
+        simulations = self._get_series(datadir,readme_file)
 
         # Down-select to those with a desirably small minimum mass
         if self.Mmin10Hz is not None:
@@ -246,7 +232,7 @@ class simulation_details:
                 sim[param]<=max(bounds) ]
 
     @staticmethod
-    def _get_series(datadir, readme_file, series_name):
+    def _get_series(datadir, readme_file):
         """
         Read the parameters from the readme file and return a list of simulation
         dictionaries
@@ -257,27 +243,33 @@ class simulation_details:
         #        'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz']
 
         simulations = []
+        nNotFound = 0
         for s in xrange(len(readme_data)):
 
             sim = dict()
 
+            runID = readme_data[s,0]
             wavename = readme_data[s,1]
-            wavefile = glob.glob(os.path.join(datadir, wavename, '*asc'))
+            wavefile = glob.glob(os.path.join(datadir, runID, '*asc'))
 
             # Check that this waveform exists
             if len(wavefile)>1:
                 print >> sys.stderr, "Error, more than one data file in directory: %s"%(
-                        os.path.join(datadir,wavename))
+                        os.path.join(datadir,runID))
                 sys.exit(-1)
             elif len(wavefile)==0:
                 print >> sys.stderr, "WARNING, No file matching glob pattern: \n%s"%(
-                        os.path.join(datadir,wavename, '*asc'))
+                        os.path.join(datadir,runID, '*asc'))
+                nNotFound+=1
                 continue
+
             sim['wavename'] = wavename
             sim['wavefile'] = wavefile[0]
-            sim['series'] = series_name
+            sim['runID'] = int(runID)
 
-            param_vals = [float(param) for param in readme_data[s,2:]]
+            start = len(readme_data[s,:]) -  len(__param_names__)
+            param_vals = [float(param) for param in readme_data[s,start:]]
+
             # physical params
             for p,param_name in enumerate(__param_names__):
                 sim[param_name] = param_vals[p]
@@ -357,7 +349,7 @@ class waveform_catalogue:
 
         for w, sim in enumerate(self.simulation_details.simulations):
 
-            print 'Loading %s waveform (%s)'%(sim['wavename'], sim['series'])
+            print 'Loading %s waveform (runID %d)'%(sim['wavename'], sim['runID'])
 
             wavedata = np.loadtxt(sim['wavefile'])
 
@@ -467,7 +459,8 @@ class waveform_catalogue:
         Mscale = ref_mass * lal.MRSUN_SI / (distance * 1e6 * lal.PC_SI)
 
         # Resample to duration in seconds (=nsamples x deltaT) x samples / second
-        resamp_len = np.ceil(self.NR_datalen/self.NR_deltaT*SI_deltaT_of_NR/self.SI_deltaT)
+        resamp_len = int(np.ceil(self.NR_datalen/self.NR_deltaT\
+                *SI_deltaT_of_NR/self.SI_deltaT))
 
         self.SIComplexTimeSeries = \
                 np.zeros(shape=(self.simulation_details.nsimulations,
@@ -480,21 +473,37 @@ class waveform_catalogue:
                 np.zeros(shape=(self.simulation_details.nsimulations,
                     SI_datalen/SI_deltaT))
 
+        # length of dummy series to position peaks halfway along - we will then
+        # apply a Tukey window of SI_datalen to that time series
+        SI_biglen = 32.0
+        tukeywin = lal.CreateTukeyREAL8Window(resamp_len, 0.25)
         for w in xrange(self.simulation_details.nsimulations):
 
+            # Resample to the appropriate length
             resampled_re = signal.resample(np.real(self.NRComplexTimeSeries[w,:]), resamp_len)
             resampled_im = signal.resample(np.imag(self.NRComplexTimeSeries[w,:]), resamp_len)
+
+            # The complex wave
             wave = resampled_re + 1j*resampled_im
 
-            idx = abs(wave)>1e-3*max(abs(wave))
-            #wave = window_wave(wave)
-            wave = wave[idx]
+            # Apply a Tukey win to ensure smoothness
+            wave*=tukeywin.data.data
+            
+            # Populate the center SI_datalen seconds of a zero-array of
+            # SI_biglen seconds
+            bigwave = np.zeros(SI_biglen / SI_deltaT, dtype=complex)
 
+            # Locate peak of waveform and place it at the center of the big
+            # array of zeros
             peakidx = np.argmax(abs(wave))
-            startidx = 0.5*SI_datalen/SI_deltaT - peakidx
+            startidx = 0.5*SI_biglen/SI_deltaT - peakidx
 
-            self.SIComplexTimeSeries[w,startidx:startidx+len(wave)] = \
+            bigwave[startidx:startidx+len(wave)] = \
                     Mscale*wave
+
+            startidx = 0.5*SI_biglen/SI_deltaT - 0.5*SI_datalen/SI_deltaT
+            self.SIComplexTimeSeries[w,:] = \
+                    bigwave[startidx:startidx+SI_datalen/SI_deltaT]
 
             self.SIAmpTimeSeries[w,:] = abs(self.SIComplexTimeSeries[w,:])
             self.SIPhaseTimeSeries[w,:] = phase_of(self.SIComplexTimeSeries[w,:])
