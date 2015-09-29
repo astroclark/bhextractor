@@ -73,10 +73,17 @@ def make_labels(simulations):
 
     labels=[]
     for sim in simulations:
+
+        # check nans
+        vals = []
+        for val in [sim['q'], sim['a1'], sim['a2'], sim['th1L'], sim['th2L']]:
+            if np.isnan(val):
+                val = 0.0
+            vals.append(val)
+
         labelstr = \
-                r"$q=%.1f$, $a_1=%.1f$, $a_2=%.1f$, $\theta_1=%.1f$, $\theta_2=%.1f$, $\phi_{12}=%.1f$"%(
-                        sim['q'], sim['a1'], sim['a2'], sim['th1L'], sim['th2L'],
-                        sim['th12'])
+                r"$q=%.1f$, $a_1=%.1f$, $a_2=%.1f$, $\theta_1=%.1f$, $\theta_2=%.1f$"%(
+                        vals[0], vals[1], vals[2], vals[3], vals[4])
         labels.append(labelstr)
 
     return labels
@@ -86,9 +93,6 @@ def make_labels(simulations):
 # Some useful info:
 #
 
-#valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
-#        "TP-series"]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
@@ -106,17 +110,19 @@ distance=1. # Mpc
 #
 # --- Catalogue Definition
 #
-series_names = [sys.argv[1].split('_')[0]]
 match_file = sys.argv[1]
 match_results = np.load(match_file)
 geo_matches = match_results['geo_matches']
 geo_masses = match_results['geo_masses']
 
-bounds=None
-#bounds=dict()
-#bounds['q'] = [1, 1]
+#bounds=None
+bounds=dict()
+
+bounds['th1L'] = [0,0]
+bounds['th2L'] = [0,0]
+
 #bounds['a1'] = [0,0]
-#bounds['a2'] = [0,1]
+#bounds['a2'] = [0,0]
 
 #
 #   # --XXX
@@ -132,8 +138,7 @@ print 'Selecting Simulations'
 print ''
 then = timeit.time.time()
 simulations = \
-        bwave.simulation_details(series_names=series_names, param_bounds=bounds,
-                Mmin30Hz=init_total_mass)
+        bwave.simulation_details(param_bounds=bounds, Mmin30Hz=init_total_mass)
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
@@ -176,6 +181,12 @@ axmatchbox.set_ylabel('Waveform Parameters')
 axmatchbox.grid(linestyle='-', color='grey')
 axmatchbox.minorticks_on()
 
+if sum(mean_matches==0):
+    axmatchbox.set_ylim((len(mean_matches) -
+        np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
+
+    axmatchbox.set_xlim(0.8,1)
+
 ylabels=make_labels(np.array(simulations.simulations)[match_sort])
 axmatchbox.set_yticklabels(ylabels)#, rotation=90)
 
@@ -190,6 +201,10 @@ axmassbox.set_xlabel('Match-optimised mass')
 axmassbox.set_ylabel('Waveform Parameters')
 axmassbox.grid(linestyle='-', color='grey')
 axmassbox.minorticks_on()
+
+if sum(mean_matches==0):
+    axmassbox.set_ylim((len(mean_matches) -
+        np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
 
 ylabels=make_labels(np.array(simulations.simulations)[match_sort])
 axmassbox.set_yticklabels(ylabels)#, rotation=90)
