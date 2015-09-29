@@ -74,8 +74,8 @@ def make_labels(simulations):
     labels=[]
     for sim in simulations:
         labelstr = \
-                r"$q=%.1f$, $a_1=%.1f$, $a_2=%.1f$, $\phi_1=%.1f$, $\phi_2=%.1f$, $\phi_{12}=%.1f$"%(
-                        sim['q'], sim['a1'], sim['a2'], sim['ph1'], sim['ph2'],
+                r"$q=%.1f$, $a_1=%.1f$, $a_2=%.1f$, $\theta_1=%.1f$, $\theta_2=%.1f$, $\phi_{12}=%.1f$"%(
+                        sim['q'], sim['a1'], sim['a2'], sim['th1L'], sim['th2L'],
                         sim['th12'])
         labels.append(labelstr)
 
@@ -98,10 +98,6 @@ SI_deltaT = 1./4096
 SI_datalen= 4.0
 f_min = 40.0
 
-nsampls=1000
-
-# Initial guess at the mass
-mass_guess = 74.0#100 + 100*np.random.random()
 
 init_total_mass = 100.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
@@ -110,8 +106,8 @@ distance=1. # Mpc
 #
 # --- Catalogue Definition
 #
-series_names = ['%s-series'%sys.argv[1]]#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
-match_file = series_names[0] + '.npz'
+series_names = [sys.argv[1].split('_')[0]]
+match_file = sys.argv[1]
 match_results = np.load(match_file)
 geo_matches = match_results['geo_matches']
 geo_masses = match_results['geo_masses']
@@ -171,7 +167,7 @@ match_sort = np.argsort(median_matches)
 #   sort these plots in descending match
 #   label by parsing parameters from the simulations object
 
-fmatchbox, axmatchbox = pl.subplots(figsize=(10,10))
+fmatchbox, axmatchbox = pl.subplots(figsize=(12,8))
 match_box = axmatchbox.boxplot(geo_matches[match_sort].T, whis='range', showcaps=True,
         showmeans=True, showfliers=False,
         vert=False)
@@ -180,11 +176,25 @@ axmatchbox.set_ylabel('Waveform Parameters')
 axmatchbox.grid(linestyle='-', color='grey')
 axmatchbox.minorticks_on()
 
-ylabels=make_labels(simulations.simulations)
+ylabels=make_labels(np.array(simulations.simulations)[match_sort])
 axmatchbox.set_yticklabels(ylabels)#, rotation=90)
 
 fmatchbox.tight_layout()
 
+# --- masses
+fmassbox, axmassbox = pl.subplots(figsize=(12,8))
+mass_box = axmassbox.boxplot(geo_masses[match_sort].T, whis='range', showcaps=True,
+        showmeans=True, showfliers=False,
+        vert=False)
+axmassbox.set_xlabel('Match-optimised mass')
+axmassbox.set_ylabel('Waveform Parameters')
+axmassbox.grid(linestyle='-', color='grey')
+axmassbox.minorticks_on()
+
+ylabels=make_labels(np.array(simulations.simulations)[match_sort])
+axmassbox.set_yticklabels(ylabels)#, rotation=90)
+
+fmassbox.tight_layout()
 
 # 1- and 2-D Histograms of mass, match (do with a triangle plot) for the
 # waveform with the highest median match
