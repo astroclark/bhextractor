@@ -33,37 +33,22 @@ import numpy as np
 from matplotlib import pyplot as pl
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# Some useful info:
-#
-
-#valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
-#        "TP-series"]
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
 SI_deltaT = 1./512
 SI_datalen= 4.0
 
-total_mass = 150.  # Generate SI waveforms at this mass
+total_mass = 100.  # Generate SI waveforms at this mass
 distance=1. # Mpc
-
-series_names = ['HRq-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
 
 #
 # Modify for imposing parameter bounds on the catalogue:
 #
-#bounds=None
-bounds=dict()
-bounds['a1'] = [0, 0]
-bounds['a2'] = [0, 0]
-bounds['q'] = [-np.inf, 3] 
-
-save_pcs = ['NRhplusTimeSeriesPCA', 'NRhcrossTimeSeriesPCA',
-'NRAmpTimeSeriesPCA', 'NRPhaseTimeSeriesPCA',  'SIhplusTimeSeriesPCA',
-'SIhcrossTimeSeriesPCA', 'SIAmpTimeSeriesPCA', 'SIPhaseTimeSeriesPCA']
+bounds=None
+#bounds=dict()
+#bounds['a1'] = [0, 0]
+#bounds['a2'] = [0, 0]
+#bounds['q'] = [-np.inf, 3] 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Do the work:
@@ -72,16 +57,16 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
 simulations = \
-        bwave.simulation_details(series_names=series_names,
-                param_bounds=bounds, Mmin30Hz=total_mass)
+        bwave.simulation_details(param_bounds=bounds, Mmin30Hz=total_mass)
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
 catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
         SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
-        trunc_time=True)
+        trunc_time=False)
 
+sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
 

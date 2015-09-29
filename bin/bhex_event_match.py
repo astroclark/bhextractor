@@ -109,15 +109,6 @@ def mtot_from_mchirp(mc, q):
     return mc * eta**(-3./5)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# 
-# Some useful info:
-#
-
-#valid_series = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series"
-#        "TP-series"]
-
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
 #SI_deltaT = 1./1024
@@ -134,14 +125,14 @@ init_total_mass = 100.  # Select waveforms which can go down to at least this ma
                         # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
+usertag=sys.argv[1]
+
 #
 # --- Catalogue Definition
 #
-series_names = ['%s-series'%sys.argv[1]]
-
 bounds=None
 #bounds=dict()
-#bounds['q'] = [1, 1]
+#bounds['q'] = [4, 6]
 #bounds['a1'] = [0,0]
 #bounds['a2'] = [0,1]
 
@@ -149,7 +140,6 @@ bounds=None
 
 if 0:
     mtot=70
-    series_names = ['HRq-series']#, 'HRq-series', 'RO3-series'] # (see above for valid choices)
     bounds=dict()
     bounds['q'] = [1, 1]
     from pycbc.waveform import get_td_waveform
@@ -170,8 +160,7 @@ if 0:
    
    
     simulations = \
-            bwave.simulation_details(series_names=series_names, param_bounds=bounds,
-                    Mmin30Hz=100.0)
+            bwave.simulation_details(param_bounds=bounds, Mmin30Hz=100.0)
    
     catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
             SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
@@ -259,8 +248,7 @@ print 'Selecting Simulations'
 print ''
 then = timeit.time.time()
 simulations = \
-        bwave.simulation_details(series_names=series_names, param_bounds=bounds,
-                Mmin30Hz=init_total_mass)
+        bwave.simulation_details(param_bounds=bounds, Mmin30Hz=init_total_mass)
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
@@ -345,7 +333,7 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Dump data
 import uuid
-filename=series_names[0]+'_'+str(uuid.uuid4())
+filename=usertag+'_'+str(uuid.uuid4())
 np.savez(filename, geo_matches=geo_matches, geo_masses=geo_masses)
 
 
