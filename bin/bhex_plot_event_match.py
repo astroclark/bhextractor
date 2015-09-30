@@ -64,11 +64,6 @@ def make_labels(simulations):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-#SI_deltaT = 1./1024
-SI_deltaT = 1./4096
-SI_datalen= 4.0
-f_min = 40.0
-
 
 init_total_mass = 100.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
@@ -227,6 +222,22 @@ title = make_labels([simulations.simulations[match_sort[-1]]])
 trifig.suptitle(title[0], fontsize=16)
 trifig.subplots_adjust(top=0.9)
 
+
+pl.show()
+sys.exit()
+
+fmatchmax, axmatchmass = pl.subplots(nrows=2, sharex=True)
+axmatchmass[0].plot(median_masses, median_matches, 'ms', label='Median value')
+axmatchmass[0].set_ylim(0.8, 0.95)
+axmatchmass[0].legend()
+axmatchmass[0].minorticks_on()
+axmatchmass[1].set_ylim(0.8, 0.95)
+axmatchmass[1].legend()
+axmatchmass[1].set_xlabel('Total Mass [M$_{\odot}$]')
+axmatchmass[1].minorticks_on()
+axmatchmass[0].set_ylabel('Match')
+axmatchmass[1].set_ylabel('Match')
+pl.subplots_adjust(hspace=0)
 
 pl.show()
 
