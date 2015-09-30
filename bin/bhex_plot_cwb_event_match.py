@@ -64,15 +64,10 @@ def make_labels(simulations):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-#SI_deltaT = 1./1024
-SI_deltaT = 1./4096
-SI_datalen= 4.0
-f_min = 40.0
 
 
 init_total_mass = 100.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
-distance=1. # Mpc
 
 #
 # --- Catalogue Definition
@@ -84,17 +79,71 @@ h1_masses = match_results['h1_masses']
 l1_matches = match_results['l1_matches']
 l1_masses = match_results['l1_masses']
 
-#bounds=None
-bounds=dict()
-
-#bounds['th1L'] = [0,0]
-#bounds['th2L'] = [0,0]
-
-bounds['a1'] = [0,0]
-bounds['a2'] = [0,0]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
+
+usertag=sys.argv[2]
+
+#
+# --- Catalogue Definition
+#
+if usertag=="NoConstraint":
+    bounds=None
+
+elif usertag=="NonSpinning":
+    # NonSpinning
+    bounds=dict()
+    bounds['a1'] = [0,0]
+    bounds['a2'] = [0,0]
+
+elif usertag=="AlignedSpinUp":
+    # AlignedSpinUp
+    bounds=dict()
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [0,0]
+    bounds['th2L'] = [0,0]
+
+elif  usertag=="AlignedSpinDown":
+    # AlignedSpinDown
+    bounds=dict()
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [180,180]
+    bounds['th2L'] = [180,180]
+
+elif usertag=="BigBHSpinUp":
+    # BigBHSpinUp
+    bounds=dict()
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0, 0]
+    bounds['th1L'] = [0,0]
+
+elif usertag=="BigBHSpinDown":
+    # BigBHSpinDown
+    bounds=dict()
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0,0]
+    bounds['th1L'] = [180,180]
+
+elif usertag=="SmallBHSpinUp":
+    # SmallBHSpinUp
+    bounds=dict()
+    bounds['a1'] = [0,0]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th2L'] = [0,0]
+
+elif usertag=="SmallBHSpinDown":
+    # SmallBHSpinDown
+    bounds=dict()
+    bounds['a1'] = [0, 0]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [180,180]
+
+else:
+    print >> sys.stderr, "Configuration not recognised"
+    sys.exit(-1)
 
 #
 # --- Generate initial catalogue
