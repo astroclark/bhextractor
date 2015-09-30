@@ -130,82 +130,58 @@ usertag=sys.argv[1]
 #
 # --- Catalogue Definition
 #
-#bounds=None
-bounds=dict()
-bounds['a1'] = [0,0]
-bounds['a2'] = [0,0]
-
-# XXX SANITY CHECKING SCALING AND BEHAVIOUR OF NR WAVE wrt SEOBNR
-
-if 0:
-    mtot=70
+if usertag=="NoConstraint":
+    bounds=None
+else:
     bounds=dict()
-    bounds['q'] = [1, 1]
-    from pycbc.waveform import get_td_waveform
-    hplus_EOBNR, _ = get_td_waveform(approximant="SEOBNRv2",
-            distance=distance,
-            mass1=0.5*mtot,
-            mass2=0.5*mtot,
-            spin1z=0.0,
-            spin2z=0.0,
-            f_lower=10,
-            delta_t=SI_deltaT)
-    emax=np.argmax(abs(hplus_EOBNR))
-   
-    import lal
-    sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
-    hplus_EOBNR.data /= np.real(sY22)
-    hplus_EOBNR.data = bwave.window_wave(hplus_EOBNR.data)
-   
-   
-    simulations = \
-            bwave.simulation_details(param_bounds=bounds, Mmin30Hz=100.0)
-   
-    catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
-            SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
-            trunc_time=False)
-   
-    # Useful time/freq samples
-    wave = np.real(catalogue.SIComplexTimeSeries[0,:])
-   
-    nmax = np.argmax(abs(wave))
-   
-    time_axis = np.arange(0, SI_datalen, SI_deltaT)  
-   
-    # rescale 
-    then = timeit.time.time()
-    wave = scale_wave(wave, mtot)
-    now = timeit.time.time()
 
-    print "Waveform scaling took %.3f sec"%(now-then)
-   
-   
-    hplus_NR = pycbc.types.TimeSeries(np.real(wave), delta_t=SI_deltaT)
-    tlen = max(len(hplus_NR), len(hplus_EOBNR))
-    hplus_EOBNR.resize(tlen)
-    hplus_NR.resize(tlen)
-   
-    match = pycbc.filter.match(hplus_EOBNR,
-            hplus_NR,low_frequency_cutoff=f_min)
-   
-    pl.figure()
-    pl.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
-            abs(hplus_EOBNR.to_frequencyseries()), label='SEOBNRv2')
-   
-    pl.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
-            abs(hplus_NR.to_frequencyseries()), label='NR')
-    pl.title('M$_{\mathrm{tot}}$=%d M$_{\odot}$: match=%.2f'%(mtot,match[0]))
-    pl.xlabel('Frequency [Hz]')
-    pl.ylabel('|H(f)|')
-    pl.legend()
-   
-    pl.axvline(f_min, color='r')
-   
-    pl.show()
-   
-    sys.exit()
-#
-#   # --XXX
+if usertag=="NonSpinning":
+    # NonSpinning
+    bounds['a1'] = [0,0]
+    bounds['a2'] = [0,0]
+
+elif usertag=="AlignedSpinUp":
+    # AlignedSpinUp
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [0,0]
+    bounds['th2L'] = [0,0]
+
+elif  usertag=="AlignedSpinDown":
+    # AlignedSpinDown
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [180,180]
+    bounds['th2L'] = [180,180]
+
+elif usertag==" BigBHSpinUp":
+    # BigBHSpinUp
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0, 0]
+    bounds['th1L'] = [0,0]
+
+elif usertag=="BigBHSpinDown":
+    # BigBHSpinDown
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0,0]
+    bounds['th1L'] = [180,180]
+
+elif usertag=="SmallBHSpinUp":
+    # SmallBHSpinUp
+    bounds['a1'] = [0,0]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th2L'] = [0,0]
+
+elif usertag=="SmallBHSpinDown":
+    # SmallBHSpinDown
+    bounds['a1'] = [0, 0]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [180,180]
+
+else:
+    print >> sys.stderr, "Configuration not recognised"
+    sys.exit(-1)
+
 
 #
 # --- Reconstruction data

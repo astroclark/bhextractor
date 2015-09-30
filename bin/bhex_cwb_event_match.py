@@ -107,7 +107,7 @@ def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-SI_deltaT = 1./4096
+SI_deltaT = 1./2048
 SI_datalen= 4.0
 f_min = 40.0
 
@@ -125,10 +125,59 @@ usertag=sys.argv[1]
 #
 # --- Catalogue Definition
 #
-#bounds=None
-bounds=dict()
-bounds['a1'] = [0,0]
-bounds['a2'] = [0,0]
+
+if usertag=="NoConstraint":
+    bounds=None
+else:
+    bounds=dict()
+
+if usertag=="NonSpinning":
+    # NonSpinning
+    bounds['a1'] = [0,0]
+    bounds['a2'] = [0,0]
+
+elif usertag=="AlignedSpinUp":
+    # AlignedSpinUp
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [0,0]
+    bounds['th2L'] = [0,0]
+
+elif  usertag=="AlignedSpinDown":
+    # AlignedSpinDown
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [180,180]
+    bounds['th2L'] = [180,180]
+
+elif usertag==" BigBHSpinUp":
+    # BigBHSpinUp
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0, 0]
+    bounds['th1L'] = [0,0]
+
+elif usertag=="BigBHSpinDown":
+    # BigBHSpinDown
+    bounds['a1'] = [0.001,np.inf]
+    bounds['a2'] = [0,0]
+    bounds['th1L'] = [180,180]
+
+elif usertag=="SmallBHSpinUp":
+    # SmallBHSpinUp
+    bounds['a1'] = [0,0]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th2L'] = [0,0]
+
+elif usertag=="SmallBHSpinDown":
+    # SmallBHSpinDown
+    bounds['a1'] = [0, 0]
+    bounds['a2'] = [0.001,np.inf]
+    bounds['th1L'] = [180,180]
+
+else:
+    print >> sys.stderr, "Configuration not recognised"
+    sys.exit(-1)
+
 
 
 #
