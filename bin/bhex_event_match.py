@@ -132,16 +132,16 @@ usertag=sys.argv[1]
 #
 if usertag=="NoConstraint":
     bounds=None
-else:
-    bounds=dict()
 
-if usertag=="NonSpinning":
+elif usertag=="NonSpinning":
     # NonSpinning
+    bounds=dict()
     bounds['a1'] = [0,0]
     bounds['a2'] = [0,0]
 
 elif usertag=="AlignedSpinUp":
     # AlignedSpinUp
+    bounds=dict()
     bounds['a1'] = [0.001,np.inf]
     bounds['a2'] = [0.001,np.inf]
     bounds['th1L'] = [0,0]
@@ -149,31 +149,36 @@ elif usertag=="AlignedSpinUp":
 
 elif  usertag=="AlignedSpinDown":
     # AlignedSpinDown
+    bounds=dict()
     bounds['a1'] = [0.001,np.inf]
     bounds['a2'] = [0.001,np.inf]
     bounds['th1L'] = [180,180]
     bounds['th2L'] = [180,180]
 
-elif usertag==" BigBHSpinUp":
+elif usertag=="BigBHSpinUp":
     # BigBHSpinUp
+    bounds=dict()
     bounds['a1'] = [0.001,np.inf]
     bounds['a2'] = [0, 0]
     bounds['th1L'] = [0,0]
 
 elif usertag=="BigBHSpinDown":
     # BigBHSpinDown
+    bounds=dict()
     bounds['a1'] = [0.001,np.inf]
     bounds['a2'] = [0,0]
     bounds['th1L'] = [180,180]
 
 elif usertag=="SmallBHSpinUp":
     # SmallBHSpinUp
+    bounds=dict()
     bounds['a1'] = [0,0]
     bounds['a2'] = [0.001,np.inf]
     bounds['th2L'] = [0,0]
 
 elif usertag=="SmallBHSpinDown":
     # SmallBHSpinDown
+    bounds=dict()
     bounds['a1'] = [0, 0]
     bounds['a2'] = [0.001,np.inf]
     bounds['th1L'] = [180,180]
