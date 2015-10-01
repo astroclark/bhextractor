@@ -90,6 +90,70 @@ def planckwin(N, epsilon):
 def phase_of(z):
     return np.unwrap(np.angle(z))
 
+def bounds_dict(tag="NoConstraint"):
+    """
+    Return bounds dictionary for one of a set of predefined waveform
+    configurations (NoConstraint, NonSpinning, AlignedSpinUp, ...)
+    """
+    if tag=="NoConstraint":
+        bounds=None
+
+    elif tag=="NonSpinning":
+        # NonSpinning
+        bounds=dict()
+        bounds['a1'] = [0,0]
+        bounds['a2'] = [0,0]
+
+    elif tag=="AlignedSpinUp":
+        # AlignedSpinUp
+        bounds=dict()
+        bounds['a1'] = [0.001,np.inf]
+        bounds['a2'] = [0.001,np.inf]
+        bounds['th1L'] = [0,0]
+        bounds['th2L'] = [0,0]
+
+    elif  tag=="AlignedSpinDown":
+        # AlignedSpinDown
+        bounds=dict()
+        bounds['a1'] = [0.001,np.inf]
+        bounds['a2'] = [0.001,np.inf]
+        bounds['th1L'] = [180,180]
+        bounds['th2L'] = [180,180]
+
+    elif tag=="BigBHSpinUp":
+        # BigBHSpinUp
+        bounds=dict()
+        bounds['a1'] = [0.001,np.inf]
+        bounds['a2'] = [0, 0]
+        bounds['th1L'] = [0,0]
+
+    elif tag=="BigBHSpinDown":
+        # BigBHSpinDown
+        bounds=dict()
+        bounds['a1'] = [0.001,np.inf]
+        bounds['a2'] = [0,0]
+        bounds['th1L'] = [180,180]
+
+    elif tag=="SmallBHSpinUp":
+        # SmallBHSpinUp
+        bounds=dict()
+        bounds['a1'] = [0,0]
+        bounds['a2'] = [0.001,np.inf]
+        bounds['th2L'] = [0,0]
+
+    elif tag=="SmallBHSpinDown":
+        # SmallBHSpinDown
+        bounds=dict()
+        bounds['a1'] = [0, 0]
+        bounds['a2'] = [0.001,np.inf]
+        bounds['th1L'] = [180,180]
+
+    else:
+        print >> sys.stderr, "Configuration not recognised"
+        sys.exit(-1)
+
+    return bounds
+
 
 # *****************************************************************************
 # Class Definitions 
