@@ -26,13 +26,14 @@ matches with approximants (particularly EOBNR) available to pycbc.
 
 import sys
 import numpy as np
-import bhex_wavedata as bwave
+from bhex_utils import bhex_wavedata as bwave
 
 import lal
 import pycbc.types
 from pycbc.waveform import get_td_waveform
 import pycbc.filter
 from pycbc.psd import aLIGOZeroDetHighPower
+from pylal import spawaveform
 
 from matplotlib import pyplot as pl
 
@@ -48,33 +49,41 @@ def component_masses(total_mass, mass_ratio):
 
     return m1, m2
 
+
+def cartesian_spins(spin_magnitude, spin_theta):
+    """
+    Compute cartesian spin components.  Only does z-component for now
+    """
+
+    if np.isnan(spin_magnitude) or np.isnan(spin_theta):
+        return 0.0
+    else:
+        spin_magnitude * np.cos(spin_theta * np.pi / 180.0)
+    return spin_z
+
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # User Options (mass configurations, noise curves etc)
 
 f_low = 10. # Min freq for waveform generation
 f_min = 30. # Min freq for match calculation
 
-sample_rate = 1024
-datalen= 4.0
+SI_deltaT = 1./1024
+SI_datalen= 4.0
 
-total_mass = 150.
-#mass_ratio = 1.
+max_minMass = 65 # The maximum value of the smallest mass we want to generate
+total_mass = 72. # The mass at which we generate the catalogue
 
-distance=1.
+distance=1. # Distance in Mpc to the source
 
-#series_names = ['Eq-series']#, 'HRq-series']
-series_names = ['HR-series']
 
-#bounds=None
-# Change to e.g.:
-#
-bounds=dict()
-#bounds['q'] = [1, 2] 
-bounds['a1'] = [0, 0]
-bounds['a2'] = [0, 0]
-bounds['q'] = [15, np.inf] 
-#
-# to only use simulations with q<=2
+# Make catalogue
+#bounds=dict()
+#bounds['a1'] = [0, 0]
+#bounds['a2'] = [0, 0]
+#bounds['q'] = [1, 1] 
+
+# Alternatively (easier):
+bounds = bwave.bounds_dict("NonSpinning")
 
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -86,14 +95,15 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
 
-simulations_list = bwave.simulation_details(series_names=series_names,
-        param_bounds=bounds, Mmin30Hz=total_mass)
+simulations = bwave.simulation_details( param_bounds=bounds,
+        Mmin30Hz=max_minMass)
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
-NR_catalogue = bwave.waveform_catalogue(simulations_list, ref_mass=total_mass,
-        sample_rate=sample_rate, datalen=datalen, distance=distance)
+NR_catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
+        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
+        trunc_time=False)
 
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate EOBNR
@@ -102,43 +112,56 @@ print '~~~~~~~~~~~~~~~~~~~~~~~~~~~~'
 print 'Beginning Match Calculations'
 print ''
 
-matches = np.zeros(simulations_list.nsimulations)
-mass_ratios = np.zeros(simulations_list.nsimulations)
+matches = np.zeros(simulations.nsimulations)
+mass_ratios = np.zeros(simulations.nsimulations)
+effective_spins = np.zeros(simulations.nsimulations)
+
+spin_magnitudes=[]
+spin_angles=[]
 
 # Retrieve the mass ratio:
-f1, ax1 = pl.subplots()
-f2, ax2 = pl.subplots()
-for s,simulation in enumerate(simulations_list.simulations):
+#f1, ax1 = pl.subplots()
+#f2, ax2 = pl.subplots()
+for s,simulation in enumerate(simulations.simulations):
     
-    print 'Matching waveform %d of %d'%(s, simulations_list.nsimulations)
+    print 'Matching waveform %d of %d'%(s, simulations.nsimulations)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #
     # --- Condition the NR waveform ---
 
     # Get the NR (plus) wave and put it in a pycbc TimeSeries object
-    hplus_NR = \
-            pycbc.types.TimeSeries(np.real(NR_catalogue.SIComplexTimeSeries[s,:]),
-                    delta_t=1./sample_rate)
+    hplus_NR = pycbc.types.TimeSeries(np.real(
+        NR_catalogue.SIComplexTimeSeries[s,:]),
+        delta_t=SI_deltaT)
     hplus_NR.data = bwave.window_wave(hplus_NR.data)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     #
-    # --- Generate Approximant ---
+    # --- Generate approximant with this NR waveform's parameters ---
     #
     mass_ratios[s] = simulation['q']
+    spin_magnitudes.append((simulation['a1'], simulation['a2']))
+    spin_angles.append((simulation['th1L'], simulation['th2L']))
 
     mass1, mass2 = component_masses(total_mass, mass_ratios[s])
 
+    spin1z = cartesian_spins(simulation['a1'], simulation['th1L'])
+    spin2z = cartesian_spins(simulation['a2'], simulation['th2L'])
+
+    effective_spins[s] = spawaveform.computechi(mass1, mass2, spin1z, spin2z)
+
+
+    print "Generating EOBNR"
     hplus_EOBNR, _ = get_td_waveform(approximant="SEOBNRv2",
             distance=distance,
             mass1=mass1,
             mass2=mass2,
-            spin1z=0.0,
-            spin2z=0.0,
+            spin1z=spin1z,
+            spin2z=spin2z,
             f_lower=f_low,
-            delta_t=1.0/sample_rate)
-            #f_lower=fpeak_NR,
+            delta_t=SI_deltaT)
+
     # divide out the spherical harmonic (2,2) amplitude (this is just for nice
     # plots / sanity - it does not affect match)
     sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
@@ -163,25 +186,28 @@ for s,simulation in enumerate(simulations_list.simulations):
     flen = len(Hplus_NR)
     psd = aLIGOZeroDetHighPower(flen, delta_f, f_low) 
 
-    m, snr_max_loc = pycbc.filter.match(hplus_EOBNR, hplus_NR,
+    matches[s], snr_max_loc = pycbc.filter.match(hplus_EOBNR, hplus_NR,
             low_frequency_cutoff=f_min, psd=psd)
-    matches[s] = np.copy(m)
     # match() returns the index for peak snr as well as the match
 
-    NR_max_loc = np.argmax(hplus_NR)
+#   NR_max_loc = np.argmax(hplus_NR)
+#
+#   ax1.plot(hplus_EOBNR.sample_times, hplus_EOBNR, linestyle='-')
+#   ax1.plot(hplus_NR.sample_times - hplus_NR.sample_times[NR_max_loc],
+#           -1*hplus_NR, linestyle='--')
+#   ax1.minorticks_on()
+#
+#   ax2.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
+#           abs(hplus_EOBNR.to_frequencyseries()), label='SEOBNR')
+#   ax2.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
+#           abs(hplus_NR.to_frequencyseries()), linestyle='--', label='NR')
+#   ax2.axvline(f_min, color='r')
+#   ax2.minorticks_on()
+#
+#   ax2.legend()
+#
+#   ax2.set_title('Match=%.2f'%matches[s])
 
-    ax1.plot(hplus_EOBNR.sample_times, hplus_EOBNR, linestyle='-')
-    ax1.plot(hplus_NR.sample_times - hplus_NR.sample_times[NR_max_loc],
-            -1*hplus_NR, linestyle='--')
-    ax1.minorticks_on()
-
-    ax2.loglog(hplus_EOBNR.to_frequencyseries().sample_frequencies,
-            abs(hplus_EOBNR.to_frequencyseries()))
-    ax2.loglog(hplus_NR.to_frequencyseries().sample_frequencies,
-            abs(hplus_NR.to_frequencyseries()), linestyle='--')
-    ax2.axvline(30, color='k')
-    ax2.minorticks_on()
-
-    pl.show()
-#    sys.exit()
+#pl.show()
+#sys.exit()
 
