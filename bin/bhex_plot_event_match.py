@@ -65,7 +65,7 @@ def make_labels(simulations):
 # USER INPUT
 
 
-init_total_mass = 100.  # Select waveforms which can go down to at least this mass
+init_total_mass = 65.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
