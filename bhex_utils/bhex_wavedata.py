@@ -429,7 +429,7 @@ class waveform_catalogue:
         print 'Resampling to uniform rate'
         for w in xrange(self.simulation_details.nsimulations): 
             deltaT = np.diff(time_data[w])[0]
-            if deltaT > self.NR_deltaT:
+            if deltaT != self.NR_deltaT:
                 resamp_len = deltaT / self.NR_deltaT * len(plus_data[w])
                 plus_data_resampled.append(signal.resample(plus_data[w],
                     resamp_len))
