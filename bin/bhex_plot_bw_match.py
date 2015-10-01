@@ -64,13 +64,8 @@ def make_labels(simulations):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-#SI_deltaT = 1./1024
-SI_deltaT = 1./4096
-SI_datalen= 4.0
-f_min = 40.0
 
-
-init_total_mass = 100.  # Select waveforms which can go down to at least this mass
+init_total_mass = 65.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
@@ -91,62 +86,7 @@ usertag=sys.argv[2]
 #
 # --- Catalogue Definition
 #
-if usertag=="NoConstraint":
-    bounds=None
-
-elif usertag=="NonSpinning":
-    # NonSpinning
-    bounds=dict()
-    bounds['a1'] = [0,0]
-    bounds['a2'] = [0,0]
-
-elif usertag=="AlignedSpinUp":
-    # AlignedSpinUp
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [0,0]
-    bounds['th2L'] = [0,0]
-
-elif  usertag=="AlignedSpinDown":
-    # AlignedSpinDown
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [180,180]
-    bounds['th2L'] = [180,180]
-
-elif usertag=="BigBHSpinUp":
-    # BigBHSpinUp
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0, 0]
-    bounds['th1L'] = [0,0]
-
-elif usertag=="BigBHSpinDown":
-    # BigBHSpinDown
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0,0]
-    bounds['th1L'] = [180,180]
-
-elif usertag=="SmallBHSpinUp":
-    # SmallBHSpinUp
-    bounds=dict()
-    bounds['a1'] = [0,0]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th2L'] = [0,0]
-
-elif usertag=="SmallBHSpinDown":
-    # SmallBHSpinDown
-    bounds=dict()
-    bounds['a1'] = [0, 0]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [180,180]
-
-else:
-    print >> sys.stderr, "Configuration not recognised"
-    sys.exit(-1)
+bounds = bwave.bounds_dict(usertag)
 
 
 #
@@ -227,6 +167,22 @@ title = make_labels([simulations.simulations[match_sort[-1]]])
 trifig.suptitle(title[0], fontsize=16)
 trifig.subplots_adjust(top=0.9)
 
+
+pl.show()
+sys.exit()
+
+fmatchmax, axmatchmass = pl.subplots(nrows=2, sharex=True)
+axmatchmass[0].plot(median_masses, median_matches, 'ms', label='Median value')
+axmatchmass[0].set_ylim(0.8, 0.95)
+axmatchmass[0].legend()
+axmatchmass[0].minorticks_on()
+axmatchmass[1].set_ylim(0.8, 0.95)
+axmatchmass[1].legend()
+axmatchmass[1].set_xlabel('Total Mass [M$_{\odot}$]')
+axmatchmass[1].minorticks_on()
+axmatchmass[0].set_ylabel('Match')
+axmatchmass[1].set_ylabel('Match')
+pl.subplots_adjust(hspace=0)
 
 pl.show()
 

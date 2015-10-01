@@ -66,7 +66,7 @@ def make_labels(simulations):
 
 
 
-init_total_mass = 100.  # Select waveforms which can go down to at least this mass
+init_total_mass = 65.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
 
 #
@@ -88,62 +88,8 @@ usertag=sys.argv[2]
 #
 # --- Catalogue Definition
 #
-if usertag=="NoConstraint":
-    bounds=None
+bounds = bwave.bounds_dict(usertag)
 
-elif usertag=="NonSpinning":
-    # NonSpinning
-    bounds=dict()
-    bounds['a1'] = [0,0]
-    bounds['a2'] = [0,0]
-
-elif usertag=="AlignedSpinUp":
-    # AlignedSpinUp
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [0,0]
-    bounds['th2L'] = [0,0]
-
-elif  usertag=="AlignedSpinDown":
-    # AlignedSpinDown
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [180,180]
-    bounds['th2L'] = [180,180]
-
-elif usertag=="BigBHSpinUp":
-    # BigBHSpinUp
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0, 0]
-    bounds['th1L'] = [0,0]
-
-elif usertag=="BigBHSpinDown":
-    # BigBHSpinDown
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0,0]
-    bounds['th1L'] = [180,180]
-
-elif usertag=="SmallBHSpinUp":
-    # SmallBHSpinUp
-    bounds=dict()
-    bounds['a1'] = [0,0]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th2L'] = [0,0]
-
-elif usertag=="SmallBHSpinDown":
-    # SmallBHSpinDown
-    bounds=dict()
-    bounds['a1'] = [0, 0]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [180,180]
-
-else:
-    print >> sys.stderr, "Configuration not recognised"
-    sys.exit(-1)
 
 #
 # --- Generate initial catalogue
@@ -165,11 +111,13 @@ l1_match_sort = np.argsort(l1_matches)
 # Plotting
 
 
+#
+# --- H1
+#
+
 fmatchplot, axmatchplot = pl.subplots(figsize=(12,8))
 h1_match_plot = axmatchplot.plot(h1_matches[h1_match_sort],
         range(1,len(h1_matches)+1), 'rs', label='H1 response')
-l1_match_plot = axmatchplot.plot(l1_matches[h1_match_sort],
-        range(1,len(h1_matches)+1), 'go', label='L1 response')
 axmatchplot.set_xlabel('Mass-optimised Match')
 axmatchplot.set_ylabel('Waveform Parameters')
 axmatchplot.grid(linestyle='-', color='grey')
@@ -187,6 +135,49 @@ ylabels=make_labels(np.array(simulations.simulations)[h1_match_sort])
 axmatchplot.set_yticklabels(ylabels)#, rotation=90)
 
 fmatchplot.tight_layout()
+
+
+
+#
+# --- L1
+#
+fmatchplot, axmatchplot = pl.subplots(figsize=(12,8))
+l1_match_plot = axmatchplot.plot(l1_matches[l1_match_sort],
+        range(1,len(l1_matches)+1), 'go', label='L1 response')
+axmatchplot.set_xlabel('Mass-optimised Match')
+axmatchplot.set_ylabel('Waveform Parameters')
+axmatchplot.grid(linestyle='-', color='grey')
+axmatchplot.minorticks_on()
+
+axmatchplot.set_yticks(range(1,len(l1_matches)+1))
+
+if sum(l1_matches==0):
+    axmatchplot.set_ylim((len(l1_matches) -
+        np.where(l1_matches==0)[0])[0]+0.5,len(l1_matches)+0.5)
+
+    axmatchplot.set_xlim(0.8,1)
+
+ylabels=make_labels(np.array(simulations.simulations)[l1_match_sort])
+axmatchplot.set_yticklabels(ylabels)#, rotation=90)
+
+fmatchplot.tight_layout()
+
+
+
+fmatchmax, axmatchmass = pl.subplots(nrows=2, sharex=True)
+axmatchmass[0].plot(h1_masses, h1_matches, 'rs', label='H1')
+axmatchmass[0].set_ylim(0.8, 0.95)
+axmatchmass[0].legend()
+axmatchmass[0].minorticks_on()
+axmatchmass[1].plot(l1_masses, l1_matches, 'go', label='L1')
+axmatchmass[1].set_ylim(0.8, 0.95)
+axmatchmass[1].legend()
+axmatchmass[1].set_xlabel('Total Mass [M$_{\odot}$]')
+axmatchmass[1].minorticks_on()
+axmatchmass[0].set_ylabel('Match')
+axmatchmass[1].set_ylabel('Match')
+pl.subplots_adjust(hspace=0)
+
 
 pl.show()
 sys.exit()

@@ -109,14 +109,14 @@ def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
 
 SI_deltaT = 1./2048
 SI_datalen= 4.0
-f_min = 40.0
+f_min = 30.0
 
 #nsampls=500
 
 # Initial guess at the mass
 mass_guess = 74.0#100 + 100*np.random.random()
 
-init_total_mass = 100.  # Select waveforms which can go down to at least this mass
+init_total_mass = 65.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
@@ -125,63 +125,7 @@ usertag=sys.argv[1]
 #
 # --- Catalogue Definition
 #
-if usertag=="NoConstraint":
-    bounds=None
-
-elif usertag=="NonSpinning":
-    # NonSpinning
-    bounds=dict()
-    bounds['a1'] = [0,0]
-    bounds['a2'] = [0,0]
-
-elif usertag=="AlignedSpinUp":
-    # AlignedSpinUp
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [0,0]
-    bounds['th2L'] = [0,0]
-
-elif  usertag=="AlignedSpinDown":
-    # AlignedSpinDown
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [180,180]
-    bounds['th2L'] = [180,180]
-
-elif usertag=="BigBHSpinUp":
-    # BigBHSpinUp
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0, 0]
-    bounds['th1L'] = [0,0]
-
-elif usertag=="BigBHSpinDown":
-    # BigBHSpinDown
-    bounds=dict()
-    bounds['a1'] = [0.001,np.inf]
-    bounds['a2'] = [0,0]
-    bounds['th1L'] = [180,180]
-
-elif usertag=="SmallBHSpinUp":
-    # SmallBHSpinUp
-    bounds=dict()
-    bounds['a1'] = [0,0]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th2L'] = [0,0]
-
-elif usertag=="SmallBHSpinDown":
-    # SmallBHSpinDown
-    bounds=dict()
-    bounds['a1'] = [0, 0]
-    bounds['a2'] = [0.001,np.inf]
-    bounds['th1L'] = [180,180]
-
-else:
-    print >> sys.stderr, "Configuration not recognised"
-    sys.exit(-1)
-
+bounds = bwave.bounds_dict(usertag)
 
 
 #
