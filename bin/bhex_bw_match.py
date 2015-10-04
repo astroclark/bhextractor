@@ -22,7 +22,9 @@ Compute matches between BW reconstruction and NR waveforms
 
 import sys, os
 from bhex_utils import bhex_wavedata as bwave
+import lal
 import pycbc.filter
+from pylal import spawaveform
 import pycbc.types
 import numpy as np
 import scipy.optimize
@@ -110,16 +112,21 @@ deltaT = 1./1024
 datalen= 4.0
 f_min = 30.0
 
-#nsampls=10
+nsampls=999
 
 # Initial guess at the mass
-mass_guess = 72.0
+mass_guess = 100.0
+min_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI - 2
+max_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI + 2
 
-init_total_mass = 65.   # Select waveforms which can go down to at least this mass
+init_total_mass = 100.   # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
 usertag=sys.argv[1] # e.g,. NonSpinnning
+
+#use_waves=['geo', 'h1', 'l1']
+use_waves=['geo']
 
 #
 # --- Catalogue Definition
@@ -132,26 +139,40 @@ bounds = bwave.bounds_dict(usertag)
 #
 print >> sys.stdout,  "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
-        "data/observed")
+        "data/injections")
+       # "data/observed")
 
 # Geocentric waveform:
-geo_wave_samples = np.loadtxt(os.path.join(event_file_dir,
-    "bw/geo_waveforms/waveform_geo_1000.dat"))
+if 'geo' in use_waves:
+    geo_wave_samples = np.loadtxt(os.path.join(event_file_dir,
+        "bw/job_45906/waveforms/waveform_geo_1000.dat"))
+        #"bw/geo_waveforms/waveform_geo_1000.dat"))
+    # Downsample the number of posterior samples (useful for testing)
+    geo_wave_samples=geo_wave_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+else:
+    geo_wave_samples=np.zeros(shape=(nsampls, datalen/deltaT))
 
 # Detector responses:
-h1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
-    "bw/waveforms/signal_recovered_whitened_waveform.dat.0"))
-l1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
-    "bw/waveforms/signal_recovered_whitened_waveform.dat.1"))
+if 'h1' in use_waves:
+    h1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
+        "bw/waveforms/signal_recovered_whitened_waveform.dat.0"))
+    h1_wave_samples=h1_wave_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+else:
+    h1_wave_samples=np.zeros(shape=(1000, datalen/deltaT))
 
-# Downsample the number of posterior samples (useful for testing)
-#geo_wave_samples=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
-#h1_wave_samples=h1_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
-#l1_wave_samples=l1_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+if 'l1' in use_waves:
+    l1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
+        "bw/waveforms/signal_recovered_whitened_waveform.dat.1"))
+    l1_wave_samples=l1_wave_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+else:
+    l1_wave_samples=np.zeros(shape=(1000, datalen/deltaT))
+
 
 # PSD estimates
-h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
-l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
+#h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
+#l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
+h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO0_asd.dat"))
+l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO1_asd.dat"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
@@ -219,8 +240,8 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     print >> sys.stdout,  "Optimising for total mass for each sampled waveform..."
 
     # Find min/max allowable mass
-    min_mass = mtot_from_mchirp(27, simulations.simulations[w]['q'])
-    max_mass = mtot_from_mchirp(34, simulations.simulations[w]['q'])
+    min_mass = mtot_from_mchirp(min_chirp_mass, simulations.simulations[w]['q'])
+    max_mass = mtot_from_mchirp(max_chirp_mass, simulations.simulations[w]['q'])
 
     for s, (geo_sample, h1_sample, l1_sample) in enumerate(zip(geo_wave_samples,
         h1_wave_samples, l1_wave_samples)):
@@ -231,61 +252,65 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
         print >> sys.stdout,  " (NR: %s [%d/%d])"%( simulations.simulations[w]['wavename'], w+1,
                 simulations.nsimulations)
 
-        #
-        # GEOCENTRIC WAVEFORM
-        #
 
-        then = timeit.time.time()
-        ifo_response=False
-        geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
-            [min_mass, max_mass], wave, geo_sample, mean_asd, deltaT,
-            catalogue.SI_deltaF, ifo_response), full_output=True,
-            retall=True, disp=False)
-        now = timeit.time.time()
-        print >> sys.stdout,  "...mass optimisation took %.3f sec..."%(now-then)
+        if 'geo' in use_waves:
+            #
+            # GEOCENTRIC WAVEFORM
+            #
 
-        geo_matches[w, s] = 1-geo_result[1]
-        geo_masses[w, s] = geo_result[0][0]
+            then = timeit.time.time()
+            ifo_response=False
+            geo_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
+                [min_mass, max_mass], wave, geo_sample, mean_asd, deltaT,
+                catalogue.SI_deltaF, ifo_response), full_output=True,
+                retall=True, disp=False)
+            now = timeit.time.time()
+            print >> sys.stdout,  "...mass optimisation took %.3f sec..."%(now-then)
 
-        print >> sys.stdout,  "geo: Best matching mass [match]: %.2f [%.2f]"%(
-                geo_masses[w,s], geo_matches[w,s])
+            geo_matches[w, s] = 1-geo_result[1]
+            geo_masses[w, s] = geo_result[0][0]
 
-        #
-        # H1 RESPONSE
-        #
-        ifo_response=True
-        then = timeit.time.time()
-        h1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
-            [min_mass, max_mass], wave, h1_sample, h1_asd, deltaT,
-            catalogue.SI_deltaF, ifo_response), full_output=True,
-            retall=True, disp=False)
-        now = timeit.time.time()
-        print >> sys.stdout,  "...mass optimisation took %.3f sec..."%(now-then)
+            print >> sys.stdout,  "geo: Best matching mass [match]: %.2f [%.2f]"%(
+                    geo_masses[w,s], geo_matches[w,s])
 
-        h1_matches[w, s] = 1-h1_result[1]
-        h1_masses[w, s] = h1_result[0][0]
+        if 'h1' in use_waves:
+            #
+            # H1 RESPONSE
+            #
+            ifo_response=True
+            then = timeit.time.time()
+            h1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
+                [min_mass, max_mass], wave, h1_sample, h1_asd, deltaT,
+                catalogue.SI_deltaF, ifo_response), full_output=True,
+                retall=True, disp=False)
+            now = timeit.time.time()
+            print >> sys.stdout,  "...mass optimisation took %.3f sec..."%(now-then)
 
-        print >> sys.stdout,  "h1: Best matching mass [match]: %.2f [%.2f]"%(
-                h1_masses[w,s], h1_matches[w,s])
+            h1_matches[w, s] = 1-h1_result[1]
+            h1_masses[w, s] = h1_result[0][0]
 
-        #
-        # L1 RESPONSE
-        #
+            print >> sys.stdout,  "h1: Best matching mass [match]: %.2f [%.2f]"%(
+                    h1_masses[w,s], h1_matches[w,s])
 
-        ifo_response=True
-        then = timeit.time.time()
-        l1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
-            [min_mass, max_mass], wave, l1_sample, l1_asd, deltaT,
-            catalogue.SI_deltaF, ifo_response), full_output=True,
-            retall=True, disp=False)
-        now = timeit.time.time()
-        print >> sys.stdout,  "...mass optimisation took %.3f sec..."%(now-then)
+        if 'l1' in use_waves:
+            #
+            # L1 RESPONSE
+            #
 
-        l1_matches[w, s] = 1-l1_result[1]
-        l1_masses[w, s] = l1_result[0][0]
+            ifo_response=True
+            then = timeit.time.time()
+            l1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
+                [min_mass, max_mass], wave, l1_sample, l1_asd, deltaT,
+                catalogue.SI_deltaF, ifo_response), full_output=True,
+                retall=True, disp=False)
+            now = timeit.time.time()
+            print >> sys.stdout,  "...mass optimisation took %.3f sec..."%(now-then)
 
-        print >> sys.stdout,  "l1: Best matching mass [match]: %.2f [%.2f]"%(
-                l1_masses[w,s], l1_matches[w,s])
+            l1_matches[w, s] = 1-l1_result[1]
+            l1_masses[w, s] = l1_result[0][0]
+
+            print >> sys.stdout,  "l1: Best matching mass [match]: %.2f [%.2f]"%(
+                    l1_masses[w,s], l1_matches[w,s])
 
     geo_bestidx=np.argmax(geo_matches[w, :])
     h1_bestidx=np.argmax(h1_matches[w, :])
@@ -293,12 +318,15 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 
     print >> sys.stdout,  "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     print >> sys.stdout,  "Maximising over all waveforms:"
-    print >> sys.stdout,  "geo: Best matching mass [match]: %.2f [%.2f]"%(
-            geo_masses[w,geo_bestidx], max(geo_matches[w,:]))
-    print >> sys.stdout,  "h1: Best matching mass [match]: %.2f [%.2f]"%(
-            h1_masses[w,h1_bestidx], max(h1_matches[w,:]))
-    print >> sys.stdout,  "l1: Best matching mass [match]: %.2f [%.2f]"%(
-            l1_masses[w,l1_bestidx], max(l1_matches[w,:]))
+    if 'geo' in use_waves:
+        print >> sys.stdout,  "geo: Best matching mass [match]: %.2f [%.2f]"%(
+                geo_masses[w,geo_bestidx], max(geo_matches[w,:]))
+    if 'h1' in use_waves:
+        print >> sys.stdout,  "h1: Best matching mass [match]: %.2f [%.2f]"%(
+                h1_masses[w,h1_bestidx], max(h1_matches[w,:]))
+    if 'l1' in use_waves:
+        print >> sys.stdout,  "l1: Best matching mass [match]: %.2f [%.2f]"%(
+                l1_masses[w,l1_bestidx], max(l1_matches[w,:]))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Dump data
