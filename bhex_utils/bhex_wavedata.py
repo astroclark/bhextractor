@@ -154,6 +154,30 @@ def bounds_dict(tag="NoConstraint"):
 
     return bounds
 
+def component_masses(total_mass, mass_ratio):
+    """
+    Return m1 and m2, given total mass and mass ratio (m1/m2)
+
+    m1, m2 = component_masses(total_mass, mass_ratio)
+    """
+
+    m1 = mass_ratio * total_mass / (1.0 + mass_ratio)
+    m2 = total_mass - m1
+
+    return m1, m2
+
+
+def cartesian_spins(spin_magnitude, spin_theta):
+    """
+    Compute cartesian spin components.  Only does z-component for now
+    """
+
+    if np.isnan(spin_magnitude) or np.isnan(spin_theta):
+        return 0.0
+    else:
+        spin_z = spin_magnitude * np.cos(spin_theta * np.pi / 180.0)
+    return spin_z
+
 
 # *****************************************************************************
 # Class Definitions 
