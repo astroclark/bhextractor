@@ -51,18 +51,9 @@ def scale_wave(wave, total_mass):
     interp_times = scale_ratio * time_axis - \
             peakidx*SI_deltaT*(scale_ratio-1)
 
-#    resamp_hplus = np.interp(time_axis, interp_times, np.real(wave))
-#    resamp_hcross = np.interp(time_axis, interp_times, np.imag(wave))
-#    return resamp_hplus #+ 1j*resamp_hcross
-
     resamp_amp = np.interp(time_axis, interp_times, amp)
     resamp_phase = np.interp(time_axis, interp_times, phase)
  
-#    f = scipy.interpolate.interp1d(interp_times, amp, kind='cubic')
-#    resamp_amp = f(time_axis)
-#    resamp_phase = f(time_axis)
-    
-
     return resamp_amp*np.exp(1j*resamp_phase)
 
 
@@ -111,7 +102,6 @@ def mtot_from_mchirp(mc, q):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-#SI_deltaT = 1./1024
 SI_deltaT = 1./4096
 SI_datalen= 4.0
 f_min = 30.0
