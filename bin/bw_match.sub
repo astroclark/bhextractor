@@ -1,0 +1,59 @@
+###############################
+# BayesWave Match Calculation #
+
+executable     = /home/jclark/Projects/bhextractor/bin/bhex_bw_match.py
+universe       = vanilla 
+getenv         = True
+
+
+arguments      = noConstraint
+output         = noConstraint.out
+error          = noConstraint.err
+log            = noConstraint.log
+queue
+
+arguments      = NonSpinning
+output         = NonSpinning.out
+error          = NonSpinning.err
+log            = NonSpinning.log
+queue
+
+arguments      = AlignedSpinUp
+output         = AlignedSpinUp.out
+error          = AlignedSpinUp.err
+log            = AlignedSpinUp.log
+queue
+
+arguments      = AlignedSpinDown
+output         = AlignedSpinDown.out
+error          = AlignedSpinDown.err
+log            = AlignedSpinDown.log
+queue
+
+arguments      = BigBHSpinUp
+output         = BigBHSpinUp.out
+error          = BigBHSpinUp.err
+log            = BigBHSpinUp.log
+queue
+
+arguments      = SmallBHSpinUp
+output         = SmallBHSpinUp.out
+error          = SmallBHSpinUp.err
+log            = SmallBHSpinUp.log
+queue
+
+arguments      = SmallBHSpinDown
+output         = SmallBHSpinDown.out
+error          = SmallBHSpinDown.err
+log            = SmallBHSpinDown.log
+queue
+
+#   NoConstraint
+#   NonSpinning
+#   AlignedSpinUp
+#   AlignedSpinDown
+#   BigBHSpinUp
+#   BigBHSpinDown
+#   SmallBHSpinUp
+#   SmallBHSpinDown
+
