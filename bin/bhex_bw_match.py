@@ -110,7 +110,7 @@ deltaT = 1./1024
 datalen= 4.0
 f_min = 30.0
 
-nsampls=10
+#nsampls=10
 
 # Initial guess at the mass
 mass_guess = 72.0
@@ -135,19 +135,19 @@ event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
         "data/observed")
 
 # Geocentric waveform:
-geo_wave_samples_in = np.loadtxt(os.path.join(event_file_dir,
+geo_wave_samples = np.loadtxt(os.path.join(event_file_dir,
     "bw/geo_waveforms/waveform_geo_1000.dat"))
 
 # Detector responses:
-h1_wave_samples_in = np.loadtxt(os.path.join(event_file_dir,
+h1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
     "bw/waveforms/signal_recovered_whitened_waveform.dat.0"))
-l1_wave_samples_in = np.loadtxt(os.path.join(event_file_dir,
+l1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
     "bw/waveforms/signal_recovered_whitened_waveform.dat.1"))
 
 # Downsample the number of posterior samples (useful for testing)
-geo_wave_samples=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
-h1_wave_samples=h1_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
-l1_wave_samples=l1_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+#geo_wave_samples=geo_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+#h1_wave_samples=h1_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
+#l1_wave_samples=l1_wave_samples_in[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
 
 # PSD estimates
 h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
