@@ -26,6 +26,8 @@ script)
 
 import sys, os
 from bhex_utils import bhex_wavedata as bwave
+import lal
+from pylal import spawaveform
 import pycbc.types
 import numpy as np
 import timeit
@@ -74,9 +76,10 @@ distance=1. # Mpc
 #
 match_file = sys.argv[1]
 match_results = np.load(match_file)
-geo_matches = match_results['geo_matches']
-geo_masses = match_results['geo_masses']
+matches = match_results['geo_matches']
+total_masses = match_results['geo_masses']
 
+nsamples = np.shape(matches)[1]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
@@ -100,25 +103,231 @@ simulations = \
         bwave.simulation_details(param_bounds=bounds, Mmin30Hz=init_total_mass)
 
 
-
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Manipulation and derived FOMs
 #
 
-mean_matches = np.mean(geo_matches, axis=1)
-median_matches = np.median(geo_matches, axis=1)
+# Remove zero-match waveforms:
+mean_matches = np.mean(matches, axis=1)
+
+nonzero_match = mean_matches>0
+matches = matches[nonzero_match]
+total_masses = total_masses[nonzero_match]
+
+# XXX: bit hacky..
+simulations.simulations = np.array(simulations.simulations)[nonzero_match]
+simulations.nsimulations = len(simulations.simulations)
+
+
+# Continue
+mean_matches = np.mean(matches, axis=1)
+
+median_matches = np.median(matches, axis=1)
 match_sort = np.argsort(median_matches)
 
+median_total_masses = np.median(total_masses, axis=1)
+std_total_masses = np.std(total_masses, axis=1)
+
+mass_ratios = np.zeros(simulations.nsimulations)
+chis = np.zeros(shape=(simulations.nsimulations, nsamples))
+chirp_masses = np.zeros(shape=(simulations.nsimulations, nsamples))
+
+
+for s, sim in enumerate(simulations.simulations):
+
+    mass_ratios[s] = sim['q']
+
+    mass1, mass2 = bwave.component_masses(total_masses, mass_ratios[s])
+
+    spin1z = bwave.cartesian_spins(sim['a1'], sim['th1L'])
+    spin2z = bwave.cartesian_spins(sim['a2'], sim['th2L'])
+
+    for n in xrange(nsamples):
+        chirp_masses[s, n] = spawaveform.chirpmass(mass1[s,n], mass2[s,n]) \
+                / lal.MTSUN_SI
+        chis[s, n] = spawaveform.computechi(mass1[s,n], mass2[s,n], spin1z, spin2z)
+
+median_mchirps = np.median(chirp_masses, axis=1)
+std_mchirps = np.std(chirp_masses, axis=1)
+
+median_chis = np.median(chis, axis=1)
+std_chis = np.std(chis, axis=1)
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Plotting
+# SCATTER PLOTS
 
-# Plots to make:
-# box plots for distributions of mass / match
-#   sort these plots in descending match
-#   label by parsing parameters from the simulations object
 
+# --- Mass vs Mass-ratio Scatter plot
+f, ax = pl.subplots()
+
+err = ax.errorbar(mass_ratios, median_total_masses, std_total_masses, color='k',
+        linestyle='None', label='1$\sigma$')
+
+scat = ax.scatter(mass_ratios, median_total_masses, c=median_matches, s=50,
+        label='Median')
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
+#        mass_ratios[median_matches>0.5][-1]+0.1)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Mass ratio (q=m$_1$/m$_2$)')
+ax.set_ylabel('Total Mass [M$_{\odot}$]')
+
+f.tight_layout()
+
+# --- Chirp Mass vs Mass-ratio Scatter plot
+f, ax = pl.subplots()
+
+err = ax.errorbar(mass_ratios, median_mchirps, std_mchirps, color='k',
+        linestyle='None', label='1$\sigma$')
+
+scat = ax.scatter(mass_ratios, median_mchirps, c=median_matches, s=50,
+        label='Median')
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper right')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
+#        mass_ratios[median_matches>0.5][-1]+0.1)
+ax.grid()
+#ax.set_ylim(27,34)
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Mass ratio (q=m$_1$/m$_2$)')
+ax.set_ylabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
+
+f.tight_layout()
+
+# --- Chi vs Mass-ratio Scatter plot
+f, ax = pl.subplots()
+
+err = ax.errorbar(mass_ratios, median_chis, std_chis, color='k',
+        linestyle='None', label='1$\sigma$')
+
+scat = ax.scatter(mass_ratios, median_chis, c=median_matches, s=50,
+        label='Median')
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
+#        mass_ratios[median_matches>0.5][-1]+0.1)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Mass ratio (q=m$_1$/m$_2$)')
+ax.set_ylabel('Effective Spin ($\chi$)')
+
+f.tight_layout()
+
+# --- Chi vs Mass Scatter plot
+f, ax = pl.subplots()
+
+err = ax.errorbar(median_total_masses, median_chis, xerr=std_total_masses,
+        yerr=std_chis, color='k', linestyle='None', label='1$\sigma$')
+
+scat = ax.scatter(median_total_masses, median_chis, c=median_matches, s=50,
+        label='Median')
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+
+idx=np.argwhere(median_matches>0.5)
+
+#ax.set_xlim(median_total_masses[idx[0]]-1, median_total_masses[idx[-1]]+1)
+#ax.set_ylim(median_chis[idx[0]], median_chis[idx[-1]])
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Total Mass [M$_{\odot}$]')
+ax.set_ylabel('Effective Spin ($\chi$)')
+
+f.tight_layout()
+
+# --- Chi vs Chirp Mass Scatter plot
+f, ax = pl.subplots()
+
+err = ax.errorbar(median_mchirps, median_chis, xerr=std_mchirps,
+        yerr=std_chis, color='k', linestyle='None', label='1$\sigma$')
+
+scat = ax.scatter(median_mchirps, median_chis, c=median_matches, s=50,
+        label='Median')
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+
+idx=np.argwhere(median_matches>0.5)
+
+#ax.set_xlim(27,34)
+#ax.set_ylim(median_chis[idx[0]], median_chis[idx[-1]])
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_ylabel('Effective Spin ($\chi$)')
+ax.set_xlabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
+
+f.tight_layout()
+
+# --- Mass vs Chirp Scatter plot
+f, ax = pl.subplots()
+
+err = ax.errorbar(median_mchirps, median_total_masses, xerr=std_mchirps,
+        yerr=std_total_masses, color='k', linestyle='None', label='1$\sigma$')
+
+scat = ax.scatter(median_mchirps, median_total_masses, c=median_matches, s=50,
+        label='Median')
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper right')
+
+ax.minorticks_on()
+#ax.set_xlim(27,34)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
+ax.set_ylabel('Total Mass [M$_{\odot}$]')
+
+f.tight_layout()
+
+sys.exit()
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# BOX PLOTS
+
+
+# --- Match vs Waveform boxes
 fmatchbox, axmatchbox = pl.subplots(figsize=(12,8))
-match_box = axmatchbox.boxplot(geo_matches[match_sort].T, whis='range', showcaps=True,
+match_box = axmatchbox.boxplot(matches[match_sort].T, whis='range', showcaps=True,
         showmeans=True, showfliers=False,
         vert=False)
 axmatchbox.set_xlabel('Mass-optimised Match')
@@ -137,9 +346,10 @@ axmatchbox.set_yticklabels(ylabels)#, rotation=90)
 
 fmatchbox.tight_layout()
 
-# --- masses
+
+# --- Mass vs Waveform
 fmassbox, axmassbox = pl.subplots(figsize=(12,8))
-mass_box = axmassbox.boxplot(geo_masses[match_sort].T, whis='range', showcaps=True,
+mass_box = axmassbox.boxplot(total_masses[match_sort].T, whis='range', showcaps=True,
         showmeans=True, showfliers=False,
         vert=False)
 axmassbox.set_xlabel('Match-optimised mass')
@@ -156,10 +366,14 @@ axmassbox.set_yticklabels(ylabels)#, rotation=90)
 
 fmassbox.tight_layout()
 
+#
+# Summary of best waveform
+#
+
 # 1- and 2-D Histograms of mass, match (do with a triangle plot) for the
 # waveform with the highest median match
 
-samples = np.array([geo_matches[match_sort[-1],:], geo_masses[match_sort[-1],:]]).T
+samples = np.array([matches[match_sort[-1],:], total_masses[match_sort[-1],:]]).T
 trifig = triangle.corner(samples, quantiles=[0.25, 0.50, 0.75], labels=['Match', 
     'M$_{\mathrm{tot}}$ [M$_{\odot}$]'], plot_contours=True,
     plot_datapoints=True)
@@ -172,7 +386,7 @@ pl.show()
 sys.exit()
 
 fmatchmax, axmatchmass = pl.subplots(nrows=2, sharex=True)
-axmatchmass[0].plot(median_masses, median_matches, 'ms', label='Median value')
+axmatchmass[0].plot(median_total_masses, median_matches, 'ms', label='Median value')
 axmatchmass[0].set_ylim(0.8, 0.95)
 axmatchmass[0].legend()
 axmatchmass[0].minorticks_on()

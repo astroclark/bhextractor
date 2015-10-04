@@ -29,7 +29,8 @@ import scipy.signal
 import triangle
 from matplotlib import pyplot as pl
 
-def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
+#def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
+def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
     """
     Pull out datalen seconds around the peak of the timeseries contained in the
     numpy array inwave, sampled at sample_rate Hz
@@ -72,15 +73,18 @@ def compute_match(h1, h2, asd_data, delta_t=1./1024, f_min=30.0):
     asd = np.interp(freq_axis, asd_data[:,0], asd_data[:,1])
 
     # Whiten h1
-    H1_pycbc = h1_pycbc.to_frequencyseries()
-    H1_pycbc.data /= asd
+    #H1_pycbc = h1_pycbc.to_frequencyseries()
+    #H1_pycbc.data /= asd
 
     # Put this psd into a pycbc frequency series so we can compute match
     #psd = pycbc.types.FrequencySeries(asd**2, delta_f=np.diff(freq_axis)[0])
+    psd = None
 
     #return pycbc.filter.match(h1_py, h2_py, psd=psd, low_frequency_cutoff=f_min)
-    return pycbc.filter.match(H1_pycbc, h2_pycbc, psd=None,
+    return pycbc.filter.match(h1_pycbc, h2_pycbc, psd=psd,
             low_frequency_cutoff=f_min)[0]
+    #return pycbc.filter.match(H1_pycbc, h2_pycbc, psd=None,
+    #        low_frequency_cutoff=f_min)[0]
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -88,7 +92,7 @@ def compute_match(h1, h2, asd_data, delta_t=1./1024, f_min=30.0):
 
 delta_t = 1./1024
 datalen= 4.0
-f_min = 30.0
+f_min = 50.0
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Load Data
@@ -106,9 +110,9 @@ event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
 #
 bw_times = np.loadtxt(os.path.join(event_file_dir, "bw/waveforms/timesamp.dat"))
 h1_bw_samples = np.loadtxt(os.path.join(event_file_dir, 
-    "bw/waveforms/waveform_H1_1000.dat"))
+    "bw/waveforms/signal_recovered_whitened_waveform.dat.0"))
 l1_bw_samples = np.loadtxt(os.path.join(event_file_dir, 
-    "bw/waveforms/waveform_L1_1000.dat"))
+    "bw/waveforms/signal_recovered_whitened_waveform.dat.1"))
 
 h1_bw_asd = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
 l1_bw_asd = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
@@ -116,8 +120,8 @@ l1_bw_asd = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
 #
 # CWB
 #
-h1_cwb_estimate = np.loadtxt(os.path.join(event_file_dir, "cwb/H1_wf_strain.dat"))
-l1_cwb_estimate = np.loadtxt(os.path.join(event_file_dir, "cwb/L1_wf_strain.dat"))
+h1_cwb_estimate = np.loadtxt(os.path.join(event_file_dir, "cwb/H1_wf_signal.dat"))
+l1_cwb_estimate = np.loadtxt(os.path.join(event_file_dir, "cwb/L1_wf_signal.dat"))
 
 h1_cwb_asd = np.loadtxt(os.path.join(event_file_dir, "cwb/h1_asd.dat"))
 l1_cwb_asd = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
