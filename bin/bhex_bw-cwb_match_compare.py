@@ -23,21 +23,32 @@ import sys, os
 import timeit
 import pycbc.types
 import pycbc.filter
+import lal
 import numpy as np
 import scipy.interpolate
 import scipy.signal
 import triangle
 from matplotlib import pyplot as pl
 
-#def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
 def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
     """
     Pull out datalen seconds around the peak of the timeseries contained in the
     numpy array inwave, sampled at sample_rate Hz
     """
+    extract_len = 0.5
     peakidx = np.argmax(inwave)
-    nsamp = datalen * sample_rate
-    return inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
+    nsamp = extract_len * sample_rate
+
+    extracted = inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
+
+    win = lal.CreateTukeyREAL8Window(len(extracted), 0.1)
+    extracted *= win.data.data
+
+    output = np.zeros(datalen*sample_rate)
+    output[0.5*datalen*sample_rate-0.5*nsamp:
+            0.5*datalen*sample_rate+0.5*nsamp] = np.copy(extracted)
+
+    return output
 
 def resample(inwave, datalen=4.0, target_delta_t=1./1024):
     """
@@ -70,21 +81,17 @@ def compute_match(h1, h2, asd_data, delta_t=1./1024, f_min=30.0):
 
     # Interpolate the asd to those frequencies (should already be the same,
     # really)
-    asd = np.interp(freq_axis, asd_data[:,0], asd_data[:,1])
+    if asd_data is not None:
+        asd = np.interp(freq_axis, asd_data[:,0], asd_data[:,1])
+        #psd = py
 
-    # Whiten h1
-    #H1_pycbc = h1_pycbc.to_frequencyseries()
-    #H1_pycbc.data /= asd
-
-    # Put this psd into a pycbc frequency series so we can compute match
-    #psd = pycbc.types.FrequencySeries(asd**2, delta_f=np.diff(freq_axis)[0])
-    psd = None
+    else:
+        # Put this psd into a pycbc frequency series so we can compute match
+        psd = None
 
     #return pycbc.filter.match(h1_py, h2_py, psd=psd, low_frequency_cutoff=f_min)
     return pycbc.filter.match(h1_pycbc, h2_pycbc, psd=psd,
             low_frequency_cutoff=f_min)[0]
-    #return pycbc.filter.match(H1_pycbc, h2_pycbc, psd=None,
-    #        low_frequency_cutoff=f_min)[0]
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -92,7 +99,7 @@ def compute_match(h1, h2, asd_data, delta_t=1./1024, f_min=30.0):
 
 delta_t = 1./1024
 datalen= 4.0
-f_min = 50.0
+f_min = 30.0
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Load Data
@@ -135,24 +142,10 @@ l1_cwb_asd = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
 h1_cwb_estimate = extract_wave(h1_cwb_estimate, datalen=datalen)
 l1_cwb_estimate = extract_wave(l1_cwb_estimate, datalen=datalen)
 
-# Downsample the number of posterior samples (useful for testing)
-# XXX: This is TEMPORARY
-#nsampls = 50
-#h1_bw_samples = h1_bw_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
-#l1_bw_samples = l1_bw_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
-
-
 # Resample to common rate; in practice, this is just downsampling cwb to bw
 h1_cwb_estimate = resample(h1_cwb_estimate)
 l1_cwb_estimate = resample(l1_cwb_estimate)
 
-
-
-# Interpolate the ASD to the waveform frequencies
-#h1_asd = np.interp(freq_axis, h1_bw_asd_data[:,0], h1_bw_asd_data[:,1])
-#l1_asd = np.interp(freq_axis, l1_bw_asd_data[:,0], l1_bw_asd_data[:,1])
-#
-#mean_asd = np.sqrt(scipy.stats.hmean([h1_asd**2, l1_asd**2]))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Match calculations
@@ -165,20 +158,17 @@ big_then = timeit.time.time()
 print "...Evaluating matches..."
 for s, (h1_bw_sample, l1_bw_sample) in enumerate(zip(h1_bw_samples, l1_bw_samples)):
 
-#    print '-----------------------------'
-#    print "Evaluating sample waveform %d of %d"%( s, len(h1_bw_samples) )
 
     then = timeit.time.time()
 
     h1_matches[s] = compute_match(h1_cwb_estimate, h1_bw_sample,
-            delta_t=delta_t, asd_data=h1_bw_asd, f_min=f_min)
+            delta_t=delta_t, asd_data=None, f_min=f_min)
 
     l1_matches[s] = compute_match(l1_cwb_estimate, l1_bw_sample,
-            delta_t=delta_t, asd_data=l1_bw_asd, f_min=f_min)
+            delta_t=delta_t, asd_data=None, f_min=f_min)
 
     now = timeit.time.time()
     
-#    print "...match calculation took %.3f sec..."%(now-then)
 
 big_now = timeit.time.time()
 print "...all match calculations took %.3f sec..."%(big_now-big_then)
