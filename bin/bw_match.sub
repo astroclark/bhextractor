@@ -6,10 +6,10 @@ universe       = vanilla
 getenv         = True
 
 
-arguments      = noConstraint
-output         = noConstraint.out
-error          = noConstraint.err
-log            = noConstraint.log
+arguments      = NoConstraint
+output         = NoConstraint.out
+error          = NoConstraint.err
+log            = NoConstraint.log
 queue
 
 arguments      = NonSpinning
