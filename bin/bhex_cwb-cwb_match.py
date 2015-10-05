@@ -142,6 +142,7 @@ L1_strain_white.data /= l1_asd
 l1_strain_white = L1_strain_white.to_timeseries()
 l1_strain_white.data /= pycbc.filter.sigma(l1_strain_white)
 
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Matches
 #
@@ -158,6 +159,7 @@ h1_response_time = time - time[np.argmax(abs(h1_response))]
 l1_strain_white_time = time - time[np.argmax(abs(l1_strain_white))]
 l1_response_time = time - time[np.argmax(abs(l1_response))]
 
+# --- Time Series
 f, ax = pl.subplots(nrows=2, figsize=(10,8))
 
 ax[0].plot(h1_response_time, h1_response, label='Response')
@@ -180,6 +182,30 @@ ax[1].legend()
 
 f.tight_layout()
 
+# --- Frequency series
+f, ax = pl.subplots(nrows=2, figsize=(10,8))
+H1_response=h1_response.to_frequencyseries()
+L1_response=l1_response.to_frequencyseries()
+
+ax[0].plot(H1_response.sample_frequencies(), abs(H1_response), label='Response')
+ax[0].plot(H1_strain_white.sample_frequencies, abs(H1_strain_white), label='Whitened Strain')
+ax[0].set_title('H1 Response')
+ax[0].set_xlabel('Frequency [Hz]')
+ax[0].set_ylabel('Amplitude')
+ax[0].minorticks_on()
+ax[0].set_xlim(9, 512)
+ax[0].legend()
+
+ax[1].plot(L1_response.sample_frequencies, abs(L1_response), label='Response')
+ax[1].plot(L1_strain_white.sample_frequencies, abs(L1_strain_white), label='Whitened Strain')
+ax[1].set_title('L1 Response')
+ax[1].set_xlabel('Frequency [Hz]')
+ax[1].set_ylabel('Amplitude')
+ax[1].minorticks_on()
+ax[1].set_xlim(9, 512)
+ax[1].legend()
+
+f.tight_layout()
 
 
 pl.show()
