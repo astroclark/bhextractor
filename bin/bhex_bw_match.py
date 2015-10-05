@@ -115,18 +115,22 @@ f_min = 30.0
 nsampls=999
 
 # Initial guess at the mass
-mass_guess = 100.0
-min_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI - 2
-max_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI + 2
+mass_guess = 72.0
+min_chirp_mass = 27.0
+max_chirp_mass = 34.0
+init_total_mass = 65.0   # Select waveforms which can go down to at least this mass
 
-init_total_mass = 100.   # Select waveforms which can go down to at least this mass
+#mass_guess = 100.0
+#min_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI - 2
+#max_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI + 2
+#init_total_mass = 100.   # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
 usertag=sys.argv[1] # e.g,. NonSpinnning
 
-#use_waves=['geo', 'h1', 'l1']
-use_waves=['geo']
+use_waves=['geo', 'h1', 'l1']
+#use_waves=['geo'] # XXX: can only do GEO for injections right now
 
 #
 # --- Catalogue Definition
@@ -139,14 +143,14 @@ bounds = bwave.bounds_dict(usertag)
 #
 print >> sys.stdout,  "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
-        "data/injections")
-       # "data/observed")
+        "data/observed")
+       # "data/injections")
 
 # Geocentric waveform:
 if 'geo' in use_waves:
     geo_wave_samples = np.loadtxt(os.path.join(event_file_dir,
-        "bw/job_45906/waveforms/waveform_geo_1000.dat"))
-        #"bw/geo_waveforms/waveform_geo_1000.dat"))
+        "bw/geo_waveforms/waveform_geo_1000.dat"))
+        #"bw/job_45906/waveforms/waveform_geo_1000.dat"))
     # Downsample the number of posterior samples (useful for testing)
     geo_wave_samples=geo_wave_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
 else:
@@ -169,10 +173,10 @@ else:
 
 
 # PSD estimates
-#h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
-#l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
-h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO0_asd.dat"))
-l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO1_asd.dat"))
+h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
+l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
+#h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO0_asd.dat"))
+#l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO1_asd.dat"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue

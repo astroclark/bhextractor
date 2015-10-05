@@ -22,6 +22,7 @@ Compute matches between CWB reconstruction and NR waveforms
 
 import sys, os
 from bhex_utils import bhex_wavedata as bwave
+import pycbc.filter
 import pycbc.types
 import lal
 import numpy as np
@@ -114,16 +115,19 @@ def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
     win = lal.CreateTukeyREAL8Window(len(extracted), 0.1)
     extracted *= win.data.data
 
-    output = np.zeros(datalen*sample_rate)
-    output[0.5*datalen*sample_rate-0.5*nsamp:
-            0.5*datalen*sample_rate+0.5*nsamp] = np.copy(extracted)
+
+    output = np.zeros(int(datalen*sample_rate))
+
+    output[int(0.5*datalen*sample_rate-0.5*nsamp):
+            int(0.5*datalen*sample_rate+0.5*nsamp)] = np.copy(extracted)
 
     return output
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-deltaT = 1./2048
+#deltaT = 1./4096
+deltaT = 1./4096
 datalen= 4.0
 f_min = 30.0
 
@@ -131,9 +135,10 @@ f_min = 30.0
 
 # Initial guess at the mass
 mass_guess = 72.0
-
-init_total_mass = 65. # Select waveforms which can go down to at least this mass
-                      # (and generate SI catalogue at this mass)
+min_chirp_mass = 27.0
+max_chirp_mass = 34.0
+init_total_mass = 65.0  # Select waveforms which can go down to at least this mass
+                        # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
 usertag=sys.argv[1]
@@ -151,8 +156,8 @@ print "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
         "data/observed")
 
-h1_wave_in = np.loadtxt(os.path.join(event_file_dir, "cwb/H1_wf_strain.dat"))
-l1_wave_in = np.loadtxt(os.path.join(event_file_dir, "cwb/L1_wf_strain.dat"))
+h1_wave_in = np.loadtxt(os.path.join(event_file_dir, "cwb/H1_wf_signal.dat"))
+l1_wave_in = np.loadtxt(os.path.join(event_file_dir, "cwb/L1_wf_signal.dat"))
 
 
 # Extract the 4 second chunk in the middle
@@ -162,7 +167,6 @@ l1_wave = extract_wave(l1_wave_in, datalen=datalen, sample_rate=1./deltaT)
 h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/h1_asd.dat"))
 l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
 
-sys.exit()
 #h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
 #l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
 

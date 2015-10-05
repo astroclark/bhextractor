@@ -163,6 +163,7 @@ time = np.arange(0, len(h1_response)*response_deltaT, response_deltaT)
 h1_response_time = time - time[np.argmax(abs(h1_response))]
 l1_response_time = time - time[np.argmax(abs(l1_response))]
 
+
 # --- Time Series
 f, ax = pl.subplots(nrows=2, figsize=(10,8))
 
@@ -195,6 +196,10 @@ L1_response=l1_response.to_frequencyseries()
 
 H1_strain_white=h1_strain_white.to_frequencyseries()
 L1_strain_white=l1_strain_white.to_frequencyseries()
+
+sample_freqs=H1_response.sample_frequencies
+fnew = sample_freqs+16.5
+test = np.interp(fnew, sample_freqs, abs(H1_response.data))
 
 ax[0].plot(H1_response.sample_frequencies, abs(H1_response), label='Rec. IFO Response')
 ax[0].plot(H1_strain_white.sample_frequencies, abs(H1_strain_white),

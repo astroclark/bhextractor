@@ -76,8 +76,10 @@ distance=1. # Mpc
 #
 match_file = sys.argv[1]
 match_results = np.load(match_file)
+
 matches = match_results['geo_matches']
 total_masses = match_results['geo_masses']
+
 
 nsamples = np.shape(matches)[1]
 
@@ -319,7 +321,6 @@ ax.set_ylabel('Total Mass [M$_{\odot}$]')
 
 f.tight_layout()
 
-sys.exit()
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BOX PLOTS
