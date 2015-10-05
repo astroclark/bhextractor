@@ -129,7 +129,7 @@ if sum(h1_matches==0):
     axmatchplot.set_ylim((len(h1_matches) -
         np.where(h1_matches==0)[0])[0]+0.5,len(h1_matches)+0.5)
 
-    axmatchplot.set_xlim(0.8,1)
+#    axmatchplot.set_xlim(0.8,1)
 
 ylabels=make_labels(np.array(simulations.simulations)[h1_match_sort])
 axmatchplot.set_yticklabels(ylabels)#, rotation=90)
@@ -155,7 +155,7 @@ if sum(l1_matches==0):
     axmatchplot.set_ylim((len(l1_matches) -
         np.where(l1_matches==0)[0])[0]+0.5,len(l1_matches)+0.5)
 
-    axmatchplot.set_xlim(0.8,1)
+#    axmatchplot.set_xlim(0.8,1)
 
 ylabels=make_labels(np.array(simulations.simulations)[l1_match_sort])
 axmatchplot.set_yticklabels(ylabels)#, rotation=90)
@@ -166,11 +166,11 @@ fmatchplot.tight_layout()
 
 fmatchmax, axmatchmass = pl.subplots(nrows=2, sharex=True)
 axmatchmass[0].plot(h1_masses, h1_matches, 'rs', label='H1')
-axmatchmass[0].set_ylim(0.8, 0.95)
+#axmatchmass[0].set_ylim(0.8, 0.95)
 axmatchmass[0].legend()
 axmatchmass[0].minorticks_on()
 axmatchmass[1].plot(l1_masses, l1_matches, 'go', label='L1')
-axmatchmass[1].set_ylim(0.8, 0.95)
+#axmatchmass[1].set_ylim(0.8, 0.95)
 axmatchmass[1].legend()
 axmatchmass[1].set_xlabel('Total Mass [M$_{\odot}$]')
 axmatchmass[1].minorticks_on()

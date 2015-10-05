@@ -15,20 +15,15 @@
 # with this program; if not, write to the Free Software Foundation, Inc.,
 # 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
 """
-bhextractor_plot_catalogue.py
+bhex_cwb_match.py
 
-Construct catalogues and principal component analysis for NR BBH waveforms
-
-This script simply builds and plots a catalogue (defined by the user in this
-script)
-
+Compute matches between CWB reconstruction and NR waveforms
 """
 
 import sys, os
 from bhex_utils import bhex_wavedata as bwave
-from bhex_utils import bhex_pca as bpca
-#from pycbc.psd import aLIGOZeroDetHighPower
 import pycbc.types
+import lal
 import numpy as np
 import scipy.optimize
 import scipy.stats
@@ -49,7 +44,7 @@ def scale_wave(wave, total_mass):
 
     peakidx = np.argmax(amp)
     interp_times = scale_ratio * time_axis - \
-            peakidx*SI_deltaT*(scale_ratio-1)
+            peakidx*deltaT*(scale_ratio-1)
 
     resamp_amp = np.interp(time_axis, interp_times, amp)
     resamp_phase = np.interp(time_axis, interp_times, phase)
@@ -59,7 +54,7 @@ def scale_wave(wave, total_mass):
 
 
 def mismatch(total_mass, mass_bounds, tmplt_wave_data, event_wave_data, asd=None,
-        delta_t=1./512, delta_f=0.25):
+        delta_t=1./512, delta_f=0.25, whitened_response=False):
     """
     Compute mismatch (1-match) between the tmplt wave and the event wave, given
     the total mass.  Uses event_wave and psd which are defined globally in the
@@ -73,15 +68,24 @@ def mismatch(total_mass, mass_bounds, tmplt_wave_data, event_wave_data, asd=None
         tmplt = scale_wave(tmplt_wave_data, total_mass)
 
         # Convert the wave to a pycbc timeseries object
-        hp = pycbc.types.TimeSeries(np.real(tmplt[:]), delta_t=SI_deltaT)
-        hc = pycbc.types.TimeSeries(-1*np.imag(tmplt[:]), delta_t=SI_deltaT)
+        hp = pycbc.types.TimeSeries(np.real(tmplt[:]), delta_t=deltaT)
 
-        event_wave = pycbc.types.TimeSeries(event_wave_data, delta_t=SI_deltaT)
+        if whitened_response and asd is not None:
+            # Whiten the template
+            Hp = hp.to_frequencyseries()
+            Hp.data /= asd
 
-        if asd is not None:
+            # IFFT (just simplifies the code below) 
+            hp = Hp.to_timeseries()
+
+
+        if asd is not None and not whitened_response:
             psd = pycbc.types.FrequencySeries(asd**2, delta_f=delta_f)
         else:
             psd = None
+
+        # Put the reconstruction data in a TimeSeries
+        event_wave = pycbc.types.TimeSeries(event_wave_data, delta_t=deltaT)
 
         try:
             match, _ = pycbc.filter.match(hp, event_wave, psd=psd,
@@ -100,24 +104,36 @@ def mtot_from_mchirp(mc, q):
     eta = q/(1+q)**2.0
     return mc * eta**(-3./5)
 
-def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
-    peakidx = np.argmax(h1_wave_in)
-    nsamp = datalen * sample_rate
-    return inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
+def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
+    extract_len = 1
+    peakidx = np.argmax(inwave)
+    nsamp = extract_len * sample_rate
+
+    extracted = inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
+
+    win = lal.CreateTukeyREAL8Window(len(extracted), 0.1)
+    extracted *= win.data.data
+
+    output = np.zeros(datalen*sample_rate)
+    output[0.5*datalen*sample_rate-0.5*nsamp:
+            0.5*datalen*sample_rate+0.5*nsamp] = np.copy(extracted)
+
+    return output
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-SI_deltaT = 1./2048
-SI_datalen= 4.0
+deltaT = 1./2048
+datalen= 4.0
 f_min = 30.0
 
 #nsampls=500
 
 # Initial guess at the mass
-mass_guess = 74.0#100 + 100*np.random.random()
+mass_guess = 72.0
 
-init_total_mass = 65.  # Select waveforms which can go down to at least this mass
-                        # (and generate SI catalogue at this mass)
+init_total_mass = 65. # Select waveforms which can go down to at least this mass
+                      # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
 usertag=sys.argv[1]
@@ -133,22 +149,22 @@ bounds = bwave.bounds_dict(usertag)
 #
 print "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
-        "data/observed/cwb")
+        "data/observed")
 
-h1_wave_in = np.loadtxt(os.path.join(event_file_dir, "H1_wf_strain.dat"))
-l1_wave_in = np.loadtxt(os.path.join(event_file_dir, "L1_wf_strain.dat"))
+h1_wave_in = np.loadtxt(os.path.join(event_file_dir, "cwb/H1_wf_strain.dat"))
+l1_wave_in = np.loadtxt(os.path.join(event_file_dir, "cwb/L1_wf_strain.dat"))
 
 
 # Extract the 4 second chunk in the middle
-h1_wave = extract_wave(h1_wave_in, datalen=SI_datalen)
-l1_wave = extract_wave(l1_wave_in, datalen=SI_datalen)
+h1_wave = extract_wave(h1_wave_in, datalen=datalen, sample_rate=1./deltaT)
+l1_wave = extract_wave(l1_wave_in, datalen=datalen, sample_rate=1./deltaT)
 
-# resample to 4096 
-#h1_wave = scipy.signal.resample(h1_wave, 2*len(h1_wave))
-#l1_wave = scipy.signal.resample(l1_wave, 2*len(l1_wave))
+h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/h1_asd.dat"))
+l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
 
-h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "h1_asd.dat"))
-l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "l1_asd.dat"))
+sys.exit()
+#h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
+#l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
@@ -167,14 +183,14 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
 catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
-        SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
+        SI_deltaT=deltaT, SI_datalen=datalen, distance=distance,
         trunc_time=False)
 now = timeit.time.time()
 print "...catalogue construction took %.1f..."%(now-then)
 
 
 # Useful time/freq samples
-time_axis = np.arange(0, SI_datalen, SI_deltaT)
+time_axis = np.arange(0, datalen, deltaT)
 freq_axis = np.arange(0, catalogue.SI_flen*catalogue.SI_deltaF,
         catalogue.SI_deltaF)
 
@@ -216,9 +232,11 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     # --- H1
     then = timeit.time.time()
 
+    whitened_response=True
     h1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
-        [min_mass, max_mass], wave, h1_wave, h1_asd, SI_deltaT,
-        catalogue.SI_deltaF), full_output=True, retall=True, disp=False)
+        [min_mass, max_mass], wave, h1_wave, h1_asd, deltaT,
+        catalogue.SI_deltaF, whitened_response), full_output=True, retall=True,
+        disp=False)
 
     now = timeit.time.time()
     print "...H1 mass optimisation took %.3f sec..."%(now-then)
@@ -232,9 +250,11 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     # --- L1
     then = timeit.time.time()
 
+    whitened_response=True
     l1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
-        [min_mass, max_mass], wave, l1_wave, l1_asd, SI_deltaT,
-        catalogue.SI_deltaF), full_output=True, retall=True, disp=False)
+        [min_mass, max_mass], wave, l1_wave, l1_asd, deltaT,
+        catalogue.SI_deltaF, whitened_response), full_output=True, retall=True,
+        disp=False)
 
     now = timeit.time.time()
     print "...L1 mass optimisation took %.3f sec..."%(now-then)
