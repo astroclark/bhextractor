@@ -67,14 +67,12 @@ response_deltaT = 1./4096
 datalen= 4.0
 f_min = 30.0
 
-
 #
 # --- Reconstruction data
 #
 print "Loading data"
 event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
         "data/observed")
-
 
 #
 # Astrophysical strain
@@ -83,8 +81,8 @@ h1_strain = np.loadtxt(os.path.join(event_file_dir, "cwb/H1_wf_strain.dat"))
 l1_strain = np.loadtxt(os.path.join(event_file_dir, "cwb/L1_wf_strain.dat"))
 
 # Extract the 4 second chunk in the middle
-h1_strain = extract_wave(h1_strain, datalen=datalen, sample_rate=1./strain_deltaT)
-l1_strain = extract_wave(l1_strain, datalen=datalen, sample_rate=1./strain_deltaT)
+#h1_strain = extract_wave(h1_strain, datalen=datalen, sample_rate=1./strain_deltaT)
+#l1_strain = extract_wave(l1_strain, datalen=datalen, sample_rate=1./strain_deltaT)
 
 #
 # Whitened response
@@ -94,14 +92,14 @@ h1_response = np.loadtxt(os.path.join(event_file_dir, "cwb/H1_wf_signal.dat"))
 l1_response = np.loadtxt(os.path.join(event_file_dir, "cwb/L1_wf_signal.dat"))
 
 # Extract the 4 second chunk in the middle
-h1_response = extract_wave(h1_response, datalen=datalen,
-        sample_rate=1./response_deltaT)
-l1_response = extract_wave(l1_response, datalen=datalen,
-        sample_rate=1./response_deltaT)
+#   h1_response = extract_wave(h1_response, datalen=datalen,
+#           sample_rate=1./response_deltaT)
+#   l1_response = extract_wave(l1_response, datalen=datalen,
+#           sample_rate=1./response_deltaT)
 
 # Downsample
-h1_response = resample(h1_response)
-l1_response = resample(l1_response)
+#   h1_response = resample(h1_response)
+#   l1_response = resample(l1_response)
 
 h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/h1_asd.dat"))
 l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
@@ -117,8 +115,10 @@ l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
 h1_strain   = pycbc.types.TimeSeries(h1_strain, delta_t=strain_deltaT)
 l1_strain   = pycbc.types.TimeSeries(l1_strain, delta_t=strain_deltaT)
 
-h1_response = pycbc.types.TimeSeries(h1_response, delta_t=strain_deltaT)
-l1_response = pycbc.types.TimeSeries(l1_response, delta_t=strain_deltaT)
+#h1_response = pycbc.types.TimeSeries(h1_response, delta_t=strain_deltaT)
+#l1_response = pycbc.types.TimeSeries(l1_response, delta_t=strain_deltaT)
+h1_response = pycbc.types.TimeSeries(h1_response, delta_t=response_deltaT)
+l1_response = pycbc.types.TimeSeries(l1_response, delta_t=response_deltaT)
 
 
 h1_strain.data /= pycbc.filter.sigma(h1_strain)
@@ -151,19 +151,24 @@ l1_strain_white.data /= pycbc.filter.sigma(l1_strain_white)
 # Plots
 #
 
-time = np.arange(0, datalen, strain_deltaT) 
+#time = np.arange(0, datalen, strain_deltaT) 
+time = np.arange(0, len(h1_strain)*strain_deltaT, strain_deltaT) 
 
 h1_strain_white_time = time - time[np.argmax(abs(h1_strain_white))]
-h1_response_time = time - time[np.argmax(abs(h1_response))]
-
 l1_strain_white_time = time - time[np.argmax(abs(l1_strain_white))]
+
+#time = np.arange(0, datalen, response_deltaT) 
+time = np.arange(0, len(h1_response)*response_deltaT, response_deltaT) 
+
+h1_response_time = time - time[np.argmax(abs(h1_response))]
 l1_response_time = time - time[np.argmax(abs(l1_response))]
 
 # --- Time Series
 f, ax = pl.subplots(nrows=2, figsize=(10,8))
 
 ax[0].plot(h1_response_time, h1_response, label='Response')
-ax[0].plot(h1_strain_white_time, -1*h1_strain_white, label='Whitened Strain')
+ax[0].plot(h1_strain_white_time, -1*h1_strain_white, 
+        label='Rec. Strain / $\sqrt{S(f)}$')
 ax[0].set_title('H1 Response')
 ax[0].set_xlabel('Time [s]')
 ax[0].set_ylabel('Amplitude')
@@ -172,7 +177,8 @@ ax[0].set_xlim(-0.25, .15)
 ax[0].legend()
 
 ax[1].plot(l1_response_time, l1_response, label='Response')
-ax[1].plot(l1_strain_white_time, -1*l1_strain_white, label='Whitened Strain')
+ax[1].plot(l1_strain_white_time, -1*l1_strain_white, 
+        label='Rec. Strain / $\sqrt{S(f)}$')
 ax[1].set_title('L1 Response')
 ax[1].set_xlabel('Time [s]')
 ax[1].set_ylabel('Amplitude')
@@ -187,23 +193,30 @@ f, ax = pl.subplots(nrows=2, figsize=(10,8))
 H1_response=h1_response.to_frequencyseries()
 L1_response=l1_response.to_frequencyseries()
 
-ax[0].plot(H1_response.sample_frequencies(), abs(H1_response), label='Response')
-ax[0].plot(H1_strain_white.sample_frequencies, abs(H1_strain_white), label='Whitened Strain')
+H1_strain_white=h1_strain_white.to_frequencyseries()
+L1_strain_white=l1_strain_white.to_frequencyseries()
+
+ax[0].plot(H1_response.sample_frequencies, abs(H1_response), label='Rec. IFO Response')
+ax[0].plot(H1_strain_white.sample_frequencies, abs(H1_strain_white),
+        label='Rec. Strain / $\sqrt{S(f)}$')
 ax[0].set_title('H1 Response')
 ax[0].set_xlabel('Frequency [Hz]')
 ax[0].set_ylabel('Amplitude')
 ax[0].minorticks_on()
 ax[0].set_xlim(9, 512)
-ax[0].legend()
+ax[0].legend(loc='upper right')
+ax[0].axvline(30, color='r')
 
 ax[1].plot(L1_response.sample_frequencies, abs(L1_response), label='Response')
-ax[1].plot(L1_strain_white.sample_frequencies, abs(L1_strain_white), label='Whitened Strain')
+ax[1].plot(L1_strain_white.sample_frequencies, abs(L1_strain_white),
+        label='Rec. Strain / $\sqrt{S(f)}$')
 ax[1].set_title('L1 Response')
 ax[1].set_xlabel('Frequency [Hz]')
 ax[1].set_ylabel('Amplitude')
 ax[1].minorticks_on()
 ax[1].set_xlim(9, 512)
-ax[1].legend()
+ax[1].legend(loc='upper right')
+ax[1].axvline(30, color='r')
 
 f.tight_layout()
 
