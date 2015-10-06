@@ -67,7 +67,7 @@ def make_labels(simulations):
 # USER INPUT
 
 
-init_total_mass = 65.  # Select waveforms which can go down to at least this mass
+init_total_mass = 100.  # Select waveforms which can go down to at least this mass
                         # (and generate SI catalogue at this mass)
 distance=1. # Mpc
 
@@ -80,6 +80,7 @@ match_results = np.load(match_file)
 matches = match_results['geo_matches']
 total_masses = match_results['geo_masses']
 
+ifo_label='GEO'
 
 nsamples = np.shape(matches)[1]
 
@@ -163,10 +164,10 @@ std_chis = np.std(chis, axis=1)
 f, ax = pl.subplots()
 
 err = ax.errorbar(mass_ratios, median_total_masses, std_total_masses, color='k',
-        linestyle='None', label='1$\sigma$')
+        linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
 scat = ax.scatter(mass_ratios, median_total_masses, c=median_matches, s=50,
-        label='Median')
+        label='Median', zorder=1)
 
 scat.set_clim(0.8,1)
 
@@ -185,14 +186,16 @@ ax.set_ylabel('Total Mass [M$_{\odot}$]')
 
 f.tight_layout()
 
+f.savefig("BW_%s_massratio-totalmass.png"%ifo_label)
+
 # --- Chirp Mass vs Mass-ratio Scatter plot
 f, ax = pl.subplots()
 
 err = ax.errorbar(mass_ratios, median_mchirps, std_mchirps, color='k',
-        linestyle='None', label='1$\sigma$')
+        linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
 scat = ax.scatter(mass_ratios, median_mchirps, c=median_matches, s=50,
-        label='Median')
+        label='Median', zorder=1)
 
 scat.set_clim(0.8,1)
 
@@ -212,14 +215,16 @@ ax.set_ylabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
 
 f.tight_layout()
 
+f.savefig("BW_%s_massratio-chirpmass.png"%ifo_label)
+
 # --- Chi vs Mass-ratio Scatter plot
 f, ax = pl.subplots()
 
 err = ax.errorbar(mass_ratios, median_chis, std_chis, color='k',
-        linestyle='None', label='1$\sigma$')
+        linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
 scat = ax.scatter(mass_ratios, median_chis, c=median_matches, s=50,
-        label='Median')
+        label='Median', zorder=1)
 
 scat.set_clim(0.8,1)
 
@@ -238,14 +243,16 @@ ax.set_ylabel('Effective Spin ($\chi$)')
 
 f.tight_layout()
 
+f.savefig("BW_%s_massratio-chi.png"%ifo_label)
+
 # --- Chi vs Mass Scatter plot
 f, ax = pl.subplots()
 
 err = ax.errorbar(median_total_masses, median_chis, xerr=std_total_masses,
-        yerr=std_chis, color='k', linestyle='None', label='1$\sigma$')
+        yerr=std_chis, color='k', linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
 scat = ax.scatter(median_total_masses, median_chis, c=median_matches, s=50,
-        label='Median')
+        label='Median', zorder=1)
 
 scat.set_clim(0.8,1)
 
@@ -267,14 +274,16 @@ ax.set_ylabel('Effective Spin ($\chi$)')
 
 f.tight_layout()
 
+f.savefig("BW_%s_totalmass-chi.png"%ifo_label)
+
 # --- Chi vs Chirp Mass Scatter plot
 f, ax = pl.subplots()
 
 err = ax.errorbar(median_mchirps, median_chis, xerr=std_mchirps,
-        yerr=std_chis, color='k', linestyle='None', label='1$\sigma$')
+        yerr=std_chis, color='k', linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
 scat = ax.scatter(median_mchirps, median_chis, c=median_matches, s=50,
-        label='Median')
+        label='Median', zorder=1)
 
 scat.set_clim(0.8,1)
 
@@ -296,14 +305,16 @@ ax.set_xlabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
 
 f.tight_layout()
 
+f.savefig("BW_%s_chirpmass-chi.png"%ifo_label)
+
 # --- Mass vs Chirp Scatter plot
 f, ax = pl.subplots()
 
 err = ax.errorbar(median_mchirps, median_total_masses, xerr=std_mchirps,
-        yerr=std_total_masses, color='k', linestyle='None', label='1$\sigma$')
+        yerr=std_total_masses, color='k', linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
 scat = ax.scatter(median_mchirps, median_total_masses, c=median_matches, s=50,
-        label='Median')
+        label='Median', zorder=1)
 
 scat.set_clim(0.8,1)
 
@@ -321,7 +332,10 @@ ax.set_ylabel('Total Mass [M$_{\odot}$]')
 
 f.tight_layout()
 
+f.savefig("BW_%s_chirpmass-totalmass.png"%ifo_label)
 
+
+#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BOX PLOTS
 
@@ -349,23 +363,23 @@ fmatchbox.tight_layout()
 
 
 # --- Mass vs Waveform
-fmassbox, axmassbox = pl.subplots(figsize=(12,8))
-mass_box = axmassbox.boxplot(total_masses[match_sort].T, whis='range', showcaps=True,
-        showmeans=True, showfliers=False,
-        vert=False)
-axmassbox.set_xlabel('Match-optimised mass')
-axmassbox.set_ylabel('Waveform Parameters')
-axmassbox.grid(linestyle='-', color='grey')
-axmassbox.minorticks_on()
-
-if sum(mean_matches==0):
-    axmassbox.set_ylim((len(mean_matches) -
-        np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
-
-ylabels=make_labels(np.array(simulations.simulations)[match_sort])
-axmassbox.set_yticklabels(ylabels)#, rotation=90)
-
-fmassbox.tight_layout()
+#   fmassbox, axmassbox = pl.subplots(figsize=(12,8))
+#   mass_box = axmassbox.boxplot(total_masses[match_sort].T, whis='range', showcaps=True,
+#           showmeans=True, showfliers=False,
+#           vert=False)
+#   axmassbox.set_xlabel('Match-optimised mass')
+#   axmassbox.set_ylabel('Waveform Parameters')
+#   axmassbox.grid(linestyle='-', color='grey')
+#   axmassbox.minorticks_on()
+#
+#   if sum(mean_matches==0):
+#       axmassbox.set_ylim((len(mean_matches) -
+#           np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
+#
+#   ylabels=make_labels(np.array(simulations.simulations)[match_sort])
+#   axmassbox.set_yticklabels(ylabels)#, rotation=90)
+#
+#   fmassbox.tight_layout()
 
 #
 # Summary of best waveform
@@ -382,23 +396,5 @@ title = make_labels([simulations.simulations[match_sort[-1]]])
 trifig.suptitle(title[0], fontsize=16)
 trifig.subplots_adjust(top=0.9)
 
-
 pl.show()
-sys.exit()
-
-fmatchmax, axmatchmass = pl.subplots(nrows=2, sharex=True)
-axmatchmass[0].plot(median_total_masses, median_matches, 'ms', label='Median value')
-axmatchmass[0].set_ylim(0.8, 0.95)
-axmatchmass[0].legend()
-axmatchmass[0].minorticks_on()
-axmatchmass[1].set_ylim(0.8, 0.95)
-axmatchmass[1].legend()
-axmatchmass[1].set_xlabel('Total Mass [M$_{\odot}$]')
-axmatchmass[1].minorticks_on()
-axmatchmass[0].set_ylabel('Match')
-axmatchmass[1].set_ylabel('Match')
-pl.subplots_adjust(hspace=0)
-
-pl.show()
-
 
