@@ -37,7 +37,8 @@ import pycbc.types
 # *****************************************************************************
 global __param_names__
 __param_names__ = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
-                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz', 'Mchirp30Hz']
+                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz', 'Mchirp30Hz', 'a1x',
+                'a1y', 'a1z', 'a2x', 'a2y', 'a2z', 'Lx',  'Ly', 'Lz']
 
 # *****************************************************************************
 # Function Definitions 
@@ -207,8 +208,8 @@ class simulation_details:
 
     """
 
-    def __init__(self, Mmin30Hz=100., Mmin10Hz=None, param_bounds=None,
-            catdir="GT-CATALOG_22"):
+    def __init__(self, Mmin30Hz=100., Mmin10Hz=None, Mchirp30Hz=None,
+            param_bounds=None, catdir="GT-CATALOG_22"):
 
         # ######################################################
         # Other initialisation
@@ -216,6 +217,7 @@ class simulation_details:
 
         self.Mmin10Hz = Mmin10Hz
         self.Mmin30Hz = Mmin30Hz
+        self.Mchirp30Hz = Mchirp30Hz
         if Mmin10Hz is not None:
             self.fmin = 10.0
         else:
@@ -258,6 +260,9 @@ class simulation_details:
         if self.Mmin10Hz is not None:
             simulations = self._select_param_values(simulations, 'Mmin10Hz',
                     [-np.inf, self.Mmin30Hz])
+        elif self.Mchirp30Hz is not None:
+            simulations = self._select_param_values(simulations, 'Mchirp30Hz',
+                    [-np.inf, self.Mchirp30Hz])
         else:
             simulations = self._select_param_values(simulations, 'Mmin30Hz',
                     [-np.inf, self.Mmin30Hz])
@@ -327,8 +332,6 @@ class simulation_details:
         """
         readme_data = np.loadtxt(readme_file, dtype=str)
 
-        #param_names = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
-        #        'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz']
 
         simulations = []
         nNotFound = 0
