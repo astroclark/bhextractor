@@ -37,7 +37,7 @@ import pycbc.types
 # *****************************************************************************
 global __param_names__
 __param_names__ = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
-                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz', 'Mchirp30Hz', 'a1x',
+                'thSL', 'thJL', 'Mmin30Hz', 'Mmin10Hz', 'Mchirpmin30Hz', 'a1x',
                 'a1y', 'a1z', 'a2x', 'a2y', 'a2z', 'Lx',  'Ly', 'Lz']
 
 # *****************************************************************************
@@ -195,7 +195,7 @@ class simulation_details:
 
     In [25]: bounds['q'] = [2, np.inf]
 
-    In [26]: simcat = bwave.simulation_details(param_bounds=bounds, Mmin30Hz=100)
+    In [26]: simcat = bwave.simulation_details(param_bounds=bounds)
 
     In [28]: for sim in simcat.simulations: print sim
     {'a1': 0.6, 'th2L': 90.0, 'D': 7.0, 'thJL': 19.8, 'th1L': 90.0, 'q': 2.5, 'th12': 180.0, 'a2': 0.6,  'wavefile': ['/home/jclark308/Projects/bhextractor/data/NR_data/GT_BBH_BURST_CATALOG/Eq-series/Eq_D7_q2.50_a0.6_ph270_m140/Strain_jinit_l2_m2_r75_Eq_D7_q2.50_a0.6_ph270_m140.asc'], 'wavename': 'Eq_D7_q2.50_a0.6_ph270_m140', 'ph2': 90.0, 'ph1': -90.0, 'Mmin30Hz': 97.3, 'Mmin10Hz': 292.0, 'thSL': 90.0}
@@ -208,21 +208,13 @@ class simulation_details:
 
     """
 
-    def __init__(self, Mmin30Hz=100., Mmin10Hz=None, Mchirp30Hz=None,
-            param_bounds=None, catdir="GT-CATALOG_22"):
+    def __init__(self, param_bounds=None, catdir="GT-CATALOG_22", fmin=30.0):
 
         # ######################################################
         # Other initialisation
         self.param_bounds = param_bounds
 
-        self.Mmin10Hz = Mmin10Hz
-        self.Mmin30Hz = Mmin30Hz
-        self.Mchirp30Hz = Mchirp30Hz
-        if Mmin10Hz is not None:
-            self.fmin = 10.0
-        else:
-            self.fmin = 30.0
-
+        self.fmin = fmin
         self.catdir=catdir
 
         print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
@@ -236,8 +228,6 @@ class simulation_details:
         print "----"
         print "Found %d waveforms matching criteria:"%(self.nsimulations)
         print "Bounds: ", param_bounds
-        if Mmin10Hz is not None:
-            print "Mmin10Hz: ", Mmin10Hz
         print "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
     def list_simulations(self, catdir="GT-CATALOG_22"):
@@ -254,20 +244,10 @@ class simulation_details:
 
         readme_file = os.path.join(datadir, 'README.txt')
 
+        # Get all simulations (from readme)
         simulations = self._get_series(datadir,readme_file)
 
-        # Down-select to those with a desirably small minimum mass
-        if self.Mmin10Hz is not None:
-            simulations = self._select_param_values(simulations, 'Mmin10Hz',
-                    [-np.inf, self.Mmin30Hz])
-        elif self.Mchirp30Hz is not None:
-            simulations = self._select_param_values(simulations, 'Mchirp30Hz',
-                    [-np.inf, self.Mchirp30Hz])
-        else:
-            simulations = self._select_param_values(simulations, 'Mmin30Hz',
-                    [-np.inf, self.Mmin30Hz])
-
-        # Now down-select on any other parameters
+        # Down-select on parameters
         if self.param_bounds is not None:
             for bound_param in self.param_bounds.keys():
                 simulations = self._select_param_values(simulations,
@@ -292,7 +272,7 @@ class simulation_details:
         unique_simulations = list(simulations)
 
         physical_params = 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', \
-                'th12', 'thSL', 'thJL'
+                'th12', 'thSL', 'thJL', 'Mmin10Hz', 'Mchirpmin30Hz', 'Mmin30Hz'
 
         param_sets = []
         for s in xrange(len(simulations)):
@@ -398,7 +378,9 @@ class waveform_catalogue:
 
         # Produce physical catalogue if reference mass specified
         if ref_mass is not None:
+
             # catalogue_to_SI() adds variables to self
+
             self.catalogue_to_SI(ref_mass=ref_mass, SI_deltaT=SI_deltaT,
                     distance=distance, SI_datalen=SI_datalen)
 
