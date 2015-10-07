@@ -64,10 +64,8 @@ def make_labels(simulations):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-
-
-init_total_mass = 65.  # Select waveforms which can go down to at least this mass
-                        # (and generate SI catalogue at this mass)
+min_chirp_mass = 27.0
+max_chirp_mass = 34.0
 
 #
 # --- Catalogue Definition
@@ -89,6 +87,8 @@ usertag=sys.argv[2]
 # --- Catalogue Definition
 #
 bounds = bwave.bounds_dict(usertag)
+bounds = dict()
+bounds['Mchirpmin30Hz'] = [-np.inf, min_chirp_mass]
 
 
 #
@@ -98,8 +98,7 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
 then = timeit.time.time()
-simulations = \
-        bwave.simulation_details(param_bounds=bounds, Mmin30Hz=init_total_mass)
+simulations = bwave.simulation_details(param_bounds=bounds)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

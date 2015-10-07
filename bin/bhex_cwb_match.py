@@ -25,6 +25,7 @@ from bhex_utils import bhex_wavedata as bwave
 import pycbc.filter
 import pycbc.types
 import lal
+from pylal import spawaveform
 import numpy as np
 import scipy.optimize
 import scipy.stats
@@ -100,21 +101,20 @@ def mismatch(total_mass, mass_bounds, tmplt_wave_data, event_wave_data, asd=None
 
         return 1.
 
-
 def mtot_from_mchirp(mc, q):
     eta = q/(1+q)**2.0
     return mc * eta**(-3./5)
 
 def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
-    extract_len = 1
-    peakidx = np.argmax(inwave)
+
+    extract_len = 0.5
+    peakidx = np.argmax(inwave) - 500
     nsamp = extract_len * sample_rate
 
     extracted = inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
 
-    win = lal.CreateTukeyREAL8Window(len(extracted), 0.1)
+    win = lal.CreateTukeyREAL8Window(len(extracted), 0.5)
     extracted *= win.data.data
-
 
     output = np.zeros(int(datalen*sample_rate))
 
@@ -126,27 +126,25 @@ def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-#deltaT = 1./4096
 deltaT = 1./4096
 datalen= 4.0
 f_min = 30.0
 
-#nsampls=500
-
-# Initial guess at the mass
+#Initial guess at the mass
 mass_guess = 72.0
 min_chirp_mass = 27.0
 max_chirp_mass = 34.0
-init_total_mass = 65.0  # Select waveforms which can go down to at least this mass
-                        # (and generate SI catalogue at this mass)
+init_total_mass = 100   # Generate a catagg
+
 distance=1. # Mpc
 
 usertag=sys.argv[1]
 
-#
 # --- Catalogue Definition
 #
 bounds = bwave.bounds_dict(usertag)
+bounds = dict()
+bounds['Mchirpmin30Hz'] = [-np.inf, min_chirp_mass]
 
 
 #
@@ -170,6 +168,7 @@ l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
 #h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
 #l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
 
+#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
 
@@ -180,8 +179,7 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
 then = timeit.time.time()
-simulations = \
-        bwave.simulation_details(param_bounds=bounds, Mmin30Hz=init_total_mass)
+simulations = bwave.simulation_details(param_bounds=bounds)
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
@@ -229,18 +227,19 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     print "Optimising for total mass for CWB reconstructions..."
 
     # Find minimum mass
-    min_mass = mtot_from_mchirp(27, simulations.simulations[w]['q'])
-    max_mass = mtot_from_mchirp(34, simulations.simulations[w]['q'])
+    min_mass = mtot_from_mchirp(min_chirp_mass, simulations.simulations[w]['q'])
+    max_mass = mtot_from_mchirp(max_chirp_mass, simulations.simulations[w]['q'])
 
 
     # --- H1
     then = timeit.time.time()
 
-    whitened_response=True
+    ifo_response=True
+    then = timeit.time.time()
     h1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
         [min_mass, max_mass], wave, h1_wave, h1_asd, deltaT,
-        catalogue.SI_deltaF, whitened_response), full_output=True, retall=True,
-        disp=False)
+        catalogue.SI_deltaF, ifo_response), full_output=True,
+        retall=True, disp=False)
 
     now = timeit.time.time()
     print "...H1 mass optimisation took %.3f sec..."%(now-then)
@@ -254,11 +253,12 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     # --- L1
     then = timeit.time.time()
 
-    whitened_response=True
+    ifo_response=True
+    then = timeit.time.time()
     l1_result = scipy.optimize.fmin(mismatch, x0=mass_guess, args=(
         [min_mass, max_mass], wave, l1_wave, l1_asd, deltaT,
-        catalogue.SI_deltaF, whitened_response), full_output=True, retall=True,
-        disp=False)
+        catalogue.SI_deltaF, ifo_response), full_output=True,
+        retall=True, disp=False)
 
     now = timeit.time.time()
     print "...L1 mass optimisation took %.3f sec..."%(now-then)
@@ -267,7 +267,7 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     l1_masses[w] = l1_result[0][0]
 
     print "L1: Best matching mass [match]: %.2f [%.2f]"%(
-            h1_masses[w], h1_matches[w])
+            l1_masses[w], l1_matches[w])
 
 
 
