@@ -105,15 +105,15 @@ def mtot_from_mchirp(mc, q):
     eta = q/(1+q)**2.0
     return mc * eta**(-3./5)
 
-def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
+def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
 
-    extract_len = 0.5
-    peakidx = np.argmax(inwave) - 500
+    extract_len = 0.75
+    peakidx = np.argmax(inwave) - 250
     nsamp = extract_len * sample_rate
 
     extracted = inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
 
-    win = lal.CreateTukeyREAL8Window(len(extracted), 0.5)
+    win = lal.CreateTukeyREAL8Window(len(extracted), 0.1)
     extracted *= win.data.data
 
     output = np.zeros(int(datalen*sample_rate))
@@ -126,7 +126,7 @@ def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-deltaT = 1./4096
+deltaT = 1./2048
 datalen= 4.0
 f_min = 30.0
 
