@@ -67,20 +67,16 @@ def make_labels(simulations):
 # USER INPUT
 
 
-init_total_mass = 100.  # Select waveforms which can go down to at least this mass
-                        # (and generate SI catalogue at this mass)
-distance=1. # Mpc
-
 #
 # --- Catalogue Definition
 #
 match_file = sys.argv[1]
 match_results = np.load(match_file)
 
-matches = match_results['geo_matches']
-total_masses = match_results['geo_masses']
+matches = match_results['l1_matches']
+total_masses = match_results['l1_masses']
 
-ifo_label='GEO'
+ifo_label='L1'
 
 nsamples = np.shape(matches)[1]
 
@@ -92,7 +88,11 @@ usertag=sys.argv[2]
 #
 # --- Catalogue Definition
 #
+min_chirp_mass = 27.0
+max_chirp_mass = 34.0
 bounds = bwave.bounds_dict(usertag)
+bounds = dict()
+bounds['Mchirpmin30Hz'] = [-np.inf, min_chirp_mass]
 
 
 #
@@ -102,8 +102,7 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
 then = timeit.time.time()
-simulations = \
-        bwave.simulation_details(param_bounds=bounds, Mmin30Hz=init_total_mass)
+simulations = bwave.simulation_details(param_bounds=bounds)
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
