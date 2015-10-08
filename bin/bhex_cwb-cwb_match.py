@@ -62,7 +62,7 @@ def resample(inwave, current_delta_t = 1./4096, target_delta_t=1./2048):
 # USER INPUT
 
 strain_deltaT = 1./2048
-response_deltaT = 1./4096
+response_deltaT = 1./2048
 
 datalen= 4.0
 f_min = 30.0
