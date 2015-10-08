@@ -114,23 +114,30 @@ f_min = 30.0
 
 nsampls=999
 
+# --- Event config
 # Initial guess at the mass
 #   mass_guess = 72.0
 #   min_chirp_mass = 27.0
 #   max_chirp_mass = 34.0
 # init_total_mass = 100   # Generate a catagg
 
-mass_guess = 100.0
-min_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI - 2
-max_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI + 2
-init_total_mass = 100.   # Select waveforms which can go down to at least this mass
-                        # (and generate SI catalogue at this mass)
-distance=1. # Mpc
+# --- Software injection config:
+#mass_guess = 100.0
+#min_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI - 2
+#max_chirp_mass = spawaveform.chirpmass(50,50) / lal.MTSUN_SI + 2
+#init_total_mass = 100.   # Select waveforms which can go down to at least this mass
+#                        # (and generate SI catalogue at this mass)
+
+# --- HWinj G187068 config
+# Initial guess at the mass
+mass_guess = 62.0
+min_chirp_mass = 25.0
+max_chirp_mass = 29.0
 
 usertag=sys.argv[1] # e.g,. NonSpinnning
 
-#use_waves=['geo', 'h1', 'l1']
-use_waves=['geo'] # XXX: can only do GEO for injections right now
+use_waves=['geo', 'h1', 'l1']
+#use_waves=['geo'] # XXX: can only do GEO for software injections right now
 
 #
 # --- Catalogue Definition
@@ -151,7 +158,8 @@ event_file_dir = os.path.join(os.environ.get('BHEX_PREFIX'),
 # Geocentric waveform:
 if 'geo' in use_waves:
     geo_wave_samples = np.loadtxt(os.path.join(event_file_dir,
-        "bw/job_45906/waveforms/waveform_geo_1000.dat"))
+        "bw/G187068/G187068_geo_waveforms.dat"))
+        #"bw/job_45906/waveforms/waveform_geo_1000.dat"))
         #"bw/geo_waveforms/waveform_geo_1000.dat"))
     # Downsample the number of posterior samples (useful for testing)
     geo_wave_samples=geo_wave_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
@@ -161,14 +169,16 @@ else:
 # Detector responses:
 if 'h1' in use_waves:
     h1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
-        "bw/waveforms/signal_recovered_whitened_waveform.dat.0"))
+        "bw/G187068/G187068_H1.dat"))
+        #"bw/waveforms/signal_recovered_whitened_waveform.dat.0"))
     h1_wave_samples=h1_wave_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
 else:
     h1_wave_samples=np.zeros(shape=(1000, datalen/deltaT))
 
 if 'l1' in use_waves:
     l1_wave_samples = np.loadtxt(os.path.join(event_file_dir,
-        "bw/waveforms/signal_recovered_whitened_waveform.dat.1"))
+        "bw/G187068/G187068_L1.dat"))
+        #"bw/waveforms/signal_recovered_whitened_waveform.dat.1"))
     l1_wave_samples=l1_wave_samples[np.random.random_integers(low=0,high=nsampls,size=nsampls),:]
 else:
     l1_wave_samples=np.zeros(shape=(1000, datalen/deltaT))
@@ -177,11 +187,16 @@ else:
 # PSD estimates
 #h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
 #l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
+#h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO0_asd.dat"))
+#l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO1_asd.dat"))
 h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO0_asd.dat"))
 l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO1_asd.dat"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
+
+init_total_mass = 100   # Generate a catagg
+distance=1. # Mpc
 
 #
 # --- Generate initial catalogue

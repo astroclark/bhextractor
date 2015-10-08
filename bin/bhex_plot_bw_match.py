@@ -73,10 +73,10 @@ def make_labels(simulations):
 match_file = sys.argv[1]
 match_results = np.load(match_file)
 
-matches = match_results['l1_matches']
-total_masses = match_results['l1_masses']
+matches = match_results['h1_matches']
+total_masses = match_results['h1_masses']
 
-ifo_label='L1'
+ifo_label='H1'
 
 nsamples = np.shape(matches)[1]
 
@@ -139,15 +139,16 @@ for s, sim in enumerate(simulations.simulations):
 
     mass_ratios[s] = sim['q']
 
-    mass1, mass2 = bwave.component_masses(total_masses, mass_ratios[s])
-
     spin1z = bwave.cartesian_spins(sim['a1'], sim['th1L'])
     spin2z = bwave.cartesian_spins(sim['a2'], sim['th2L'])
 
     for n in xrange(nsamples):
-        chirp_masses[s, n] = spawaveform.chirpmass(mass1[s,n], mass2[s,n]) \
+
+        mass1, mass2 = bwave.component_masses(total_masses[s, n], mass_ratios[s])
+
+        chirp_masses[s, n] = spawaveform.chirpmass(mass1, mass2) \
                 / lal.MTSUN_SI
-        chis[s, n] = spawaveform.computechi(mass1[s,n], mass2[s,n], spin1z, spin2z)
+        chis[s, n] = spawaveform.computechi(mass1, mass2, spin1z, spin2z)
 
 median_mchirps = np.median(chirp_masses, axis=1)
 std_mchirps = np.std(chirp_masses, axis=1)
@@ -155,6 +156,7 @@ std_mchirps = np.std(chirp_masses, axis=1)
 median_chis = np.median(chis, axis=1)
 std_chis = np.std(chis, axis=1)
 
+#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # SCATTER PLOTS
 
@@ -282,7 +284,8 @@ err = ax.errorbar(median_mchirps, median_chis, xerr=std_mchirps,
         yerr=std_chis, color='k', linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
 scat = ax.scatter(median_mchirps, median_chis, c=median_matches, s=50,
-        label='Median', zorder=1)
+        zorder=1)
+        #label='Median', zorder=1)
 
 scat.set_clim(0.8,1)
 
