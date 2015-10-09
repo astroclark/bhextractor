@@ -112,7 +112,7 @@ simulations = bwave.simulation_details(param_bounds=bounds)
 # Remove zero-match waveforms:
 mean_matches = np.mean(matches, axis=1)
 
-nonzero_match = mean_matches>0
+nonzero_match = mean_matches>0.9
 matches = matches[nonzero_match]
 total_masses = total_masses[nonzero_match]
 
@@ -134,8 +134,9 @@ mass_ratios = np.zeros(simulations.nsimulations)
 chis = np.zeros(shape=(simulations.nsimulations, nsamples))
 chirp_masses = np.zeros(shape=(simulations.nsimulations, nsamples))
 
-m1 = np.zeros(shape=(simulations.nsimulations, nsamples))
-m2 = np.zeros(shape=(simulations.nsimulations, nsamples))
+theta1L = np.zeros(simulations.nsimulations)
+theta2L = np.zeros(simulations.nsimulations)
+thetaSL = np.zeros(simulations.nsimulations)
 
 for s, sim in enumerate(simulations.simulations):
 
@@ -143,6 +144,16 @@ for s, sim in enumerate(simulations.simulations):
 
     spin1z = bwave.cartesian_spins(sim['a1'], sim['th1L'])
     spin2z = bwave.cartesian_spins(sim['a2'], sim['th2L'])
+
+    if np.isnan(sim['th1L']): theta1L[s]=0.0
+    else: theta1L[s]=sim['th1L']
+
+    if np.isnan(sim['th2L']): theta2L[s]=0.0
+    else: theta2L[s]=sim['th2L']
+
+    if np.isnan(sim['thSL']): theta1L[s]=0.0
+    else: thetaSL[s]=sim['thSL']
+
 
     for n in xrange(nsamples):
 
@@ -152,17 +163,68 @@ for s, sim in enumerate(simulations.simulations):
                 / lal.MTSUN_SI
         chis[s, n] = spawaveform.computechi(mass1, mass2, spin1z, spin2z)
 
-        print mass1, mass2, spin1z, spin2z, chis[s,n]
-
 median_mchirps = np.median(chirp_masses, axis=1)
 std_mchirps = np.std(chirp_masses, axis=1)
 
 median_chis = np.median(chis, axis=1)
 std_chis = np.std(chis, axis=1)
 
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # SCATTER PLOTS
 
+# --- Mass vs thSL Scatter plot
+f, ax = pl.subplots()
+
+err = ax.errorbar(median_total_masses, thetaSL, xerr=std_total_masses, color='k',
+        linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
+
+scat = ax.scatter(median_total_masses, thetaSL, c=median_matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.90,.95)
+
+##ax.legend(loc='middle left')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
+#        mass_ratios[median_matches>0.5][-1]+0.1)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Total Mass [M$_{\odot}$]')
+ax.set_ylabel(r'$\theta_{\mathrm{S,L}}$ ($\hat{S}_{\mathrm{tot}} . \hat{L}$) [deg]')
+
+f.tight_layout()
+
+f.savefig("BW_%s_totalmass-thetaSL.png"%ifo_label)
+
+# --- theta1 vs theta2 Scatter plot
+f, ax = pl.subplots()
+
+scat = ax.scatter(theta1L, theta2L, c=median_matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.9,0.95)
+
+##ax.legend(loc='upper left')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
+#        mass_ratios[median_matches>0.5][-1]+0.1)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel(r'$\theta_1$, $\hat{s}_1.\hat{L}$ [deg]')
+ax.set_ylabel(r'$\theta_2$, $\hat{s}_2.\hat{L}$ [deg]')
+
+f.tight_layout()
+
+f.savefig("BW_%s_theta1-theta2.png"%ifo_label)
 
 # --- Mass vs Mass-ratio Scatter plot
 f, ax = pl.subplots()
@@ -173,9 +235,9 @@ err = ax.errorbar(mass_ratios, median_total_masses, std_total_masses, color='k',
 scat = ax.scatter(mass_ratios, median_total_masses, c=median_matches, s=50,
         label='Median', zorder=1)
 
-scat.set_clim(0.8,1)
+scat.set_clim(0.9,0.95)
 
-ax.legend(loc='upper left')
+#ax.legend(loc='upper left')
 
 ax.minorticks_on()
 #ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
@@ -201,9 +263,9 @@ err = ax.errorbar(mass_ratios, median_mchirps, std_mchirps, color='k',
 scat = ax.scatter(mass_ratios, median_mchirps, c=median_matches, s=50,
         label='Median', zorder=1)
 
-scat.set_clim(0.8,1)
+scat.set_clim(0.9,0.95)
 
-ax.legend(loc='upper right')
+#ax.legend(loc='upper right')
 
 ax.minorticks_on()
 #ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
@@ -230,9 +292,9 @@ err = ax.errorbar(mass_ratios, median_chis, std_chis, color='k',
 scat = ax.scatter(mass_ratios, median_chis, c=median_matches, s=50,
         label='Median', zorder=1)
 
-scat.set_clim(0.8,1)
+scat.set_clim(0.9,0.95)
 
-ax.legend(loc='upper left')
+#ax.legend(loc='upper left')
 
 ax.minorticks_on()
 #ax.set_xlim(mass_ratios[median_matches>0.5][0]-0.1,
@@ -258,9 +320,9 @@ err = ax.errorbar(median_total_masses, median_chis, xerr=std_total_masses,
 scat = ax.scatter(median_total_masses, median_chis, c=median_matches, s=50,
         label='Median', zorder=1)
 
-scat.set_clim(0.8,1)
+scat.set_clim(0.9,0.95)
 
-ax.legend(loc='upper left')
+#ax.legend(loc='upper left')
 
 ax.minorticks_on()
 
@@ -290,9 +352,9 @@ scat = ax.scatter(median_mchirps, median_chis, c=median_matches, s=50,
         zorder=1)
         #label='Median', zorder=1)
 
-scat.set_clim(0.8,1)
+scat.set_clim(0.9,0.95)
 
-ax.legend(loc='upper left')
+#ax.legend(loc='upper left')
 
 ax.minorticks_on()
 
@@ -321,9 +383,9 @@ err = ax.errorbar(median_mchirps, median_total_masses, xerr=std_mchirps,
 scat = ax.scatter(median_mchirps, median_total_masses, c=median_matches, s=50,
         label='Median', zorder=1)
 
-scat.set_clim(0.8,1)
+scat.set_clim(0.9,0.95)
 
-ax.legend(loc='upper right')
+#ax.legend(loc='upper right')
 
 ax.minorticks_on()
 #ax.set_xlim(27,34)
@@ -340,7 +402,8 @@ f.tight_layout()
 f.savefig("BW_%s_chirpmass-totalmass.png"%ifo_label)
 
 
-#sys.exit()
+pl.show()
+sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BOX PLOTS
 
@@ -359,7 +422,7 @@ if sum(mean_matches==0):
     axmatchbox.set_ylim((len(mean_matches) -
         np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
 
-    axmatchbox.set_xlim(0.8,1)
+    axmatchbox.set_xlim(0.9,0.95)
 
 ylabels=make_labels(np.array(simulations.simulations)[match_sort])
 axmatchbox.set_yticklabels(ylabels)#, rotation=90)
