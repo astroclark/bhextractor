@@ -168,7 +168,7 @@ l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "cwb/l1_asd.dat"))
 #h1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
 #l1_cwb_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
 
-#sys.exit()
+sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
 

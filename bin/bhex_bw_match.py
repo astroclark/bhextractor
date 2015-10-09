@@ -112,7 +112,7 @@ deltaT = 1./1024
 datalen= 4.0
 f_min = 30.0
 
-nsampls=999
+nsampls=99
 
 # --- Event config
 # Initial guess at the mass
@@ -185,17 +185,24 @@ else:
 
 
 # PSD estimates
+# --- The event
+
 #h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO0_asd.dat"))
 #l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/IFO1_asd.dat"))
+
+# --- Software injection
 #h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO0_asd.dat"))
 #l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO1_asd.dat"))
+
+# --- Hardware injection
 h1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO0_asd.dat"))
 l1_bw_asd_data = np.loadtxt(os.path.join(event_file_dir, "bw/job_45906/IFO1_asd.dat"))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
 
-init_total_mass = 100   # Generate a catagg
+init_total_mass = 100   # Generate a catalogue at this mass; shouldn't matter,
+                        # we rescale anyway
 distance=1. # Mpc
 
 #

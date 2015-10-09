@@ -28,6 +28,8 @@ import sys, os
 from bhex_utils import bhex_wavedata as bwave
 import pycbc.types
 import numpy as np
+import lal
+from pylal import spawaveform
 import timeit
 from matplotlib import pyplot as pl
 import triangle
@@ -67,13 +69,15 @@ def make_labels(simulations):
 min_chirp_mass = 27.0
 max_chirp_mass = 34.0
 
+
 #
 # --- Catalogue Definition
 #
 match_file = sys.argv[1]
 match_results = np.load(match_file)
-matches = match_results['matches']
-total_masses = match_results['total_masses']
+ifo_label = "L1"
+matches = match_results['l1_matches']
+total_masses = match_results['l1_masses']
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -98,11 +102,41 @@ print ''
 then = timeit.time.time()
 simulations = bwave.simulation_details(param_bounds=bounds)
 
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Manipulation and derived FOMs
+#
+
+# Remove zero-match waveforms:
+
+nonzero_match = matches>0
+matches = matches[nonzero_match]
+total_masses = total_masses[nonzero_match]
+
+# XXX: bit hacky..
+simulations.simulations = np.array(simulations.simulations)[nonzero_match]
+simulations.nsimulations = len(simulations.simulations)
+
+mass_ratios = np.zeros(simulations.nsimulations)
+chis = np.zeros(shape=(simulations.nsimulations))
+mchirps = np.zeros(shape=(simulations.nsimulations))
+
+for s, sim in enumerate(simulations.simulations):
+
+    mass_ratios[s] = sim['q']
+
+    spin1z = bwave.cartesian_spins(sim['a1'], sim['th1L'])
+    spin2z = bwave.cartesian_spins(sim['a2'], sim['th2L'])
+
+    mass1, mass2 = bwave.component_masses(total_masses[s], mass_ratios[s])
+
+    mchirps[s] = spawaveform.chirpmass(mass1, mass2) \
+            / lal.MTSUN_SI
+    chis[s] = spawaveform.computechi(mass1, mass2, spin1z, spin2z)
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Manipulation
-h1_match_sort = np.argsort(matches)
-l1_match_sort = np.argsort(l1_matches)
+match_sort = np.argsort(matches)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # SCATTER PLOTS
@@ -111,8 +145,7 @@ l1_match_sort = np.argsort(l1_matches)
 # --- Mass vs Mass-ratio Scatter plot
 f, ax = pl.subplots()
 
-scat = ax.scatter(mass_ratios, total_masses, c=matches, s=50,
-        label='Median', zorder=1)
+scat = ax.scatter(mass_ratios, total_masses, c=matches, s=50, zorder=1)
 
 scat.set_clim(0.8,1)
 
@@ -136,8 +169,7 @@ f.savefig("CWB_%s_massratio-totalmass.png"%ifo_label)
 # --- Chirp Mass vs Mass-ratio Scatter plot
 f, ax = pl.subplots()
 
-scat = ax.scatter(mass_ratios, mchirps, c=matches, s=50,
-        label='Median', zorder=1)
+scat = ax.scatter(mass_ratios, mchirps, c=matches, s=50)
 
 scat.set_clim(0.8,1)
 
@@ -162,8 +194,7 @@ f.savefig("CWB_%s_massratio-chirpmass.png"%ifo_label)
 # --- Chi vs Mass-ratio Scatter plot
 f, ax = pl.subplots()
 
-scat = ax.scatter(mass_ratios, chis, c=matches, s=50,
-        label='Median', zorder=1)
+scat = ax.scatter(mass_ratios, chis, c=matches, s=50)
 
 scat.set_clim(0.8,1)
 
@@ -187,8 +218,7 @@ f.savefig("CWB_%s_massratio-chi.png"%ifo_label)
 # --- Chi vs Mass Scatter plot
 f, ax = pl.subplots()
 
-scat = ax.scatter(total_masses, chis, c=matches, s=50,
-        label='Median', zorder=1)
+scat = ax.scatter(total_masses, chis, c=matches, s=50)
 
 scat.set_clim(0.8,1)
 
@@ -215,8 +245,7 @@ f.savefig("CWB_%s_totalmass-chi.png"%ifo_label)
 # --- Chi vs Chirp Mass Scatter plot
 f, ax = pl.subplots()
 
-scat = ax.scatter(mchirps, chis, c=matches, s=50,
-        label='Median', zorder=1)
+scat = ax.scatter(mchirps, chis, c=matches, s=50)
 
 scat.set_clim(0.8,1)
 
@@ -243,8 +272,7 @@ f.savefig("CWB_%s_chirpmass-chi.png"%ifo_label)
 # --- Mass vs Chirp Scatter plot
 f, ax = pl.subplots()
 
-scat = ax.scatter(mchirps, total_masses, c=matches, s=50,
-        label='Median', zorder=1)
+scat = ax.scatter(mchirps, total_masses, c=matches, s=50)
 
 scat.set_clim(0.8,1)
 
@@ -264,29 +292,37 @@ f.tight_layout()
 
 f.savefig("CWB_%s_chirpmass-totalmass.png"%ifo_label)
 
-pl.show()
-sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BoxPlots
+pl.rcParams.update({'axes.labelsize': 12})
+pl.rcParams.update({'xtick.labelsize':12})
+pl.rcParams.update({'ytick.labelsize':12})
+pl.rcParams.update({'legend.fontsize':12})
+
+
+if ifo_label=="H1":
+    markcol = 'r'
+elif  ifo_label=="L1":
+    markcol = 'g'
 
 fmatchplot, axmatchplot = pl.subplots(figsize=(12,8))
-h1_match_plot = axmatchplot.plot(matches[h1_match_sort],
-        range(1,len(matches)+1), 'rs', label='H1 response')
+match_plot = axmatchplot.plot(matches[match_sort],
+        range(1,len(matches)+1), color=markcol, marker='s',
+        label='%s response'%ifo_label, linestyle='none')
 axmatchplot.set_xlabel('Mass-optimised Match')
 axmatchplot.set_ylabel('Waveform Parameters')
 axmatchplot.grid(linestyle='-', color='grey')
 axmatchplot.minorticks_on()
 
-axmatchplot.set_yticks(range(1,len(matches)+1))
+ticklocs=np.arange(1,len(matches)+1)
+ylim_min=ticklocs[matches[match_sort]>0.85][0]
+axmatchplot.set_yticks(ticklocs)
 
-if sum(matches==0):
-    axmatchplot.set_ylim((len(matches) -
-        np.where(matches==0)[0])[0]+0.5,len(matches)+0.5)
-
-#    axmatchplot.set_xlim(0.8,1)
-
-ylabels=make_labels(np.array(simulations.simulations)[h1_match_sort])
+ylabels=make_labels(np.array(simulations.simulations)[match_sort])
 axmatchplot.set_yticklabels(ylabels)#, rotation=90)
+
+axmatchplot.set_ylim(ylim_min, ticklocs[-1])
+axmatchplot.set_xlim(0.85,0.92)
 
 fmatchplot.tight_layout()
 

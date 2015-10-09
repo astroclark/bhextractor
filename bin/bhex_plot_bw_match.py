@@ -134,6 +134,8 @@ mass_ratios = np.zeros(simulations.nsimulations)
 chis = np.zeros(shape=(simulations.nsimulations, nsamples))
 chirp_masses = np.zeros(shape=(simulations.nsimulations, nsamples))
 
+m1 = np.zeros(shape=(simulations.nsimulations, nsamples))
+m2 = np.zeros(shape=(simulations.nsimulations, nsamples))
 
 for s, sim in enumerate(simulations.simulations):
 
@@ -150,13 +152,14 @@ for s, sim in enumerate(simulations.simulations):
                 / lal.MTSUN_SI
         chis[s, n] = spawaveform.computechi(mass1, mass2, spin1z, spin2z)
 
+        print mass1, mass2, spin1z, spin2z, chis[s,n]
+
 median_mchirps = np.median(chirp_masses, axis=1)
 std_mchirps = np.std(chirp_masses, axis=1)
 
 median_chis = np.median(chis, axis=1)
 std_chis = np.std(chis, axis=1)
 
-#sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # SCATTER PLOTS
 
