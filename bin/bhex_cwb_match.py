@@ -107,8 +107,8 @@ def mtot_from_mchirp(mc, q):
 
 def extract_wave(inwave, datalen=4.0, sample_rate = 2048):
 
-    extract_len = 0.75
-    peakidx = np.argmax(inwave) - 250
+    extract_len = 0.5
+    peakidx = np.argmax(inwave) - 200
     nsamp = extract_len * sample_rate
 
     extracted = inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]

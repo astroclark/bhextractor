@@ -72,10 +72,8 @@ max_chirp_mass = 34.0
 #
 match_file = sys.argv[1]
 match_results = np.load(match_file)
-h1_matches = match_results['h1_matches']
-h1_masses = match_results['h1_masses']
-l1_matches = match_results['l1_matches']
-l1_masses = match_results['l1_masses']
+matches = match_results['matches']
+total_masses = match_results['total_masses']
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -103,30 +101,187 @@ simulations = bwave.simulation_details(param_bounds=bounds)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Manipulation
-h1_match_sort = np.argsort(h1_matches)
+h1_match_sort = np.argsort(matches)
 l1_match_sort = np.argsort(l1_matches)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# Plotting
+# SCATTER PLOTS
 
 
-#
-# --- H1
-#
+# --- Mass vs Mass-ratio Scatter plot
+f, ax = pl.subplots()
+
+scat = ax.scatter(mass_ratios, total_masses, c=matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[matches>0.5][0]-0.1,
+#        mass_ratios[matches>0.5][-1]+0.1)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Mass ratio (q=m$_1$/m$_2$)')
+ax.set_ylabel('Total Mass [M$_{\odot}$]')
+
+f.tight_layout()
+
+f.savefig("CWB_%s_massratio-totalmass.png"%ifo_label)
+
+# --- Chirp Mass vs Mass-ratio Scatter plot
+f, ax = pl.subplots()
+
+scat = ax.scatter(mass_ratios, mchirps, c=matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper right')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[matches>0.5][0]-0.1,
+#        mass_ratios[matches>0.5][-1]+0.1)
+ax.grid()
+#ax.set_ylim(27,34)
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Mass ratio (q=m$_1$/m$_2$)')
+ax.set_ylabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
+
+f.tight_layout()
+
+f.savefig("CWB_%s_massratio-chirpmass.png"%ifo_label)
+
+# --- Chi vs Mass-ratio Scatter plot
+f, ax = pl.subplots()
+
+scat = ax.scatter(mass_ratios, chis, c=matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+#ax.set_xlim(mass_ratios[matches>0.5][0]-0.1,
+#        mass_ratios[matches>0.5][-1]+0.1)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Mass ratio (q=m$_1$/m$_2$)')
+ax.set_ylabel('Effective Spin ($\chi$)')
+
+f.tight_layout()
+
+f.savefig("CWB_%s_massratio-chi.png"%ifo_label)
+
+# --- Chi vs Mass Scatter plot
+f, ax = pl.subplots()
+
+scat = ax.scatter(total_masses, chis, c=matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+
+idx=np.argwhere(matches>0.5)
+
+#ax.set_xlim(total_masses[idx[0]]-1, total_masses[idx[-1]]+1)
+#ax.set_ylim(chis[idx[0]], chis[idx[-1]])
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('Total Mass [M$_{\odot}$]')
+ax.set_ylabel('Effective Spin ($\chi$)')
+
+f.tight_layout()
+
+f.savefig("CWB_%s_totalmass-chi.png"%ifo_label)
+
+# --- Chi vs Chirp Mass Scatter plot
+f, ax = pl.subplots()
+
+scat = ax.scatter(mchirps, chis, c=matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper left')
+
+ax.minorticks_on()
+
+idx=np.argwhere(matches>0.5)
+
+#ax.set_xlim(27,34)
+#ax.set_ylim(chis[idx[0]], chis[idx[-1]])
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_ylabel('Effective Spin ($\chi$)')
+ax.set_xlabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
+
+f.tight_layout()
+
+f.savefig("CWB_%s_chirpmass-chi.png"%ifo_label)
+
+# --- Mass vs Chirp Scatter plot
+f, ax = pl.subplots()
+
+scat = ax.scatter(mchirps, total_masses, c=matches, s=50,
+        label='Median', zorder=1)
+
+scat.set_clim(0.8,1)
+
+ax.legend(loc='upper right')
+
+ax.minorticks_on()
+#ax.set_xlim(27,34)
+ax.grid()
+
+colbar = f.colorbar(scat) 
+colbar.set_label('FF')
+
+ax.set_xlabel('$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
+ax.set_ylabel('Total Mass [M$_{\odot}$]')
+
+f.tight_layout()
+
+f.savefig("CWB_%s_chirpmass-totalmass.png"%ifo_label)
+
+pl.show()
+sys.exit()
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# BoxPlots
 
 fmatchplot, axmatchplot = pl.subplots(figsize=(12,8))
-h1_match_plot = axmatchplot.plot(h1_matches[h1_match_sort],
-        range(1,len(h1_matches)+1), 'rs', label='H1 response')
+h1_match_plot = axmatchplot.plot(matches[h1_match_sort],
+        range(1,len(matches)+1), 'rs', label='H1 response')
 axmatchplot.set_xlabel('Mass-optimised Match')
 axmatchplot.set_ylabel('Waveform Parameters')
 axmatchplot.grid(linestyle='-', color='grey')
 axmatchplot.minorticks_on()
 
-axmatchplot.set_yticks(range(1,len(h1_matches)+1))
+axmatchplot.set_yticks(range(1,len(matches)+1))
 
-if sum(h1_matches==0):
-    axmatchplot.set_ylim((len(h1_matches) -
-        np.where(h1_matches==0)[0])[0]+0.5,len(h1_matches)+0.5)
+if sum(matches==0):
+    axmatchplot.set_ylim((len(matches) -
+        np.where(matches==0)[0])[0]+0.5,len(matches)+0.5)
 
 #    axmatchplot.set_xlim(0.8,1)
 
@@ -135,50 +290,5 @@ axmatchplot.set_yticklabels(ylabels)#, rotation=90)
 
 fmatchplot.tight_layout()
 
-
-
-#
-# --- L1
-#
-fmatchplot, axmatchplot = pl.subplots(figsize=(12,8))
-l1_match_plot = axmatchplot.plot(l1_matches[l1_match_sort],
-        range(1,len(l1_matches)+1), 'go', label='L1 response')
-axmatchplot.set_xlabel('Mass-optimised Match')
-axmatchplot.set_ylabel('Waveform Parameters')
-axmatchplot.grid(linestyle='-', color='grey')
-axmatchplot.minorticks_on()
-
-axmatchplot.set_yticks(range(1,len(l1_matches)+1))
-
-if sum(l1_matches==0):
-    axmatchplot.set_ylim((len(l1_matches) -
-        np.where(l1_matches==0)[0])[0]+0.5,len(l1_matches)+0.5)
-
-#    axmatchplot.set_xlim(0.8,1)
-
-ylabels=make_labels(np.array(simulations.simulations)[l1_match_sort])
-axmatchplot.set_yticklabels(ylabels)#, rotation=90)
-
-fmatchplot.tight_layout()
-
-
-
-fmatchmax, axmatchmass = pl.subplots(nrows=2, sharex=True)
-axmatchmass[0].plot(h1_masses, h1_matches, 'rs', label='H1')
-#axmatchmass[0].set_ylim(0.8, 0.95)
-axmatchmass[0].legend()
-axmatchmass[0].minorticks_on()
-axmatchmass[1].plot(l1_masses, l1_matches, 'go', label='L1')
-#axmatchmass[1].set_ylim(0.8, 0.95)
-axmatchmass[1].legend()
-axmatchmass[1].set_xlabel('Total Mass [M$_{\odot}$]')
-axmatchmass[1].minorticks_on()
-axmatchmass[0].set_ylabel('Match')
-axmatchmass[1].set_ylabel('Match')
-pl.subplots_adjust(hspace=0)
-
-
 pl.show()
-sys.exit()
-
 
