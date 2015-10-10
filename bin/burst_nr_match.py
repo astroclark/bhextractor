@@ -65,7 +65,7 @@ asd_data = np.loadtxt(config.spectral_estimate)
 # compute matches (useful for speed / development work)
 if config.algorithm=='BW':
     print 'reducing sample size'
-    idx = np.random.random_integers(low=0, high=len(reconstruction_data),
+    idx = np.random.random_integers(low=0, high=len(reconstruction_data)-1,
             size=config.nsampls)
     reconstruction_data = reconstruction_data[idx]
 elif config.algorith=='CWB':
