@@ -111,6 +111,39 @@ def scatter_plot(param1, param2, matches, param1err=None, param2err=None,
 
     return f, ax
 
+def matchboxes(matches, simulations):
+    """
+    Build a (hideous) box plot to show individual waveform match results from
+    BayesWave.  Since we're optimising over mass, this is fitting-factor.
+    """
+
+    # Find the sorting to present highest matches first.  Sort on median of the
+    # match distribution
+    match_sort = np.argsort(np.median(matches, axis=1))
+
+    # --- Match vs Waveform boxes
+    f, ax = pl.subplots(figsize=(12,8))
+    match_box = ax.boxplot(matches[match_sort].T, whis='range', showcaps=True,
+            showmeans=True, showfliers=False,
+            vert=False)
+    ax.set_xlabel('Fitting Factor')
+    ax.set_ylabel('Waveform Parameters')
+    ax.grid(linestyle='-', color='grey')
+    ax.minorticks_on()
+
+    ax.set_ylim(len(mean_matches)-25.5, len(mean_matches)+0.5)
+
+    ax.set_xlim(0.85,1.0)
+
+    ylabels=make_labels(np.array(simulations.simulations)[match_sort])
+    ax.set_yticklabels(ylabels)#, rotation=90)
+
+    f.tight_layout()
+
+    return f, ax
+
+
+
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Parse Input
@@ -148,7 +181,6 @@ simulations.nsimulations = len(simulations.simulations)
 mean_matches = np.mean(matches, axis=1)
 
 median_matches = np.median(matches, axis=1)
-match_sort = np.argsort(median_matches)
 
 median_masses = np.median(masses, axis=1)
 std_masses = np.std(masses, axis=1)
@@ -202,6 +234,7 @@ f, ax = scatter_plot(param1=median_masses, param2=thetaSL,
         label1='Total Mass [M$_{\odot}$]',
         label2=r'$\theta_{\mathrm{S,L}}$ ($\hat{S}_{\mathrm{tot}} . \hat{L}$) [deg]')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_totalmass-thetaSL.png"%user_tag)
 
 
@@ -211,6 +244,7 @@ f, ax = scatter_plot(param1=theta1L, param2=theta2L,
         label1=r'$\theta_1$, $\hat{s}_1.\hat{L}$ [deg]',
         label2=r'$\theta_2$, $\hat{s}_2.\hat{L}$ [deg]')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_theta1-theta2.png"%user_tag)
 
 
@@ -220,6 +254,7 @@ f, ax = scatter_plot(param1=mass_ratios, param2=median_masses,
         label1='Mass ratio (q=m$_1$/m$_2$)',
         label2='Total Mass [M$_{\odot}$]')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_massratio-totalmass.png"%user_tag)
 
 # --- Mass-ratio vs Chirp MassScatter plot
@@ -228,6 +263,7 @@ f, ax = scatter_plot(param1=mass_ratios, param2=median_chirp_masses,
         label1='Mass ratio (q=m$_1$/m$_2$)',
         label2='$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_massratio-chirpmass.png"%user_tag)
 
 
@@ -237,6 +273,7 @@ f, ax = scatter_plot(param1=mass_ratios, param2=median_chis,
         label1='Mass ratio (q=m$_1$/m$_2$)',
         label2='Effective Spin ($\chi$)')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_massratio-chi.png"%user_tag)
 
 
@@ -246,6 +283,7 @@ f, ax = scatter_plot(param1=median_masses, param2=median_chis,
         label1='Total Mass [M$_{\odot}$]',
         label2='Effective Spin ($\chi$)')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_totalmass-chi.png"%user_tag)
 
 # --- Chirp Mass vs Chi Scatter plot
@@ -254,6 +292,7 @@ f, ax = scatter_plot(param1=median_chirp_masses, param2=median_chis,
         label1='$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]',
         label2='Effective Spin ($\chi$)')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_chirpmass-chi.png"%user_tag)
 
 
@@ -263,67 +302,27 @@ f, ax = scatter_plot(param1=median_chirp_masses, param2=median_masses,
         label1='$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]',
         label2='Total Mass [M$_{\odot}$]')
 ax.set_title(user_tag)
+f.tight_layout()
 f.savefig("%s_totalmass-chirpmass.png"%user_tag)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BOX PLOTS
 
-
-# --- Match vs Waveform boxes
-fmatchbox, axmatchbox = pl.subplots(figsize=(12,8))
-match_box = axmatchbox.boxplot(matches[match_sort].T, whis='range', showcaps=True,
-        showmeans=True, showfliers=False,
-        vert=False)
-axmatchbox.set_xlabel('Mass-optimised Match')
-axmatchbox.set_ylabel('Waveform Parameters')
-axmatchbox.grid(linestyle='-', color='grey')
-axmatchbox.minorticks_on()
-
-if sum(mean_matches==0):
-    axmatchbox.set_ylim((len(mean_matches) -
-        np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
-
-    axmatchbox.set_xlim(0.9,0.95)
-
-ylabels=make_labels(np.array(simulations.simulations)[match_sort])
-axmatchbox.set_yticklabels(ylabels)#, rotation=90)
-
-fmatchbox.tight_layout()
-
-
-# --- Mass vs Waveform
-#   fmassbox, axmassbox = pl.subplots(figsize=(12,8))
-#   mass_box = axmassbox.boxplot(masses[match_sort].T, whis='range', showcaps=True,
-#           showmeans=True, showfliers=False,
-#           vert=False)
-#   axmassbox.set_xlabel('Match-optimised mass')
-#   axmassbox.set_ylabel('Waveform Parameters')
-#   axmassbox.grid(linestyle='-', color='grey')
-#   axmassbox.minorticks_on()
-#
-#   if sum(mean_matches==0):
-#       axmassbox.set_ylim((len(mean_matches) -
-#           np.where(mean_matches==0)[0])[0]+0.5,len(mean_matches)+0.5)
-#
-#   ylabels=make_labels(np.array(simulations.simulations)[match_sort])
-#   axmassbox.set_yticklabels(ylabels)#, rotation=90)
-#
-#   fmassbox.tight_layout()
-
-#
-# Summary of best waveform
-#
-
-# 1- and 2-D Histograms of mass, match (do with a triangle plot) for the
-# waveform with the highest median match
-
-samples = np.array([matches[match_sort[-1],:], masses[match_sort[-1],:]]).T
-trifig = triangle.corner(samples, quantiles=[0.25, 0.50, 0.75], labels=['Match', 
-    'M$_{\mathrm{tot}}$ [M$_{\odot}$]'], plot_contours=True,
-    plot_datapoints=True)
-title = make_labels([simulations.simulations[match_sort[-1]]])
-trifig.suptitle(title[0], fontsize=16)
-trifig.subplots_adjust(top=0.9)
+f, ax = matchboxes(matches, simulations)
+ax.set_title('Top 25 ranked waveforms (%s)'%user_tag)
+f.tight_layout()
+f.savefig("%s_matchranking.png"%user_tag)
 
 pl.show()
 
+#
+#   samples = np.array([matches[match_sort[-1],:], masses[match_sort[-1],:]]).T
+#   trifig = triangle.corner(samples, quantiles=[0.25, 0.50, 0.75], labels=['Match', 
+#       'M$_{\mathrm{tot}}$ [M$_{\odot}$]'], plot_contours=True,
+#       plot_datapoints=True)
+#   title = make_labels([simulations.simulations[match_sort[-1]]])
+#   trifig.suptitle(title[0], fontsize=16)
+#   trifig.subplots_adjust(top=0.9)
+#
+#   pl.show()
+#
