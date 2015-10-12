@@ -75,13 +75,6 @@ def make_labels(simulations):
 
     return labels
 
-__author__ = "James Clark <james.clark@ligo.org>"
-git_version_id = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
-__version__ = "git id %s" % git_version_id
-
-gpsnow = subprocess.check_output(['lalapps_tconvert', 'now']).strip()
-__date__ = subprocess.check_output(['lalapps_tconvert', gpsnow]).strip()
-
 def scatter_plot(param1, param2, matches, param1err=None, param2err=None,
         label1='x', label2='y'):
     """
@@ -135,13 +128,20 @@ def matchboxes(matches, simulations):
 
     ax.set_xlim(0.85,1.0)
 
-    ylabels=make_labels(np.array(simulations.simulations)[match_sort])
+    ylabels=make_labels(np.array(simulations)[match_sort])
     ax.set_yticklabels(ylabels)#, rotation=90)
 
     f.tight_layout()
 
     return f, ax
 
+
+__author__ = "James Clark <james.clark@ligo.org>"
+git_version_id = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
+__version__ = "git id %s" % git_version_id
+
+gpsnow = subprocess.check_output(['lalapps_tconvert', 'now']).strip()
+__date__ = subprocess.check_output(['lalapps_tconvert', gpsnow]).strip()
 
 
 
@@ -173,8 +173,8 @@ matches = matches[nonzero_match]
 masses = masses[nonzero_match]
 
 # XXX: bit hacky..
-simulations.simulations = np.array(simulations.simulations)[nonzero_match]
-simulations.nsimulations = len(simulations.simulations)
+simulations_goodmatch = np.array(simulations.simulations)[nonzero_match]
+nsimulations_goodmatch = len(simulations_goodmatch)
 
 
 # Continue
@@ -185,15 +185,15 @@ median_matches = np.median(matches, axis=1)
 median_masses = np.median(masses, axis=1)
 std_masses = np.std(masses, axis=1)
 
-mass_ratios = np.zeros(simulations.nsimulations)
-chis = np.zeros(shape=(simulations.nsimulations, config.nsampls))
-chirp_masses = np.zeros(shape=(simulations.nsimulations, config.nsampls))
+mass_ratios = np.zeros(nsimulations_goodmatch)
+chis = np.zeros(shape=(nsimulations_goodmatch, config.nsampls))
+chirp_masses = np.zeros(shape=(nsimulations_goodmatch, config.nsampls))
 
-theta1L = np.zeros(simulations.nsimulations)
-theta2L = np.zeros(simulations.nsimulations)
-thetaSL = np.zeros(simulations.nsimulations)
+theta1L = np.zeros(nsimulations_goodmatch)
+theta2L = np.zeros(nsimulations_goodmatch)
+thetaSL = np.zeros(nsimulations_goodmatch)
 
-for s, sim in enumerate(simulations.simulations):
+for s, sim in enumerate(simulations_goodmatch):
 
     mass_ratios[s] = sim['q']
 
@@ -308,7 +308,7 @@ f.savefig("%s_totalmass-chirpmass.png"%user_tag)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BOX PLOTS
 
-f, ax = matchboxes(matches, simulations)
+f, ax = matchboxes(matches, simulations_goodmatch)
 ax.set_title('Top 25 ranked waveforms (%s)'%user_tag)
 f.tight_layout()
 f.savefig("%s_matchranking.png"%user_tag)
