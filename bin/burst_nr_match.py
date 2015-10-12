@@ -164,7 +164,7 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
         matches[w, s] = 1-result[1]
         masses[w, s] = result[0][0]
 
-        print >> sys.stdout,  "geo: Best matching mass [match]: %.2f [%.2f]"%(
+        print >> sys.stdout,  "Best matching mass [match]: %.2f [%.2f]"%(
                 masses[w,s], matches[w,s])
 
     bestidx=np.argmax(matches[w, :])

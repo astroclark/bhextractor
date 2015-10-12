@@ -81,12 +81,14 @@ def scatter_plot(param1, param2, matches, param1err=None, param2err=None,
     Make a scatter plot of param1 against param2, coloured by match value
     """
 
+    match_sort = np.argsort(matches)
+
     f, ax = pl.subplots()
 
     err = ax.errorbar(param1, param2, xerr=param1err, yerr=param2err, color='k',
             linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
 
-    scat = ax.scatter(param1, param2, c=matches, s=50, label='Median', zorder=1)
+    scat = ax.scatter(param1, param2, c=matches, s=75, alpha=0.5, label='Median', zorder=1)
 
     scat.set_clim(0.90,.95)
 
@@ -179,8 +181,8 @@ nsimulations_goodmatch = len(simulations_goodmatch)
 
 # Continue
 mean_matches = np.mean(matches, axis=1)
-
 median_matches = np.median(matches, axis=1)
+std_matches = np.std(matches, axis=1)
 
 median_masses = np.median(masses, axis=1)
 std_masses = np.std(masses, axis=1)
