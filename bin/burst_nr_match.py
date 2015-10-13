@@ -40,6 +40,51 @@ __version__ = "git id %s" % git_version_id
 gpsnow = subprocess.check_output(['lalapps_tconvert', 'now']).strip()
 __date__ = subprocess.check_output(['lalapps_tconvert', gpsnow]).strip()
 
+def parser():
+
+    # --- Command line input
+    parser = OptionParser()
+    parser.add_option("-t", "--user-tag", default="TEST", type=str)
+    parser.add_option("-o", "--output-dir", type=str, default=None)
+    parser.add_option("-a", "--algorithm", type=str, default=None)
+
+    (opts,args) = parser.parse_args()
+
+    if len(args)==0:
+        print >> sys.stderr, "ERROR: require config file"
+        sys.exit()
+
+    algorithms=["BW", "CWB"]
+    if opts.algorithm is not None and opts.algorithm not in algorithms:
+        print >> sys.stderr, "ERROR: algorithm %s not recognised"%opts.algorithm
+        print >> sys.stderr, "must be in ", algorithms
+        sys.exit(-1)
+
+
+    # --- Read config file
+    configparser = ConfigParser.ConfigParser()
+    configparser.read(args[0])
+
+    # --- Where did the reconstruction come from?
+    if opts.algorithm is not None:
+        # override from the commandline
+        configparser.set('analysis','algorithm',opts.algorithm)
+
+    # Check algorithm is defined (might have been in the ini file)
+    if configparser.has_option('analysis', 'algorithm'):
+        alg = configparser.get('analysis','algorithm')
+        if alg not in algorithms:
+            print >> sys.stderr, "ERROR: algorithm %s not recognised"%alg
+            print >> sys.stderr, "must be in ", algorithms
+            sys.exit(-1)
+    else:
+        print >> sys.stderr, "ERROR: algorithm not defined"
+        print >> sys.stderr, "must be in ", algorithms
+        print >> sys.stderr, "and defined in [analysis] of ini or with --algorithm"
+        sys.exit(-1)
+
+
+    return opts, args, configparser
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Parse input
