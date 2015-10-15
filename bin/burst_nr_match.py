@@ -113,10 +113,13 @@ if config.algorithm=='BW':
     idx = np.random.random_integers(low=0, high=len(reconstruction_data)-1,
             size=config.nsampls)
     reconstruction_data = reconstruction_data[idx]
-elif config.algorith=='CWB':
+elif config.algorithm=='CWB':
+    reconstruction_data = bnru.extract_wave(reconstruction_data, config.datalen,
+            config.sample_rate)
     # Make it iterable so that the BW/CWB codes can be consistent
     reconstruction_data = [reconstruction_data]
 
+sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
 
@@ -201,8 +204,8 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
         ifo_response=True
         result = scipy.optimize.fmin(bnru.mismatch, x0=config.mass_guess, args=(
             init_total_mass, [min_mass, max_mass], wave, sample, asd, config.deltaT,
-            catalogue.SI_deltaF, ifo_response), full_output=True,
-            retall=True, disp=False)
+            catalogue.SI_deltaF, ifo_response, config.f_min), full_output=True,
+            retall=True, disp=True)
         now = timeit.time.time()
         print >> sys.stdout,  "...mass optimisation took %.3f sec..."%(now-then)
 
