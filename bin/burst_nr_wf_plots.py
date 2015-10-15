@@ -30,7 +30,9 @@ import subprocess
 from optparse import OptionParser
 import cPickle as pickle
 import lal
+import pycbc.types
 from bhex_utils import bhex_wavedata as bwave
+import burst_nr_utils as bnru
 from pylal import spawaveform
 import numpy as np
 import timeit
@@ -80,77 +82,6 @@ def make_labels(simulations):
 
     return labels
 
-def scatter_plot(param1, param2, matches, param1err=None, param2err=None,
-        label1='x', label2='y'):
-    """
-    Make a scatter plot of param1 against param2, coloured by match value
-    """
-
-    match_sort = np.argsort(matches)
-
-    f, ax = pl.subplots()
-
-    err = ax.errorbar(param1, param2, xerr=param1err, yerr=param2err, color='k',
-            linestyle='None', label='1$\sigma$', ecolor='grey', zorder=-1)
-
-    cm = pl.cm.get_cmap('gnuplot')
-
-    # Here's a bunch of messing around to get the best matches plotted on top
-    scat_all = ax.scatter(param1[match_sort], param2[match_sort],
-        c=matches[match_sort], s=50, alpha=1, cmap=cm)
-
-            
-    for p in match_sort:
-        scat_indi = ax.scatter(param1[p], param2[p], c=matches[p], s=50,
-                alpha=1, label='Median', zorder=matches[p])
-
-    #scat_all.set_clim(opts.match_clim_low,opts.match_clim_upp)
-    scat_all.set_clim(opts.match_clim_low,max(matches))
-
-    colbar = f.colorbar(scat_all) 
-    colbar.set_label('FF')
-
-    ax.minorticks_on()
-
-    ax.grid()
-
-    ax.set_xlabel(label1)
-    ax.set_ylabel(label2)
-
-    f.tight_layout()
-
-    return f, ax
-
-def matchboxes(matches, simulations):
-    """
-    Build a (hideous) box plot to show individual waveform match results from
-    BayesWave.  Since we're optimising over mass, this is fitting-factor.
-    """
-
-    # Find the sorting to present highest matches first.  Sort on median of the
-    # match distribution
-    match_sort = np.argsort(np.median(matches, axis=1))
-
-    # --- Match vs Waveform boxes
-    f, ax = pl.subplots(figsize=(12,8))
-    match_box = ax.boxplot(matches[match_sort].T, whis='range', showcaps=True,
-            showmeans=True, showfliers=False,
-            vert=False)
-    ax.set_xlabel('Fitting Factor')
-    ax.set_ylabel('Waveform Parameters')
-    ax.grid(linestyle='-', color='grey')
-    ax.minorticks_on()
-
-    ax.set_ylim(len(mean_matches)-25.5, len(mean_matches)+0.5)
-
-    ax.set_xlim(0.8,1.0)
-
-    ylabels=make_labels(np.array(simulations)[match_sort])
-    ax.set_yticklabels(ylabels)#, rotation=90)
-
-    f.tight_layout()
-
-    return f, ax
 
 
 __author__ = "James Clark <james.clark@ligo.org>"
@@ -254,104 +185,159 @@ print "   * chirp mass: %f +/- %f"%(median_chirp_masses[matchsort][-1],
 print "   * eff spin: %f +/- %f"%(median_chis[matchsort][-1], std_chis[matchsort][-1])
 
 if opts.no_plot: sys.exit(0)
-# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# SCATTER PLOTS
-
-# --- Mass vs thSL Scatter plot
-f, ax = scatter_plot(param1=median_masses, param2=thetaSL,
-        matches=median_matches, param1err=std_masses, param2err=None, 
-        label1='Total Mass [M$_{\odot}$]',
-        label2=r'$\theta_{\mathrm{S,L}}$ ($\hat{S}_{\mathrm{tot}} . \hat{L}$) [deg]')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_totalmass-thetaSL.png"%user_tag)
-
-
-# --- theta1 vs theta2 Scatter plot
-f, ax = scatter_plot(param1=theta1L, param2=theta2L,
-        matches=median_matches, param1err=None, param2err=None, 
-        label1=r'$\theta_1$, $\hat{s}_1.\hat{L}$ [deg]',
-        label2=r'$\theta_2$, $\hat{s}_2.\hat{L}$ [deg]')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_theta1-theta2.png"%user_tag)
-
-
-# --- Mass-ratio vs MassScatter plot
-f, ax = scatter_plot(param1=mass_ratios, param2=median_masses,
-        matches=median_matches, param1err=None, param2err=std_masses, 
-        label1='Mass ratio (q=m$_1$/m$_2$)',
-        label2='Total Mass [M$_{\odot}$]')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_massratio-totalmass.png"%user_tag)
-
-# --- Mass-ratio vs Chirp MassScatter plot
-f, ax = scatter_plot(param1=mass_ratios, param2=median_chirp_masses,
-        matches=median_matches, param1err=None, param2err=std_chirp_masses,
-        label1='Mass ratio (q=m$_1$/m$_2$)',
-        label2='$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_massratio-chirpmass.png"%user_tag)
-
-
-# --- Mass-ratio vs Chi Scatter plot
-f, ax = scatter_plot(param1=mass_ratios, param2=median_chis,
-        matches=median_matches, param1err=None, param2err=std_chis,
-        label1='Mass ratio (q=m$_1$/m$_2$)',
-        label2='Effective Spin ($\chi$)')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_massratio-chi.png"%user_tag)
-
-
-# --- Mass vs Chi Scatter plot
-f, ax = scatter_plot(param1=median_masses, param2=median_chis,
-        matches=median_matches, param1err=std_masses, param2err=std_chis,
-        label1='Total Mass [M$_{\odot}$]',
-        label2='Effective Spin ($\chi$)')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_totalmass-chi.png"%user_tag)
-
-# --- Chirp Mass vs Chi Scatter plot
-f, ax = scatter_plot(param1=median_chirp_masses, param2=median_chis,
-        matches=median_matches, param1err=std_chirp_masses, param2err=std_chis,
-        label1='$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]',
-        label2='Effective Spin ($\chi$)')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_chirpmass-chi.png"%user_tag)
-
-
-# --- Chirp Mass vs Total Scatter plot
-f, ax = scatter_plot(param1=median_chirp_masses, param2=median_masses,
-        matches=median_matches, param1err=std_chirp_masses, param2err=std_masses,
-        label1='$\mathcal{M}_{\mathrm{chirp}}$ [M$_{\odot}$]',
-        label2='Total Mass [M$_{\odot}$]')
-ax.set_title(user_tag)
-f.tight_layout()
-f.savefig("%s_totalmass-chirpmass.png"%user_tag)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-# BOX PLOTS
+# Waveform Plots
 
-f, ax = matchboxes(matches, simulations_goodmatch)
-ax.set_title('Top 25 ranked waveforms (%s)'%user_tag)
-f.tight_layout()
-f.savefig("%s_matchranking.png"%user_tag)
+# --- Create a catalogue with the top ranked NR waveform
+# XXX: easily extensible to the top N waveforms
 
-#pl.show()
+best_sims = copy.deepcopy(simulations)
+best_sims.simulations = np.array(simulations.simulations)[matchsort][-1]
+best_sims.nsimulations = 1
+
+# XXX: Dial up the sample rate for nice smooth waveforms
+plot_sample_rate = 2048
+init_total_mass = 100.0
+catalogue = bwave.waveform_catalogue(best_sims, ref_mass=init_total_mass,
+        SI_deltaT=1./plot_sample_rate, SI_datalen=config.datalen, distance=1.0,
+        trunc_time=False)
+
+# Generate the median-mass waveform +/- 1 sigma
+wave = pycbc.types.TimeSeries(np.real(catalogue.SIComplexTimeSeries[0]),
+        delta_t=1./plot_sample_rate)
+
+# -- Retrieve the spectral estimate
+asd_data = np.loadtxt(config.spectral_estimate)
+freq_axis = wave.to_frequencyseries().sample_frequencies.data[:]
+asd = np.interp(freq_axis, asd_data[:,0], asd_data[:,1])
+
+# XXX
+#   from pycbc.psd import aLIGOZeroDetHighPower
+#   psd = aLIGOZeroDetHighPower(len(wave.to_frequencyseries()),
+#           wave.to_frequencyseries().delta_f,
+#           wave.to_frequencyseries().sample_frequencies.min()) 
+#   asd=np.sqrt(psd.data[:])
+#   asd[0] = 1e10
 
 #
-#   samples = np.array([matches[match_sort[-1],:], masses[match_sort[-1],:]]).T
-#   trifig = triangle.corner(samples, quantiles=[0.25, 0.50, 0.75], labels=['Match', 
-#       'M$_{\mathrm{tot}}$ [M$_{\odot}$]'], plot_contours=True,
-#       plot_datapoints=True)
-#   title = make_labels([simulations.simulations[match_sort[-1]]])
-#   trifig.suptitle(title[0], fontsize=16)
-#   trifig.subplots_adjust(top=0.9)
+# --- Scale the NR data to the median recovered mass
 #
-#   pl.show()
+amp, phase = bnru.scale_wave(wave, median_masses[matchsort[-1]], init_total_mass)
+median_waveform = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
+        delta_t=1./plot_sample_rate)
+
+# Whitening
+median_waveform_white = median_waveform.to_frequencyseries()
+median_waveform_white.data[:] /= asd
+median_waveform_white = median_waveform_white.to_timeseries()
+
+
+#
+# --- Scale the NR data to the median recovered mass minus 0.5*stdev
+#
+amp, phase = bnru.scale_wave(wave,
+        median_masses[matchsort[-1]]-std_masses[matchsort[-1]],
+        init_total_mass)
+low_bound_waveform = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
+        delta_t=1./plot_sample_rate)
+
+# Whitening
+low_bound_waveform_white = low_bound_waveform.to_frequencyseries()
+low_bound_waveform_white.data[:] /= asd
+low_bound_waveform_white = low_bound_waveform_white.to_timeseries()
+
+#
+# --- Scale the NR data to the median recovered mass plus 0.5*stdev
+#
+amp, phase = bnru.scale_wave(wave,
+        median_masses[matchsort[-1]]+std_masses[matchsort[-1]],
+        init_total_mass)
+upp_bound_waveform = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
+        delta_t=1./plot_sample_rate)
+
+# Whitening
+upp_bound_waveform_white = upp_bound_waveform.to_frequencyseries()
+upp_bound_waveform_white.data[:] /= asd
+upp_bound_waveform_white = upp_bound_waveform_white.to_timeseries()
+
+# ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Plotting & Conditioning
+
+import pycbc.filter
+medwfhp = pycbc.filter.highpass(median_waveform_white, 16, filter_order=8,
+        attenuation=0.1)
+
+from scipy import signal
+b, a = signal.butter(12, 256./(0.5*plot_sample_rate))
+medlp = signal.filtfilt(b, a, median_waveform_white.data[:])
+medwflp = pycbc.types.TimeSeries(medlp, delta_t = 1./plot_sample_rate)
+
+from matplotlib import pyplot as pl
+
+pl.figure()
+pl.semilogy(median_waveform_white.to_frequencyseries().sample_frequencies,
+        abs(median_waveform_white.to_frequencyseries()))
+pl.title('abs[FFT] for whitened, IFFTd waveform')
+pl.xlim(0, 512)
+
+
+pl.figure()
+pl.plot(median_waveform_white.sample_times-median_waveform_white.sample_times[np.argmax(median_waveform_white)],
+        median_waveform_white, label='IFFT', color='r')
+
+#pl.plot(median_waveform_white.sample_times-median_waveform_white.sample_times[np.argmax(median_waveform_white)],
+#        medwflp, label='IFFT', color='g')
+
+pl.fill_between(median_waveform_white.sample_times-median_waveform_white.sample_times[np.argmax(median_waveform_white)],
+        y1=low_bound_waveform_white, y2=upp_bound_waveform_white, alpha=0.5)
+
+#pl.plot(medwfhp.sample_times-medwfhp.sample_times[np.argmax(medwfhp)],
+#        medwfhp, label='highpassed IFFT')
+
+#pl.plot(medwflp.sample_times-medwflp.sample_times[np.argmax(medwflp)],
+#        medwflp, label='lowpassed IFFT')
+
+#pl.legend(loc='upper left')
+
+pl.xlim(-0.2,0.1)
+pl.title('IFFT of whitened waveform')
+
+
+filename=args[0].replace('.pickle', '_NRwave.txt')
+outfile = open(filename, 'w')
+outfile.writelines('# time_sample median-stdev median median+stdev\n')
+for t in xrange(len(median_waveform)):
+    outfile.writelines('%f %e %e %e\n'%(
+        median_waveform.sample_times[t], low_bound_waveform.data[t],
+        median_waveform.data[t], upp_bound_waveform.data[t]))
+outfile.close()
+
+filename=args[0].replace('.pickle', '_NRwaveWhite.txt')
+outfile = open(filename, 'w')
+outfile.writelines('# time_sample median-stdev median median+stdev\n')
+for t in xrange(len(median_waveform)):
+    outfile.writelines('%f %e %e %e\n'%(
+        median_waveform.sample_times[t], low_bound_waveform_white.data[t],
+        median_waveform_white.data[t], upp_bound_waveform_white.data[t]))
+outfile.close()
+
+
+# Code below will scale the NR waveform to all masses:
+
+# --- Now create the array of waveforms scaled to the best-fit (smallest
+# mismatch) total mass for each waveform sample
+#   best_fit_waveforms = np.zeros(shape=(config.nsampls, int(config.datalen *
+#       plot_sample_rate)))
+#
+#   for m, mass_scale in enumerate(masses[matchsort][-1]):
+#       print '%d of %d'%(m,len(masses[matchsort][-1])) 
+#
+#       wave = pycbc.types.TimeSeries(np.real(catalogue.SIComplexTimeSeries[0]),
+#               delta_t=1./plot_sample_rate)
+#
+#       amp, phase = bnru.scale_wave(wave, mass_scale, init_total_mass)
+#
+#       best_fit_waveforms[m, :] = np.real(amp*np.exp(1j*phase))
+#
 #
