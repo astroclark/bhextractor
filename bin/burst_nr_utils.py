@@ -61,6 +61,23 @@ def scale_wave(wave, target_total_mass, init_total_mass):
  
     return resamp_amp, resamp_phase
 
+def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
+    extract_len = 0.5 # retain this many seconds of reconstruction
+    delta = 0.15 # center the retained data on the peak of the waveform minus
+                 # this many seconds
+    peakidx = np.argmax(abs(inwave)) - delta*sample_rate
+    nsamp = extract_len * sample_rate
+
+    extracted = inwave[int(peakidx-0.5*nsamp): int(peakidx+0.5*nsamp)]
+
+    win = lal.CreateTukeyREAL8Window(len(extracted), 0.1)
+    extracted *= win.data.data
+
+    output = np.zeros(datalen*sample_rate)
+    output[0.5*datalen*sample_rate-0.5*nsamp:
+            0.5*datalen*sample_rate+0.5*nsamp] = np.copy(extracted)
+
+    return output
 
 def mismatch(target_total_mass, init_total_mass, mass_bounds, tmplt_wave_data,
         event_wave_data, asd=None, delta_t=1./512, delta_f=0.25,
