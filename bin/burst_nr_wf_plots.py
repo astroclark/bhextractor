@@ -55,6 +55,7 @@ def parser():
     parser.add_option("-u", "--match-clim-upp", type=float, default=0.95)
     parser.add_option("-l", "--match-clim-low", type=float, default=0.90)
     parser.add_option("-L", "--no-plot", action="store_true", default=False)
+    parser.add_option("-a", "--asd-data", type=str)
 
     (opts,args) = parser.parse_args()
 
@@ -208,9 +209,14 @@ wave = pycbc.types.TimeSeries(np.real(catalogue.SIComplexTimeSeries[0]),
         delta_t=1./plot_sample_rate)
 
 # -- Retrieve the spectral estimate
-asd_data = np.loadtxt(config.spectral_estimate)
 freq_axis = wave.to_frequencyseries().sample_frequencies.data[:]
-asd = np.interp(freq_axis, asd_data[:,0], asd_data[:,1])
+#asd_data = np.loadtxt(config.spectral_estimate)
+#asd = np.interp(freq_axis, asd_data[:,0], asd_data[:,1])
+
+#asd_data = np.loadtxt('/home/jclark308/Downloads/clean_psd_199.dat.0')
+asd_data = np.loadtxt(opts.asd_data)
+asd = np.interp(freq_axis, asd_data[:,0], np.sqrt(asd_data[:,2]/2))
+
 
 # XXX
 #   from pycbc.psd import aLIGOZeroDetHighPower

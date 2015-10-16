@@ -23,6 +23,7 @@ catalogue
 
 import os,sys
 import shutil, subprocess
+import numpy as np
 from bhex_utils import bhex_wavedata as bwave
 from bhex_utils import bhex_pca as bpca
 
@@ -30,20 +31,19 @@ from bhex_utils import bhex_pca as bpca
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT: define the catalogue
 
-#series_names = ["Eq-series", "HRq-series", "HR-series",  "Lq-series",
-#        "RO3-series",  "Sq-series",  "S-series-v2",  "TP2-series",
-#        "TP-series"]
+catalogue_name='BWNRTest'
 
 total_mass = 100
-
-series_names = ['HRq-series'] # (see above for valid choices)
 
 #
 # Modify for imposing parameter bounds on the catalogue:
 #
-bounds=None
+bounds=dict()
+bounds['q'] = [1,1]
+bounds['a1'] = [0, 0]
+bounds['a2'] = [0, 0]
+bounds['Mchirpmin30Hz'] = [-np.inf, 27]
 
-catalogue_name = 'HRq'
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -53,8 +53,7 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
 simulation_selection = \
-        bwave.simulation_details(series_names=series_names,
-                param_bounds=bounds, Mmin30Hz=total_mass)
+        bwave.simulation_details(param_bounds=bounds)
 
 
 print '~~~~~~~~~~~~~~~~~~~~~~~'
