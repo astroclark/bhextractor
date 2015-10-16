@@ -272,26 +272,47 @@ class simulation_details:
         unique_simulations = list(simulations)
 
         physical_params = 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', \
-                'th12', 'thSL', 'thJL', 'Mmin10Hz', 'Mchirpmin30Hz', 'Mmin30Hz'
+                'th12', 'thSL', 'thJL'#, 'Mmin30Hz'
+                #'th12', 'thSL', 'thJL', 'Mmin10Hz', 'Mchirpmin30Hz', 'Mmin30Hz'
 
         param_sets = []
+        # Loop through each simulation
         for s in xrange(len(simulations)):
+
+            # array of physical parameter values
             param_vals = np.zeros(len(physical_params))
             for p,param_name in enumerate(physical_params):
                 param_vals[p] = simulations[s][param_name]
+
             param_vals[np.isnan(param_vals)] = np.inf
+
+            # Create a tuple with the parameter values
             param_sets.append(tuple(param_vals))
 
         unique_param_sets = list(set(param_sets))
 
+        # Now loop through the unique sets 
         for unique_param_set in unique_param_sets:
 
+            # Identify indices for parameter values which appear in the
+            # parameter sets
             indices = [i for i, x in enumerate(param_sets) if [x] ==
                     [unique_param_set]]
 
+
             if len(indices)>1:
-                for index in indices[1:]:
-                    unique_simulations.remove(simulations[index])
+                # Then there are multiple simulations with the same set of
+                # parameters - we need to remove all but 1
+
+                # Identify the simulation with the smallest Mmin30Hz
+                for us in unique_simulations:
+                    print us
+                    print ''
+
+#                for index in indices[1:]:
+#                    # Remove everything after the first simulation which has
+#                    # this parameter set
+#                    unique_simulations.remove(simulations[index])
 
         return unique_simulations
 

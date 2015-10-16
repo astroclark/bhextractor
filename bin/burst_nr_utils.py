@@ -53,6 +53,7 @@ def scale_wave(wave, target_total_mass, init_total_mass):
     amp *= scale_ratio
 
     peakidx = np.argmax(amp)
+
     interp_times = scale_ratio * wave.sample_times.data[:] - \
             peakidx*wave.delta_t*(scale_ratio-1)
 
