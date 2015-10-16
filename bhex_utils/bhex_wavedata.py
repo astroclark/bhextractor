@@ -269,6 +269,7 @@ class simulation_details:
         print "Ensuring uniqueness of simulations"
 
 
+        # Make a copy of the list of simulations
         unique_simulations = list(simulations)
 
         physical_params = 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', \
@@ -289,7 +290,11 @@ class simulation_details:
             # Create a tuple with the parameter values
             param_sets.append(tuple(param_vals))
 
+        print len(param_sets)
         unique_param_sets = list(set(param_sets))
+        print len(unique_param_sets)
+
+        sys.exit()
 
         # Now loop through the unique sets 
         for unique_param_set in unique_param_sets:
@@ -299,15 +304,15 @@ class simulation_details:
             indices = [i for i, x in enumerate(param_sets) if [x] ==
                     [unique_param_set]]
 
-
             if len(indices)>1:
                 # Then there are multiple simulations with the same set of
                 # parameters - we need to remove all but 1
+                print indices
 
                 # Identify the simulation with the smallest Mmin30Hz
-                for us in unique_simulations:
-                    print us
-                    print ''
+#                for index in indices:
+#                    print ''
+#                    print simulations[index]
 
 #                for index in indices[1:]:
 #                    # Remove everything after the first simulation which has
