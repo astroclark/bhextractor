@@ -26,7 +26,7 @@ script)
 
 import sys
 from bhex_utils import bhex_wavedata as bwave
-from bhex_utils import bhex_pca as bpca
+import burst_nr_utils as bnru
 from pycbc.psd import aLIGOZeroDetHighPower
 import pycbc.types
 import numpy as np
@@ -35,20 +35,22 @@ from matplotlib import pyplot as pl
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # USER INPUT
 
-SI_deltaT = 1./512
+SI_deltaT = 1./4096
 SI_datalen= 4.0
 
-total_mass = 100.  # Generate SI waveforms at this mass
+init_total_mass=100.0
+Mchirpmin30Hz = 35.0
+smallest_observed_chirpmass = 25.0
 distance=1. # Mpc
 
 #
 # Modify for imposing parameter bounds on the catalogue:
 #
-bounds=None
-#bounds=dict()
-#bounds['a1'] = [0, 0]
-#bounds['a2'] = [0, 0]
-#bounds['q'] = [-np.inf, 3] 
+bounds = dict()
+bounds['Mchirpmin30Hz'] = [-np.inf, Mchirpmin30Hz]
+bounds['a1'] = [0, 0]
+bounds['a2'] = [0, 0]
+bounds['q'] = [1, 2]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Do the work:
@@ -57,18 +59,58 @@ print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Selecting Simulations'
 print ''
 simulations = \
-        bwave.simulation_details(param_bounds=bounds, Mmin30Hz=total_mass)
+        bwave.simulation_details(param_bounds=bounds)
 
 print '~~~~~~~~~~~~~~~~~~~~~'
 print 'Building NR catalogue'
 print ''
-catalogue = bwave.waveform_catalogue(simulations, ref_mass=total_mass,
+catalogue = bwave.waveform_catalogue(simulations, ref_mass=init_total_mass,
         SI_deltaT=SI_deltaT, SI_datalen=SI_datalen, distance=distance,
         trunc_time=False)
 
-sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Plotting
+#
+# Magnitude Spectra
+#
+fspecSI, axspecSI = pl.subplots()
+
+for w, wave in enumerate(catalogue.SIComplexTimeSeries):
+
+    hplus_NR = \
+            pycbc.types.TimeSeries(np.real(wave), delta_t=SI_deltaT)
+    #hplus_NR.data = bwave.window_wave(hplus_NR.data)
+
+    # Scale this to the smallest OBSERVED chirp mass
+    mtot_target = bnru.mtot_from_mchirp(smallest_observed_chirpmass,
+            simulations.simulations[w]['q'])
+    print 'scaling to ', mtot_target
+    amp, phase = bnru.scale_wave(hplus_NR, mtot_target, init_total_mass)
+    hplus_NR = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)), delta_t=SI_deltaT)
+
+    Hplus_NR = hplus_NR.to_frequencyseries()
+
+    axspecSI.loglog(Hplus_NR.sample_frequencies,
+            2*abs(Hplus_NR)*np.sqrt(Hplus_NR.sample_frequencies), color='grey')
+
+    delta_f = Hplus_NR.delta_f
+    flen = len(Hplus_NR)
+    psd = aLIGOZeroDetHighPower(flen, delta_f, 0.1) 
+    axspecSI.loglog(psd.sample_frequencies, np.sqrt(psd), label='aLIGO',
+            color='k', linestyle='--')
+
+
+axspecSI.set_xlim(5, 512)
+axspecSI.axvline(30, color='r')
+axspecSI.minorticks_on()
+axspecSI.set_xlabel('Frequency [Hz]')
+axspecSI.set_ylabel('2|H$_+$($f$)|$\sqrt{f}$ & $\sqrt{S(f)}$')
+
+pl.tight_layout()
+
+pl.show()
+
+sys.exit()
 
 #
 # Strain Time Series
@@ -163,36 +205,5 @@ axampSI[1].set_xlabel(r'Time [s]')
 pl.tight_layout()
 pl.subplots_adjust(hspace=0)
 
-#
-# Magnitude Spectra
-#
-fspecSI, axspecSI = pl.subplots()
-
-for wave in catalogue.SIComplexTimeSeries:
-
-    hplus_NR = \
-            pycbc.types.TimeSeries(np.real(wave), delta_t=SI_deltaT)
-    hplus_NR.data = bwave.window_wave(hplus_NR.data)
-    Hplus_NR = hplus_NR.to_frequencyseries()
-
-    axspecSI.loglog(Hplus_NR.sample_frequencies,
-            2*abs(Hplus_NR)*np.sqrt(Hplus_NR.sample_frequencies), color='grey')
-
-    delta_f = Hplus_NR.delta_f
-    flen = len(Hplus_NR)
-    psd = aLIGOZeroDetHighPower(flen, delta_f, 0.1) 
-    axspecSI.loglog(psd.sample_frequencies, np.sqrt(psd), label='aLIGO',
-            color='k', linestyle='--')
-
-
-axspecSI.set_xlim(5, 512)
-axspecSI.axvline(30, color='r')
-axspecSI.minorticks_on()
-axspecSI.set_xlabel('Frequency [Hz]')
-axspecSI.set_ylabel('2|H$_+$($f$)|$\sqrt{f}$ & $\sqrt{S(f)}$')
-
-pl.tight_layout()
-
-pl.show()
 
 
