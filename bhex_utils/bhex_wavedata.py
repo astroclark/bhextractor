@@ -34,6 +34,8 @@ import scipy.signal as signal
 import lal
 import pycbc.types
 
+import operator
+
 # *****************************************************************************
 global __param_names__
 __param_names__ = ['D', 'q', 'a1', 'a2', 'th1L', 'th2L', 'ph1', 'ph2', 'th12',
@@ -290,30 +292,33 @@ class simulation_details:
             # Create a tuple with the parameter values
             param_sets.append(tuple(param_vals))
 
-#       unique_param_sets = list(set(param_sets))
-#
-#       import operator
-#
-#       # Now loop through the unique sets 
-#       for unique_param_set in unique_param_sets:
-#
-#           # Identify indices for parameter sets of parameter values which
-#           # occur in the unique sets of parameter values
-#           indices = [i for i, x in enumerate(param_sets) if [x] ==
-#                   [unique_param_set]]
-#
-#           if len(indices)>1:
-#
-#               resorted_simulations = list(np.array(simulations)[indices])
-#               resorted_simulations.sort(key=operator.itemgetter('Mmin30Hz'))
-#
-#               # Then there are multiple simulations with the same set of
-#               # parameters - we need to remove all but 1
-#
-#               for index in indices[1:]:
-#                   # Remove everything after the first simulation which has
-#                   # this parameter set
-#                   unique_simulations.remove(resorted_simulations[index])
+        unique_param_sets = list(set(param_sets))
+ 
+ 
+        # Now loop through the unique sets 
+        for unique_param_set in unique_param_sets:
+ 
+            # Identify indices for parameter sets of parameter values which
+            # occur in the unique sets of parameter values
+            indices = [i for i, x in enumerate(param_sets) if [x] ==
+                    [unique_param_set]]
+ 
+            if len(indices)>1:
+ 
+                resorted_simulations = list(np.array(simulations)[indices])
+                resorted_simulations.sort(key=operator.itemgetter('Mmin30Hz'))
+ 
+                # Then there are multiple simulations with the same set of
+                # parameters - we need to remove all but 1
+ 
+                #for index in indices[1:]:
+                print '----'
+                print "retaining ", resorted_simulations[0]['wavename']
+                for sim in resorted_simulations[1:]:
+                    # Remove everything after the first simulation which has
+                    # this parameter set
+                    print "removing ", sim['wavename']
+                    unique_simulations.remove(sim)
 
         return unique_simulations
 
