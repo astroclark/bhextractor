@@ -277,6 +277,7 @@ class simulation_details:
                 #'th12', 'thSL', 'thJL', 'Mmin10Hz', 'Mchirpmin30Hz', 'Mmin30Hz'
 
         param_sets = []
+
         # Loop through each simulation
         for s in xrange(len(simulations)):
 
@@ -284,25 +285,16 @@ class simulation_details:
             param_vals = np.zeros(len(physical_params))
             for p,param_name in enumerate(physical_params):
                 param_vals[p] = simulations[s][param_name]
-
             param_vals[np.isnan(param_vals)] = np.inf
 
             # Create a tuple with the parameter values
             param_sets.append(tuple(param_vals))
 
-        unique_param_sets = list(set(param_sets))
-
-        for sim, param_set in zip(simulations, param_sets):
-
-            # Identify how many times this param set occurs in the unique param
-            # sets
-            n=0
-            for unique_param_set in unique_param_sets:
-                n += param_set == unique_param_set
-
-
-
-        # Now loop through the unique sets 
+#       unique_param_sets = list(set(param_sets))
+#
+#       import operator
+#
+#       # Now loop through the unique sets 
 #       for unique_param_set in unique_param_sets:
 #
 #           # Identify indices for parameter sets of parameter values which
@@ -311,27 +303,17 @@ class simulation_details:
 #                   [unique_param_set]]
 #
 #           if len(indices)>1:
+#
+#               resorted_simulations = list(np.array(simulations)[indices])
+#               resorted_simulations.sort(key=operator.itemgetter('Mmin30Hz'))
+#
 #               # Then there are multiple simulations with the same set of
 #               # parameters - we need to remove all but 1
 #
-#               current_sims = np.array(simulations)[np.array(indices)]
-#
-#               # Identify the simulation with the smallest MminXXHz
-#               MminXXHzVals = np.array([ float(sim['Mmin30Hz']) for sim in
-#                   current_sims ])
-#               minMassidx = np.argmin(MminXXHzVals)
-#
-#               #print simulations[minMassidx]
-#               unique_simulations.append(simulations[minMassidx])
-#
-#               for index in indices:
-#                   print ''
-#                   print simulations[index]
-#
-#                for index in indices[1:]:
-#                    # Remove everything after the first simulation which has
-#                    # this parameter set
-#                    unique_simulations.remove(simulations[index])
+#               for index in indices[1:]:
+#                   # Remove everything after the first simulation which has
+#                   # this parameter set
+#                   unique_simulations.remove(resorted_simulations[index])
 
         return unique_simulations
 
