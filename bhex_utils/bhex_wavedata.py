@@ -290,30 +290,44 @@ class simulation_details:
             # Create a tuple with the parameter values
             param_sets.append(tuple(param_vals))
 
-        print len(param_sets)
         unique_param_sets = list(set(param_sets))
-        print len(unique_param_sets)
 
-        sys.exit()
+        for sim, param_set in zip(simulations, param_sets):
+
+            # Identify how many times this param set occurs in the unique param
+            # sets
+            n=0
+            for unique_param_set in unique_param_sets:
+                n += param_set == unique_param_set
+
+
 
         # Now loop through the unique sets 
-        for unique_param_set in unique_param_sets:
-
-            # Identify indices for parameter values which appear in the
-            # parameter sets
-            indices = [i for i, x in enumerate(param_sets) if [x] ==
-                    [unique_param_set]]
-
-            if len(indices)>1:
-                # Then there are multiple simulations with the same set of
-                # parameters - we need to remove all but 1
-                print indices
-
-                # Identify the simulation with the smallest Mmin30Hz
-#                for index in indices:
-#                    print ''
-#                    print simulations[index]
-
+#       for unique_param_set in unique_param_sets:
+#
+#           # Identify indices for parameter sets of parameter values which
+#           # occur in the unique sets of parameter values
+#           indices = [i for i, x in enumerate(param_sets) if [x] ==
+#                   [unique_param_set]]
+#
+#           if len(indices)>1:
+#               # Then there are multiple simulations with the same set of
+#               # parameters - we need to remove all but 1
+#
+#               current_sims = np.array(simulations)[np.array(indices)]
+#
+#               # Identify the simulation with the smallest MminXXHz
+#               MminXXHzVals = np.array([ float(sim['Mmin30Hz']) for sim in
+#                   current_sims ])
+#               minMassidx = np.argmin(MminXXHzVals)
+#
+#               #print simulations[minMassidx]
+#               unique_simulations.append(simulations[minMassidx])
+#
+#               for index in indices:
+#                   print ''
+#                   print simulations[index]
+#
 #                for index in indices[1:]:
 #                    # Remove everything after the first simulation which has
 #                    # this parameter set
