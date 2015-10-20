@@ -186,6 +186,9 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     max_mass = bnru.mtot_from_mchirp(config.max_chirp_mass,
             simulations.simulations[w]['q'])
 
+    mass_guess = bnru.mtot_from_mchirp(config.mass_guess,
+            simulations.simulations[w]['q']) 
+
     for s, sample in enumerate(reconstruction_data):
 
 
@@ -201,7 +204,7 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 
         then = timeit.time.time()
         ifo_response=True
-        result = scipy.optimize.fmin(bnru.mismatch, x0=config.mass_guess, args=(
+        result = scipy.optimize.fmin(bnru.mismatch, x0=mass_guess, args=(
             init_total_mass, [min_mass, max_mass], wave, sample, asd, config.deltaT,
             catalogue.SI_deltaF, ifo_response, config.f_min), full_output=True,
             retall=True, disp=True)
