@@ -119,7 +119,6 @@ elif config.algorithm=='CWB':
     # Make it iterable so that the BW/CWB codes can be consistent
     reconstruction_data = [reconstruction_data]
 
-sys.exit()
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Generate The Catalogue
 
