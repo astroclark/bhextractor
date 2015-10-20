@@ -47,20 +47,19 @@ def scale_wave(wave, target_total_mass, init_total_mass):
     generated at init_total_mass defined in this script.
     """
     amp = abs(wave.data[:])
-    phase = phase_of(wave.data[:])
 
     scale_ratio = target_total_mass / init_total_mass
-    amp *= scale_ratio
+    wave.data[:] *= scale_ratio
 
     peakidx = np.argmax(amp)
 
     interp_times = scale_ratio * wave.sample_times.data[:] - \
             peakidx*wave.delta_t*(scale_ratio-1)
 
-    resamp_amp = np.interp(wave.sample_times.data[:], interp_times, amp)
-    resamp_phase = np.interp(wave.sample_times.data[:], interp_times, phase)
- 
-    return resamp_amp, resamp_phase
+    resampled_wave = np.interp(wave.sample_times.data[:], interp_times,
+            wave.data[:])
+
+    return resampled_wave
 
 def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
     extract_len = 0.5 # retain this many seconds of reconstruction
@@ -97,10 +96,8 @@ def mismatch(target_total_mass, init_total_mass, mass_bounds, tmplt_wave_data,
                 delta_t=delta_t)
 
         # Rescale the template to this total mass
-        tmplt_amp, tmplt_phase = scale_wave(init_tmplt, target_total_mass, init_total_mass)
-
-        tmplt = pycbc.types.TimeSeries(np.real(tmplt_amp*np.exp(1j*tmplt_phase)),
-                delta_t=delta_t)
+        tmplt = pycbc.types.TimeSeries(scale_wave(init_tmplt, target_total_mass,
+            init_total_mass), delta_t=delta_t)
 
         if ifo_response and asd is not None:
             # Whiten the template
