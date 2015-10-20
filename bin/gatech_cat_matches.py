@@ -52,20 +52,22 @@ def scale_approx(wave, target_total_mass, init_total_mass):
     Scale the waveform to total_mass.  Assumes the waveform is initially
     generated at init_total_mass defined in this script.
     """
-    amp = abs(wave.data[:])
-    phase = bnru.phase_of(wave.data[:])
+
+    scaling_data = np.copy(wave.data[:])
+
+    amp = abs(scaling_data)
 
     scale_ratio = target_total_mass / init_total_mass
-    amp *= scale_ratio
+    scaling_data *= scale_ratio
 
     peakidx = np.argmax(amp)
 
     interp_times = scale_ratio * wave.sample_times.data[:]
 
-    resamp_amp = np.interp(wave.sample_times.data[:], interp_times, amp)
-    resamp_phase = np.interp(wave.sample_times.data[:], interp_times, phase)
- 
-    return resamp_amp, resamp_phase
+    resamp_wave = np.interp(wave.sample_times.data[:], interp_times,
+            scaling_data)
+
+    return resamp_wave
 
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -75,9 +77,10 @@ def scale_approx(wave, target_total_mass, init_total_mass):
 # --- Catalogue Definition
 #
 bounds = dict()
-bounds['q'] = [1,1]
-bounds['a1'] = [0.0, 0.0]
-bounds['a2'] = [0.0, 0.0]
+bounds['q'] = [2,2]
+bounds['a1'] = [0.1, 0.2]
+bounds['a2'] = [0.5, 0.7]
+bounds['Mmin30Hz'] = [-np.inf,  60]
 
 #
 # --- Plotting options
@@ -105,6 +108,7 @@ init_total_mass = 100   # Generate a catalogue at this mass; shouldn't matter,
 
 distance=100. # Mpc (doesn't really matter)
 
+plot_snr = 8
 
 #
 # --- Generate initial catalogue
@@ -115,8 +119,6 @@ print >> sys.stdout,  ''
 then = timeit.time.time()
 simulations = \
         bwave.simulation_details(param_bounds=bounds)
-
-sys.exit()
 
 print >> sys.stdout,  '~~~~~~~~~~~~~~~~~~~~~'
 print >> sys.stdout,  'Building NR catalogue'
@@ -161,98 +163,107 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 
     # Get the NR (plus) wave and put it in a pycbc TimeSeries object
     hplus_NR = pycbc.types.TimeSeries(np.real(wave), delta_t=deltaT)
-    #hplus_NR.data = bwave.window_wave(hplus_NR.data)
+    hplus_NR.data[:] = bnru.taper(hplus_NR.data[:], delta_t=hplus_NR.delta_t)
 
-
-    # --- Generate SEOBNR at init_total_mass and rescale later
 
     # Extract physical parameters
     mass1, mass2 = bwave.component_masses(init_total_mass, simulations.simulations[w]['q'])
     spin1z = simulations.simulations[w]['a1z']
     spin2z = simulations.simulations[w]['a2z']
 
-    # ~~~~~~~~~~~~~~~~
-    # SEOBNR
-    hplus_SEOBNR, hcross_SEOBNR = get_td_waveform(approximant="SEOBNRv2",
-            distance=distance,
-            mass1=mass1,
-            mass2=mass2,
-            spin1z=spin1z,
-            spin2z=spin2z,
-            f_lower=10.0,
-            delta_t=deltaT)
-
-    # (1-sided) Planck window for smooth FFT
-    hplus_SEOBNR.data = bwave.window_wave(hplus_SEOBNR.data)
-    hcross_SEOBNR.data = bwave.window_wave(hcross_SEOBNR.data)
-
-    # divide out the spherical harmonic (2,2) amplitude (this is just for nice
-    # plots / sanity - it does not affect match)
-    sY22 = lal.SpinWeightedSphericalHarmonic(0,0,-2,2,2)
-    hplus_SEOBNR.data /= np.real(sY22)
-#   hcross_SEOBNR.data /= np.imag(sY22)
-#
-    # Make the timeseries consistent lengths
-    tlen = max(len(hplus_NR), len(hplus_SEOBNR))
-    hplus_SEOBNR.resize(tlen)
-    hcross_SEOBNR.resize(tlen)
-    hplus_NR.resize(tlen)
-
-    # ~~~~~~~~~~~~~~~~
 
 
-    # Interpolate the ASD to the waveform frequencies (this is convenient so that we
-    # end up with a PSD which overs all frequencies for use in the match calculation
-    # later
-    asd = np.interp(hplus_NR.to_frequencyseries().sample_frequencies,
-            asd_data[:,0], asd_data[:,1])
-
-    # Now insert into a pycbc frequency series so we can use pycbc.filter.match()
-    # later
-    noise_psd = pycbc.types.FrequencySeries(asd**2, delta_f =
-            hplus_NR.to_frequencyseries().delta_f)
-
+    f, ax = pl.subplots(nrows = len(masses), figsize=(8,15))
     for m,mass in enumerate(masses):
+        print 'mass: ', mass
 
-        # --- Generate the NR waveform at this mass
+        # --- Scale the NR waveform at this mass
 
         # Scale the NR waveform to the mass we want
-        amp, phase = bnru.scale_wave(hplus_NR, mass, init_total_mass)
+        hplus_NR_new = pycbc.types.TimeSeries(bnru.scale_wave(hplus_NR, mass,
+            init_total_mass), delta_t=deltaT)
 
-        hplus_NR_new = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
+        # --- Generate the SEOBNR waveform to this mass
+
+        mass1, mass2 = bwave.component_masses(mass, simulations.simulations[w]['q'])
+        hplus_SEOBNR, _ = get_td_waveform(approximant="SEOBNRv2",
+                distance=distance,
+                mass1=mass1,
+                mass2=mass2,
+                spin1z=spin1z,
+                spin2z=spin2z,
+                f_lower=10.0,
                 delta_t=deltaT)
 
-        # Scale the SEOBNR waveform to this mass
-        amp, phase = scale_approx(hplus_SEOBNR, mass, init_total_mass)
+        hplus_SEOBNR.data = bnru.taper(hplus_SEOBNR.data,
+                delta_t=hplus_SEOBNR.delta_t)
 
-        hplus_SEOBNR_new = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
-                delta_t=deltaT)
-        hplus_SEOBNR_new.data = bwave.window_wave(hplus_SEOBNR_new.data)
+     
+        # Make the timeseries consistent lengths
+        tlen = max(len(hplus_NR_new), len(hplus_SEOBNR))
+        hplus_SEOBNR.resize(tlen)
+        hplus_NR_new.resize(tlen)
 
-        match, _ = pycbc.filter.match(hplus_SEOBNR_new, hplus_NR_new,
-                low_frequency_cutoff=30.0, psd=noise_psd)
+        # Interpolate the ASD to the waveform frequencies (this is convenient so that we
+        # end up with a PSD which overs all frequencies for use in the match calculation
+        # later
+        asd = np.interp(hplus_NR_new.to_frequencyseries().sample_frequencies,
+                asd_data[:,0], asd_data[:,1])
+
+
+        # Now insert ASD into a pycbc frequency series so we can use
+        # pycbc.filter.match() later
+        noise_psd = pycbc.types.FrequencySeries(asd**2, delta_f =
+                hplus_NR_new.to_frequencyseries().delta_f)
+        # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+
+        Hf = abs(hplus_SEOBNR.to_frequencyseries())
+        inband = noise_psd.sample_frequencies.data>30
+        upp_bound = \
+                noise_psd.sample_frequencies[inband][np.argwhere(Hf.data[inband]<1e-2*Hf[inband].max())[0]]
+#        upp_bound = 0.5*1./deltaT
+
+        match, _ = pycbc.filter.match(hplus_SEOBNR, hplus_NR_new,
+                low_frequency_cutoff=30.0, psd=noise_psd,
+                high_frequency_cutoff=upp_bound)
 
         print "~~~~~~~~~~~~~~~~~~~~~~~"
         print "Mass, mismatch (%)"
         print mass, 100*(1-match)
 
-#
-#       pl.figure()
-#       pl.plot(hplus_NR.sample_times-hplus_NR.sample_times[np.argmax(hplus_NR)],
-#               hplus_NR, label='NR')
-#       pl.plot(hplus_SEOBNR.sample_times-hplus_SEOBNR.sample_times[np.argmax(hplus_SEOBNR)],
-#               hplus_SEOBNR, label='SEOBNR')
-#       pl.xlim(-0.1, 0.05)
+        # Normalise to unit SNR
+        hplus_SEOBNR.data[:] /= pycbc.filter.sigma(hplus_SEOBNR,
+                psd=noise_psd, low_frequency_cutoff=30, high_frequency_cutoff=upp_bound)
+
+        hplus_NR_new.data[:] /= pycbc.filter.sigma(hplus_NR_new,
+                psd=noise_psd, low_frequency_cutoff=30, high_frequency_cutoff=upp_bound)
+
+        Hplus_SEOBNR = hplus_SEOBNR.to_frequencyseries()
+        Hplus_NR_new = hplus_NR_new.to_frequencyseries()
  
-        pl.figure() 
-        pl.loglog(hplus_NR_new.to_frequencyseries().sample_frequencies,
-                abs(hplus_NR_new.to_frequencyseries()), label='NR')
+        ax[m].loglog(Hplus_NR_new.sample_frequencies,
+                   abs(Hplus_NR_new), label='NR')
  
-        pl.loglog(hplus_SEOBNR_new.to_frequencyseries().sample_frequencies,
-                abs(hplus_SEOBNR_new.to_frequencyseries()), label='SEOBNR')
+        ax[m].loglog(Hplus_SEOBNR.sample_frequencies,
+                   abs(Hplus_SEOBNR), label='SEOBNR')
+
+        ax[m].loglog(noise_psd.sample_frequencies, np.sqrt(noise_psd),
+                label='noise psd', color='k', linestyle='--')
+
+        ax[m].set_title('M$_{\mathrm{tot}}$=%.2f M$_{\odot}$, mismatch=%.2f %%'%(
+            mass, 100*(1-match)))
+
+        ax[m].legend(loc='lower left')
  
-        pl.axvline(30, color='r')
+        ax[m].axvline(30, color='r')
+        ax[m].axvline(upp_bound, color='r')
+
+        ax[m].set_xlabel('Frequency [Hz]')
+        ax[m].set_ylabel('|H(f)| [arb units]')
+        ax[m].set_ylim(1e-27, 1e-19)
  
+    f.tight_layout()
     pl.show()
 #
     sys.exit()
