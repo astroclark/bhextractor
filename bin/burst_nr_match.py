@@ -30,6 +30,9 @@ import numpy as np
 import scipy.optimize
 import timeit
 
+import lal
+from pylal import spawaveform
+
 from bhex_utils import bhex_wavedata as bwave
 import burst_nr_utils as bnru
 
@@ -189,6 +192,7 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     mass_guess = bnru.mtot_from_mchirp(config.mass_guess,
             simulations.simulations[w]['q']) 
 
+
     for s, sample in enumerate(reconstruction_data):
 
 
@@ -214,14 +218,24 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
         matches[w, s] = 1-result[1]
         masses[w, s] = result[0][0]
 
-        print >> sys.stdout,  "Best matching mass [match]: %.2f [%.2f]"%(
-                masses[w,s], matches[w,s])
+        mass1, mass2 = bwave.component_masses(masses[w,s],
+                simulations.simulations[w]['q'])
+
+        print >> sys.stdout, \
+                "Best matching mass [Mchirp | Mtot]: %.2f [%.2f | %.2f]"%(
+                        masses[w,s], spawaveform.chirpmass(mass1, mass2) /
+                        lal.MTSUN_SI, matches[w,s])
 
     bestidx=np.argmax(matches[w, :])
 
+    mass1, mass2 = bwave.component_masses(masses[w,bestidx],
+            simulations.simulations[w]['q'])
+
     print >> sys.stdout,  "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
-    print >> sys.stdout,  " Best matching mass [match]: %.2f [%.2f]"%(
-            masses[w,bestidx], max(matches[w,:]))
+    print >> sys.stdout,  \
+            " Best matching mass [Mchirp | Mtot]: %.2f [%.2f | %.2f]"%(
+            masses[w,bestidx], spawaveform.chirpmass(mass1, mass2) /
+            lal.MTSUN_SI, max(matches[w,:]))
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Dump data
