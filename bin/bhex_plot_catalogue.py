@@ -50,7 +50,7 @@ bounds = dict()
 bounds['Mchirpmin30Hz'] = [-np.inf, Mchirpmin30Hz]
 bounds['a1'] = [0, 0]
 bounds['a2'] = [0, 0]
-bounds['q'] = [1, 2]
+bounds['q'] = [1, 1]
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Do the work:
@@ -85,8 +85,8 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
     mtot_target = bnru.mtot_from_mchirp(smallest_observed_chirpmass,
             simulations.simulations[w]['q'])
     print 'scaling to ', mtot_target
-    amp, phase = bnru.scale_wave(hplus_NR, mtot_target, init_total_mass)
-    hplus_NR = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)), delta_t=SI_deltaT)
+    hplus_NR = bnru.scale_wave(hplus_NR, mtot_target, init_total_mass)
+    hplus_NR = pycbc.types.TimeSeries(hplus_NR, delta_t=SI_deltaT)
 
     Hplus_NR = hplus_NR.to_frequencyseries()
 
