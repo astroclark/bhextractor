@@ -222,9 +222,9 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
                 simulations.simulations[w]['q'])
 
         print >> sys.stdout, \
-                "Best matching mass [Mchirp | Mtot]: %.2f [%.2f | %.2f]"%(
-                        masses[w,s], spawaveform.chirpmass(mass1, mass2) /
-                        lal.MTSUN_SI, matches[w,s])
+                "Best match [Mchirp | Mtot]: %.2f [%.2f | %.2f]"%(
+                        matches[w,s], masses[w,s], spawaveform.chirpmass(mass1,
+                            mass2) / lal.MTSUN_SI)
 
     bestidx=np.argmax(matches[w, :])
 
@@ -233,9 +233,9 @@ for w, wave in enumerate(catalogue.SIComplexTimeSeries):
 
     print >> sys.stdout,  "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
     print >> sys.stdout,  \
-            " Best matching mass [Mchirp | Mtot]: %.2f [%.2f | %.2f]"%(
-            masses[w,bestidx], spawaveform.chirpmass(mass1, mass2) /
-            lal.MTSUN_SI, max(matches[w,:]))
+            " Best match [Mchirp | Mtot]: %.2f [%.2f | %.2f]"%(
+            max(matches[w,:]), masses[w,bestidx], spawaveform.chirpmass(mass1,
+                mass2) / lal.MTSUN_SI)
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Dump data
