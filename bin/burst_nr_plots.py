@@ -177,7 +177,7 @@ def matchpoints(matches, simulations):
 
     ax.set_yticks(xrange(len(matches)))
     ax.set_ylim(len(matches)-25.5, len(matches)-0.5)
-    ax.set_xlim(0.8,1.0)
+    ax.set_xlim(0.85,0.95)
 
     ylabels=make_labels(np.array(simulations)[match_sort])
     ax.set_yticklabels(ylabels)#, rotation=90)
