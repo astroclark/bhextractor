@@ -28,6 +28,7 @@ import subprocess
 import numpy as np
 
 import lal
+import lalsimulation as lalsim
 import pycbc.filter
 import pycbc.types
 
@@ -46,10 +47,12 @@ def scale_wave(wave, target_total_mass, init_total_mass):
     Scale the waveform to total_mass.  Assumes the waveform is initially
     generated at init_total_mass defined in this script.
     """
-    amp = abs(wave.data[:])
+    scaling_data = np.copy(wave.data[:])
+
+    amp = abs(scaling_data)
 
     scale_ratio = target_total_mass / init_total_mass
-    wave.data[:] *= scale_ratio
+    scaling_data *= scale_ratio
 
     peakidx = np.argmax(amp)
 
@@ -57,7 +60,7 @@ def scale_wave(wave, target_total_mass, init_total_mass):
             peakidx*wave.delta_t*(scale_ratio-1)
 
     resampled_wave = np.interp(wave.sample_times.data[:], interp_times,
-            wave.data[:])
+            scaling_data)
 
     return resampled_wave
 
@@ -78,6 +81,22 @@ def extract_wave(inwave, datalen=4.0, sample_rate = 4096):
             0.5*datalen*sample_rate+0.5*nsamp] = np.copy(extracted)
 
     return output
+
+def taper(input_data, delta_t):
+    """ 
+    Window out the inspiral (everything prior to the biggest peak)
+    """
+
+    timeseries = lal.CreateREAL8TimeSeries('blah', 0.0, 0,
+            delta_t, lal.StrainUnit, int(len(input_data)))
+    timeseries.data.data = np.copy(input_data)
+
+    lalsim.SimInspiralREAL8WaveTaper(timeseries.data,
+        lalsim.SIM_INSPIRAL_TAPER_START)
+        #lalsim.SIM_INSPIRAL_TAPER_STARTEND)
+
+    return timeseries.data.data
+
 
 def mismatch(target_total_mass, init_total_mass, mass_bounds, tmplt_wave_data,
         event_wave_data, asd=None, delta_t=1./512, delta_f=0.25,
