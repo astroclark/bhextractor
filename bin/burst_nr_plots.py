@@ -152,6 +152,40 @@ def matchboxes(matches, simulations):
 
     return f, ax
 
+def matchpoints(matches, simulations):
+    """
+    Build a plot to show individual waveform match results from
+    CWB.  Since we're optimising over mass, this is fitting-factor.
+    """
+
+    # Find the sorting to present highest matches first.  Sort on median of the
+    # match distribution
+    matches = np.concatenate(matches)
+    match_sort = np.argsort(matches)
+
+    # --- Match vs Waveform boxes
+    f, ax = pl.subplots(figsize=(12,8))
+
+    yvals = range(len(matches))[::-1]
+    match_plot = ax.plot(matches[match_sort].T, xrange(len(matches)),
+            marker='s', color='k', linestyle='None')
+
+    ax.set_xlabel('Fitting Factor')
+    ax.set_ylabel('Waveform Parameters')
+    ax.grid(linestyle='-', color='grey')
+    ax.minorticks_on()
+
+    ax.set_yticks(xrange(len(matches)))
+    ax.set_ylim(len(matches)-25.5, len(matches)-0.5)
+    ax.set_xlim(0.8,1.0)
+
+    ylabels=make_labels(np.array(simulations)[match_sort])
+    ax.set_yticklabels(ylabels)#, rotation=90)
+
+    f.tight_layout()
+
+    return f, ax
+
 
 __author__ = "James Clark <james.clark@ligo.org>"
 git_version_id = subprocess.check_output(['git', 'rev-parse', 'HEAD']).strip()
@@ -337,10 +371,16 @@ f.savefig("%s_totalmass-chirpmass.png"%user_tag)
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # BOX PLOTS
 
-f, ax = matchboxes(matches, simulations_goodmatch)
-ax.set_title('Top 25 ranked waveforms (%s)'%user_tag)
-f.tight_layout()
-f.savefig("%s_matchranking.png"%user_tag)
+if config.algorithm=='BW':
+    f, ax = matchboxes(matches, simulations_goodmatch)
+    ax.set_title('Top 25 ranked waveforms (%s)'%user_tag)
+    f.tight_layout()
+    f.savefig("%s_matchranking.png"%user_tag)
+elif config.algorithm=='CWB':
+    f, ax = matchpoints(matches, simulations_goodmatch)
+    ax.set_title('Top 25 ranked waveforms (%s)'%user_tag)
+    f.tight_layout()
+    f.savefig("%s_matchranking.png"%user_tag)
 
 #pl.show()
 

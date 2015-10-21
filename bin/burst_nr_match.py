@@ -137,7 +137,8 @@ print >> sys.stdout,  'Selecting Simulations'
 print >> sys.stdout,  ''
 then = timeit.time.time()
 simulations = \
-        bwave.simulation_details(param_bounds=bounds)
+        bwave.simulation_details(param_bounds=bounds,
+                catdir='CATALOG_PAPER_FINAL')
 
 print >> sys.stdout,  '~~~~~~~~~~~~~~~~~~~~~'
 print >> sys.stdout,  'Building NR catalogue'
