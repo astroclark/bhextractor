@@ -215,8 +215,8 @@ freq_axis = wave.to_frequencyseries().sample_frequencies.data[:]
 #asd_data = np.loadtxt(config.spectral_estimate)
 #asd = np.interp(freq_axis, asd_data[:,0], asd_data[:,1])
 
-#asd_data = np.loadtxt('/home/jclark308/Downloads/clean_psd_199.dat.0')
-asd_data = np.loadtxt(opts.asd_data)
+asd_data = np.loadtxt('/home/jclark308/Downloads/clean_psd_199.dat.0')
+#asd_data = np.loadtxt(opts.asd_data)
 asd = np.interp(freq_axis, asd_data[:,0], np.sqrt(asd_data[:,2]/2))
 
 
