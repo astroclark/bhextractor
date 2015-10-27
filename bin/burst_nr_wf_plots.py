@@ -187,6 +187,8 @@ print "   * eff spin: %f +/- %f"%(median_chis[matchsort][-1], std_chis[matchsort
 
 if opts.no_plot: sys.exit(0)
 
+# XXX: DANGEROUS HACKING
+
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # Waveform Plots
 
@@ -194,7 +196,7 @@ if opts.no_plot: sys.exit(0)
 # XXX: easily extensible to the top N waveforms
 
 best_sims = copy.deepcopy(simulations)
-best_sims.simulations = np.array(simulations.simulations)[matchsort][-1]
+best_sims.simulations = [np.array(simulations.simulations)[matchsort][-1]]
 best_sims.nsimulations = 1
 
 # XXX: Dial up the sample rate for nice smooth waveforms
