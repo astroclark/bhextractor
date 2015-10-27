@@ -231,9 +231,9 @@ asd = np.interp(freq_axis, asd_data[:,0], np.sqrt(asd_data[:,2]/2))
 #
 # --- Scale the NR data to the median recovered mass
 #
-amp, phase = bnru.scale_wave(wave, median_masses[matchsort[-1]], init_total_mass)
-median_waveform = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
-        delta_t=1./plot_sample_rate)
+median_waveform = pycbc.types.TimeSeries(np.real(bnru.scale_wave(wave,
+    median_masses[matchsort[-1]], init_total_mass)),
+    delta_t=1./plot_sample_rate)
 
 # Whitening
 median_waveform_white = median_waveform.to_frequencyseries()
@@ -244,11 +244,9 @@ median_waveform_white = median_waveform_white.to_timeseries()
 #
 # --- Scale the NR data to the median recovered mass minus 0.5*stdev
 #
-amp, phase = bnru.scale_wave(wave,
-        median_masses[matchsort[-1]]-std_masses[matchsort[-1]],
-        init_total_mass)
-low_bound_waveform = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
-        delta_t=1./plot_sample_rate)
+low_bound_waveform = pycbc.types.TimeSeries(np.real(bnru.scale_wave(wave,
+    median_masses[matchsort[-1]]-std_masses[matchsort[-1]], init_total_mass) ),
+    delta_t=1./plot_sample_rate)
 
 # Whitening
 low_bound_waveform_white = low_bound_waveform.to_frequencyseries()
@@ -258,11 +256,9 @@ low_bound_waveform_white = low_bound_waveform_white.to_timeseries()
 #
 # --- Scale the NR data to the median recovered mass plus 0.5*stdev
 #
-amp, phase = bnru.scale_wave(wave,
-        median_masses[matchsort[-1]]+std_masses[matchsort[-1]],
-        init_total_mass)
-upp_bound_waveform = pycbc.types.TimeSeries(np.real(amp*np.exp(1j*phase)),
-        delta_t=1./plot_sample_rate)
+upp_bound_waveform = pycbc.types.TimeSeries(np.real(bnru.scale_wave(wave,
+    median_masses[matchsort[-1]]+std_masses[matchsort[-1]], init_total_mass) ),
+    delta_t=1./plot_sample_rate)
 
 # Whitening
 upp_bound_waveform_white = upp_bound_waveform.to_frequencyseries()
