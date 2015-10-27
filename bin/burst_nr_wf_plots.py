@@ -185,6 +185,9 @@ print "   * chirp mass: %f +/- %f"%(median_chirp_masses[matchsort][-1],
         std_chirp_masses[matchsort][-1])
 print "   * eff spin: %f +/- %f"%(median_chis[matchsort][-1], std_chis[matchsort][-1])
 
+print " FULL DETAILS:"
+print simulations.simulations[matchsort][-1]
+
 if opts.no_plot: sys.exit(0)
 
 # XXX: DANGEROUS HACKING
